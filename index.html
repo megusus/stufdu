@@ -1594,17 +1594,19 @@
     function parseFirebaseConfig(text) {
       // Try direct JSON
       try { const obj = JSON.parse(text); if (obj.databaseURL) return obj; } catch (e) { }
-      // Extract key-value pairs safely (no eval)
+      // Extract the config object block
       const match = text.match(/\{[^{}]*apiKey[^{}]*\}/s);
       if (match) {
         try {
-          // Convert JS object literal to valid JSON: quote keys, replace single quotes
-          const jsonStr = match[0]
-            .replace(/([\w]+)\s*:/g, '"$1":')
-            .replace(/'/g, '"')
-            .replace(/,\s*}/g, '}');
-          const obj = JSON.parse(jsonStr);
-          if (obj && typeof obj === 'object' && obj.databaseURL) return obj;
+          // Parse line by line: extract key: "value" pairs safely
+          const obj = {};
+          const lines = match[0].split('\n');
+          for (const line of lines) {
+            // Match: key: "value" or key: 'value' (with optional quotes around key)
+            const m = line.match(/["']?(\w+)["']?\s*:\s*["']([^"']*)["']/);
+            if (m) obj[m[1]] = m[2];
+          }
+          if (obj.databaseURL) return obj;
         } catch (e) { }
       }
       return null;
