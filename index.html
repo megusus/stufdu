@@ -305,6 +305,7 @@
     /* Task item */
     .item {
       display: flex;
+      flex-wrap: wrap;
       align-items: flex-start;
       border-radius: 10px;
       overflow: hidden;
@@ -390,6 +391,220 @@
       letter-spacing: 1px;
       text-transform: uppercase;
       margin-top: 3px;
+      opacity: 0.6;
+    }
+
+    /* Task states */
+    .item.skip {
+      opacity: 0.3;
+    }
+
+    .item.skip .item-text {
+      text-decoration: line-through;
+      color: #e94560 !important;
+    }
+
+    .item.skip .item-check {
+      border-color: #e94560;
+      background: #e9456022;
+    }
+
+    .item.skip .item-check::after {
+      content: '\u2716';
+      font-size: 10px;
+      color: #e94560;
+    }
+
+    .item.progress .item-check {
+      border-color: #ffab00;
+      background: #ffab0022;
+    }
+
+    .item.progress .item-check::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ffab00;
+      animation: progressPulse 1.5s infinite;
+    }
+
+    @keyframes progressPulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+    }
+
+    .item.deferred-out {
+      display: none;
+    }
+
+    /* Action menu */
+    .item-actions-btn {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: var(--dim);
+      cursor: pointer;
+      border-radius: 4px;
+      transition: color 0.15s;
+      margin-left: auto;
+      align-self: center;
+    }
+
+    .item-actions-btn:hover {
+      color: var(--text);
+    }
+
+    .item-action-bar {
+      display: none;
+      gap: 2px;
+      padding: 6px 12px 8px;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    .item-action-bar.open {
+      display: flex;
+    }
+
+    .action-btn {
+      font-family: inherit;
+      font-size: 10px;
+      letter-spacing: 0.3px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .action-btn:hover {
+      color: var(--text);
+      border-color: #00d2ff44;
+    }
+
+    .action-btn.act-skip {
+      color: #e94560;
+      border-color: #e9456033;
+    }
+
+    .action-btn.act-progress {
+      color: #ffab00;
+      border-color: #ffab0033;
+    }
+
+    .action-btn.act-note {
+      color: #b44aff;
+      border-color: #b44aff33;
+    }
+
+    .action-btn.act-defer {
+      color: #00d2ff;
+      border-color: #00d2ff33;
+    }
+
+    .action-btn.act-clear {
+      color: var(--dim);
+    }
+
+    /* Defer day picker */
+    .defer-picker {
+      display: none;
+      gap: 3px;
+      padding: 4px 12px 8px;
+      flex-wrap: wrap;
+    }
+
+    .defer-picker.open {
+      display: flex;
+    }
+
+    .defer-day-btn {
+      font-family: inherit;
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--accent);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .defer-day-btn:hover {
+      background: #00d2ff15;
+    }
+
+    /* Inline note */
+    .item-note {
+      font-size: 10px;
+      color: #b44aff;
+      margin-top: 3px;
+      line-height: 1.4;
+      padding: 3px 6px;
+      background: #b44aff0a;
+      border-radius: 4px;
+      border: 1px solid #b44aff15;
+    }
+
+    .note-input {
+      width: 100%;
+      font-family: inherit;
+      font-size: 10px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid #b44aff44;
+      border-radius: 6px;
+      padding: 6px 8px;
+      margin: 4px 12px 8px;
+      resize: none;
+      height: 32px;
+      outline: none;
+    }
+
+    .note-input:focus {
+      border-color: #b44aff;
+    }
+
+    /* Deferred section */
+    .deferred-section {
+      margin-bottom: 16px;
+    }
+
+    .deferred-label {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #00d2ff88;
+      margin-bottom: 8px;
+      padding-left: 2px;
+    }
+
+    .deferred-from {
+      font-size: 9px;
+      color: #00d2ff88;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
+    /* Note icon */
+    .note-icon {
+      font-size: 10px;
+      margin-left: 4px;
       opacity: 0.6;
     }
 
@@ -978,8 +1193,13 @@
     const today = new Date().getDay();
     const todayIdx = today === 0 ? 6 : today - 1;
     let selectedDay = todayIdx;
-    let checked = {};
+    let checked = {};       // { id: "done"|"skip"|"progress"|true }
+    let taskNotes = {};     // { id: "note text" }
+    let taskDeferred = {};  // { id: "DayName" }
     let openPanels = {};
+    let openActions = null; // id of task with open action menu
+    let openNoteInput = null;
+    let openDeferPicker = null;
     let lastToggle = null;
     let toastTimer = null;
 
@@ -994,7 +1214,25 @@
     let syncConnectionListener = null;
     let syncHistoryRef = null;
     let syncHistoryListener = null;
-    let authUnsubscribe = null;
+    let syncNotesRef = null;
+    let syncNotesListener = null;
+    let syncDeferRef = null;
+    let syncDeferListener = null;
+    let syncUid = null;
+
+    // ── Hardcoded Firebase config (optional) ──
+    // Paste your Firebase config here to skip manual setup entirely:
+    const HARDCODED_CONFIG = null;
+    // Example:
+    // const HARDCODED_CONFIG = {
+    //   apiKey: "AIza...",
+    //   authDomain: "my-app.firebaseapp.com",
+    //   databaseURL: "https://my-app-default-rtdb...",
+    //   projectId: "my-app",
+    //   storageBucket: "my-app.appspot.com",
+    //   messagingSenderId: "123456",
+    //   appId: "1:123456:web:abc123"
+    // };
 
     // ── ISO Week (fixed) ──
     function getISOWeek(d) {
@@ -1009,16 +1247,33 @@
     function getWeekNum() { return getISOWeek(new Date()); }
 
     // ── Persistence ──
+    function getStatus(id) {
+      const v = checked[id];
+      if (v === true || v === 'done') return 'done';
+      if (v === 'skip' || v === 'progress') return v;
+      return '';
+    }
+
     function loadState() {
       try {
         const raw = localStorage.getItem(getWeekKey());
         if (raw) checked = JSON.parse(raw);
       } catch (e) { checked = {}; }
+      try {
+        const raw = localStorage.getItem(getWeekKey() + '-notes');
+        if (raw) taskNotes = JSON.parse(raw);
+      } catch (e) { taskNotes = {}; }
+      try {
+        const raw = localStorage.getItem(getWeekKey() + '-defer');
+        if (raw) taskDeferred = JSON.parse(raw);
+      } catch (e) { taskDeferred = {}; }
     }
 
     function saveState() {
       try {
         localStorage.setItem(getWeekKey(), JSON.stringify(checked));
+        localStorage.setItem(getWeekKey() + '-notes', JSON.stringify(taskNotes));
+        localStorage.setItem(getWeekKey() + '-defer', JSON.stringify(taskDeferred));
         saveHistory();
         syncPush();
       } catch (e) { }
@@ -1053,36 +1308,108 @@
 
     function undoToggle() {
       if (!lastToggle) return;
-      checked[lastToggle.id] = !lastToggle.wasChecked;
+      if (lastToggle.prevStatus) {
+        checked[lastToggle.id] = lastToggle.prevStatus;
+      } else {
+        delete checked[lastToggle.id];
+      }
       lastToggle = null;
       saveState();
       hideToast();
       render();
     }
 
-    // ── Toggle (targeted DOM update) ──
+    // ── Toggle (tap checkbox = toggle done) ──
     function toggle(id) {
-      checked[id] = !checked[id];
-      lastToggle = { id, wasChecked: checked[id] };
-      saveState();
-
-      const item = document.querySelector(`[data-task-id="${id}"]`);
-      if (item) {
-        const isDone = !!checked[id];
-        item.classList.toggle('done', isDone);
-        item.setAttribute('aria-checked', String(isDone));
-        if (isDone) {
-          item.classList.remove('just-toggled');
-          void item.offsetWidth;
-          item.classList.add('just-toggled');
-          setTimeout(() => item.classList.remove('just-toggled'), 300);
-        }
-        updateProgressBars();
-        showToast(isDone ? 'Task completed' : 'Task unchecked');
+      const prev = checked[id];
+      const wasDone = getStatus(id) === 'done';
+      if (wasDone) {
+        delete checked[id];
       } else {
-        render();
-        showToast(checked[id] ? 'Task completed' : 'Task unchecked');
+        checked[id] = 'done';
       }
+      lastToggle = { id, prevStatus: prev };
+      saveState();
+      render();
+      showToast(wasDone ? 'Task unchecked' : 'Task completed');
+    }
+
+    // ── Task actions ──
+    function setTaskStatus(id, status) {
+      const prev = checked[id];
+      if (getStatus(id) === status) {
+        delete checked[id];
+        lastToggle = { id, prevStatus: prev };
+        saveState(); render();
+        showToast('Status cleared');
+      } else {
+        checked[id] = status;
+        lastToggle = { id, prevStatus: prev };
+        saveState(); render();
+        const labels = { skip: 'Skipped', progress: 'In progress' };
+        showToast(labels[status] || status);
+      }
+      openActions = null;
+    }
+
+    function toggleActionMenu(id, e) {
+      if (e) e.stopPropagation();
+      openActions = openActions === id ? null : id;
+      openNoteInput = null;
+      openDeferPicker = null;
+      render();
+    }
+
+    function showNoteInput(id, e) {
+      if (e) e.stopPropagation();
+      openNoteInput = openNoteInput === id ? null : id;
+      openDeferPicker = null;
+      render();
+      if (openNoteInput) {
+        setTimeout(() => {
+          const inp = document.getElementById('note-input-' + id);
+          if (inp) inp.focus();
+        }, 50);
+      }
+    }
+
+    function saveNote(id) {
+      const inp = document.getElementById('note-input-' + id);
+      if (!inp) return;
+      const text = inp.value.trim();
+      if (text) {
+        taskNotes[id] = text;
+      } else {
+        delete taskNotes[id];
+      }
+      openNoteInput = null;
+      saveState(); render();
+      showToast(text ? 'Note saved' : 'Note removed');
+    }
+
+    function showDeferPicker(id, e) {
+      if (e) e.stopPropagation();
+      openDeferPicker = openDeferPicker === id ? null : id;
+      openNoteInput = null;
+      render();
+    }
+
+    function deferTask(id, targetDay) {
+      taskDeferred[id] = targetDay;
+      openActions = null;
+      openDeferPicker = null;
+      saveState(); render();
+      showToast('Deferred to ' + targetDay);
+    }
+
+    function clearTask(id, e) {
+      if (e) e.stopPropagation();
+      delete checked[id];
+      delete taskNotes[id];
+      delete taskDeferred[id];
+      openActions = null;
+      saveState(); render();
+      showToast('Cleared');
     }
 
     function updateProgressBars() {
@@ -1126,7 +1453,11 @@
     function resetDay() {
       if (!confirm(`Reset all tasks for ${DAYS[selectedDay]}?`)) return;
       const dayName = DAYS[selectedDay];
-      schedule[dayName].sections.forEach(s => s.items.forEach(item => { delete checked[item.id]; }));
+      schedule[dayName].sections.forEach(s => s.items.forEach(item => {
+        delete checked[item.id];
+        delete taskNotes[item.id];
+        delete taskDeferred[item.id];
+      }));
       saveState();
       render();
     }
@@ -1136,9 +1467,19 @@
       const day = schedule[dayName];
       let total = 0, done = 0;
       day.sections.forEach(s => s.items.forEach(item => {
+        if (taskDeferred[item.id] && taskDeferred[item.id] !== dayName) return; // deferred out
         total++;
-        if (checked[item.id]) done++;
+        const st = getStatus(item.id);
+        if (st === 'done' || st === 'skip') done++;
       }));
+      // Count deferred tasks coming IN from other days
+      Object.entries(taskDeferred).forEach(([id, target]) => {
+        if (target === dayName) {
+          total++;
+          const st = getStatus(id);
+          if (st === 'done' || st === 'skip') done++;
+        }
+      });
       return { total, done, pct: total ? Math.round((done / total) * 100) : 0 };
     }
 
@@ -1171,7 +1512,7 @@
 
     // ── Export / Import ──
     function exportData() {
-      const data = { checked, history: loadHistory(), weekKey: getWeekKey(), exported: new Date().toISOString() };
+      const data = { checked, notes: taskNotes, deferred: taskDeferred, history: loadHistory(), weekKey: getWeekKey(), exported: new Date().toISOString() };
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1214,6 +1555,15 @@
       localStorage.setItem('sp26-sync-config', JSON.stringify(config));
     }
 
+    function getSyncCreds() {
+      try { return JSON.parse(localStorage.getItem('sp26-sync-creds')); }
+      catch (e) { return null; }
+    }
+
+    function saveSyncCreds(email, password) {
+      localStorage.setItem('sp26-sync-creds', JSON.stringify({ email, password }));
+    }
+
     function loadFirebaseSDK() {
       if (window.firebase && window.firebase.auth && window.firebase.database) return Promise.resolve();
       if (firebaseSDKPromise) return firebaseSDKPromise;
@@ -1244,19 +1594,23 @@
     function parseFirebaseConfig(text) {
       // Try direct JSON
       try { const obj = JSON.parse(text); if (obj.databaseURL) return obj; } catch (e) { }
-      // Find the object containing apiKey (handles full SDK snippet, surrounding code, etc.)
+      // Extract key-value pairs safely (no eval)
       const match = text.match(/\{[^{}]*apiKey[^{}]*\}/s);
       if (match) {
         try {
-          // Evaluate as JS object literal — handles unquoted keys, single quotes, trailing commas
-          const obj = new Function('return (' + match[0] + ')')();
+          // Convert JS object literal to valid JSON: quote keys, replace single quotes
+          const jsonStr = match[0]
+            .replace(/([\w]+)\s*:/g, '"$1":')
+            .replace(/'/g, '"')
+            .replace(/,\s*}/g, '}');
+          const obj = JSON.parse(jsonStr);
           if (obj && typeof obj === 'object' && obj.databaseURL) return obj;
         } catch (e) { }
       }
       return null;
     }
 
-    async function initSync(config) {
+    async function initSync(config, email, password) {
       syncStatus = 'syncing';
       updateSyncDot();
 
@@ -1266,11 +1620,22 @@
         firebase.initializeApp(config);
       }
 
-      const user = firebase.auth().currentUser;
-      if (!user) throw new Error('Not signed in');
+      // Sign in with email/password
+      if (!firebase.auth().currentUser) {
+        try {
+          await firebase.auth().signInWithEmailAndPassword(email, password);
+        } catch (err) {
+          if (err.code === 'auth/user-not-found') {
+            await firebase.auth().createUserWithEmailAndPassword(email, password);
+          } else {
+            throw err;
+          }
+        }
+      }
 
+      syncUid = firebase.auth().currentUser.uid;
       const db = firebase.database();
-      const uid = user.uid;
+      const base = 'users/' + syncUid + '/study/';
 
       // Connection monitoring
       if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
@@ -1280,10 +1645,9 @@
         updateSyncDot();
       });
 
-      // Listen for current week's checked data (user-scoped path)
+      // Listen for task states
       if (syncRef && syncListener) syncRef.off('value', syncListener);
-
-      syncRef = db.ref('users/' + uid + '/study/' + getWeekKey());
+      syncRef = db.ref(base + getWeekKey());
       syncListener = syncRef.on('value', snap => {
         if (ignoreNextRemote) { ignoreNextRemote = false; return; }
         if (snap.exists()) {
@@ -1293,9 +1657,31 @@
         }
       });
 
-      // Also listen for history (user-scoped path)
+      // Listen for notes
+      if (syncNotesRef && syncNotesListener) syncNotesRef.off('value', syncNotesListener);
+      syncNotesRef = db.ref(base + getWeekKey() + '-notes');
+      syncNotesListener = syncNotesRef.on('value', snap => {
+        if (snap.exists()) {
+          taskNotes = snap.val();
+          localStorage.setItem(getWeekKey() + '-notes', JSON.stringify(taskNotes));
+          render();
+        }
+      });
+
+      // Listen for deferred
+      if (syncDeferRef && syncDeferListener) syncDeferRef.off('value', syncDeferListener);
+      syncDeferRef = db.ref(base + getWeekKey() + '-defer');
+      syncDeferListener = syncDeferRef.on('value', snap => {
+        if (snap.exists()) {
+          taskDeferred = snap.val();
+          localStorage.setItem(getWeekKey() + '-defer', JSON.stringify(taskDeferred));
+          render();
+        }
+      });
+
+      // Listen for history
       if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
-      syncHistoryRef = db.ref('users/' + uid + '/study/history');
+      syncHistoryRef = db.ref(base + 'history');
       syncHistoryListener = syncHistoryRef.on('value', snap => {
         if (snap.exists()) {
           localStorage.setItem('sp26-history', JSON.stringify(snap.val()));
@@ -1304,11 +1690,10 @@
 
       firebaseReady = true;
       saveSyncConfig(config);
+      saveSyncCreds(email, password);
 
-      // Push local data on first connect so existing checkmarks sync up
-      if (Object.keys(checked).length > 0) {
-        syncPush();
-      }
+      // Push local data on first connect
+      syncPush();
     }
 
     function syncPush() {
@@ -1319,71 +1704,60 @@
         console.error('Sync write failed:', err.message);
         showToast('Sync write failed \u2014 check Firebase rules');
       });
-      // Also push history
+      if (syncNotesRef) syncNotesRef.set(taskNotes).catch(() => { });
+      if (syncDeferRef) syncDeferRef.set(taskDeferred).catch(() => { });
       if (syncHistoryRef) {
-        syncHistoryRef.set(loadHistory()).catch(err => {
-          console.error('History sync failed:', err.message);
-        });
+        syncHistoryRef.set(loadHistory()).catch(() => { });
       }
     }
 
     function updateSyncDot() {
       const dot = document.getElementById('sync-dot');
       if (!dot) return;
-      dot.className = 'sync-dot ' + (getSyncConfig() ? syncStatus : 'hidden');
+      dot.className = 'sync-dot ' + (getSyncConfig() || HARDCODED_CONFIG ? syncStatus : 'hidden');
       dot.title = syncStatus === 'connected' ? 'Synced' :
         syncStatus === 'syncing' ? 'Syncing\u2026' : 'Offline';
     }
 
     async function connectSync() {
       const input = document.getElementById('sync-config-input');
+      const emailInput = document.getElementById('sync-email');
+      const passInput = document.getElementById('sync-password');
       const msg = document.getElementById('sync-msg');
       if (!input || !msg) return;
 
       const config = parseFirebaseConfig(input.value.trim());
       if (!config) {
         msg.className = 'sync-msg err';
-        msg.textContent = 'Could not parse config. Make sure you copied the full firebaseConfig object.';
+        msg.textContent = 'Could not parse config. Paste the full firebaseConfig object.';
+        return;
+      }
+
+      const email = emailInput ? emailInput.value.trim() : '';
+      const password = passInput ? passInput.value : '';
+      if (!email || !password) {
+        msg.className = 'sync-msg err';
+        msg.textContent = 'Enter an email and password.';
         return;
       }
 
       msg.className = 'sync-msg wait';
-      msg.textContent = 'Opening Google sign-in\u2026';
+      msg.textContent = 'Connecting\u2026';
 
       try {
-        syncStatus = 'syncing';
-        updateSyncDot();
-        await loadFirebaseSDK();
-        if (!firebase.apps.length) {
-          firebase.initializeApp(config);
-        }
-
-        // Try popup first (works on desktop)
-        try {
-          await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider());
-          // Popup succeeded — save config and init sync
-          await initSync(config);
-          render();
-          showToast('Sync connected');
-          return;
-        } catch (popupErr) {
-          // If popup blocked (iOS Safari, etc.), fall back to redirect
-          if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/operation-not-supported-in-this-environment') {
-            msg.textContent = 'Redirecting to Google sign-in\u2026';
-            // Must save config BEFORE redirect since the page navigates away
-            saveSyncConfig(config);
-            localStorage.setItem('sp26-sync-redirect-pending', '1');
-            await firebase.auth().signInWithRedirect(new firebase.auth.GoogleAuthProvider());
-            return;
-          }
-          throw popupErr;
-        }
+        await initSync(config, email, password);
+        render();
+        showToast('Sync connected');
       } catch (err) {
         firebaseReady = false;
         syncStatus = 'offline';
         updateSyncDot();
         msg.className = 'sync-msg err';
-        msg.textContent = 'Failed: ' + err.message;
+        const friendly = err.code === 'auth/wrong-password' ? 'Wrong password.' :
+          err.code === 'auth/invalid-email' ? 'Invalid email.' :
+            err.code === 'auth/weak-password' ? 'Password must be at least 6 characters.' :
+              err.message;
+        msg.textContent = 'Failed: ' + friendly;
       }
     }
 
@@ -1391,93 +1765,41 @@
       if (syncRef && syncListener) syncRef.off('value', syncListener);
       if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
       if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
-      if (authUnsubscribe) { authUnsubscribe(); authUnsubscribe = null; }
+      if (syncNotesRef && syncNotesListener) syncNotesRef.off('value', syncNotesListener);
+      if (syncDeferRef && syncDeferListener) syncDeferRef.off('value', syncDeferListener);
       try {
         if (firebase.apps.length) {
           firebase.auth().signOut().catch(() => { });
         }
       } catch (e) { }
       localStorage.removeItem('sp26-sync-config');
-      localStorage.removeItem('sp26-sync-redirect-pending');
+      localStorage.removeItem('sp26-sync-creds');
       firebaseReady = false;
-      syncRef = null;
-      syncListener = null;
-      syncConnectionRef = null;
-      syncConnectionListener = null;
-      syncHistoryRef = null;
-      syncHistoryListener = null;
+      syncRef = null; syncListener = null;
+      syncConnectionRef = null; syncConnectionListener = null;
+      syncHistoryRef = null; syncHistoryListener = null;
+      syncNotesRef = null; syncNotesListener = null;
+      syncDeferRef = null; syncDeferListener = null;
+      syncUid = null;
       syncStatus = 'offline';
       render();
       showToast('Sync disconnected');
     }
 
     async function setupStoredSync() {
-      const config = getSyncConfig();
-      if (!config) return;
+      const config = HARDCODED_CONFIG || getSyncConfig();
+      const creds = getSyncCreds();
+      if (!config || !creds) return;
 
-      syncStatus = 'syncing';
-      updateSyncDot();
-      const wasRedirectPending = localStorage.getItem('sp26-sync-redirect-pending') === '1';
-
-      await loadFirebaseSDK();
-
-      if (!firebase.apps.length) {
-        firebase.initializeApp(config);
-      }
-
-      // Handle redirect result (from mobile fallback flow)
       try {
-        const redirectResult = await firebase.auth().getRedirectResult();
-        if (redirectResult && redirectResult.user) {
-          // Redirect auth succeeded
-          localStorage.removeItem('sp26-sync-redirect-pending');
-        }
+        await initSync(config, creds.email, creds.password);
+        render();
       } catch (err) {
-        // Redirect auth failed — clean up
-        localStorage.removeItem('sp26-sync-redirect-pending');
-        localStorage.removeItem('sp26-sync-config');
+        firebaseReady = false;
         syncStatus = 'offline';
         updateSyncDot();
-        render();
-        return;
+        console.warn('Auto-sync failed:', err.message);
       }
-
-      if (authUnsubscribe) authUnsubscribe();
-      authUnsubscribe = firebase.auth().onAuthStateChanged(async user => {
-        if (!user) {
-          // User not signed in — tear down listeners
-          if (syncRef && syncListener) syncRef.off('value', syncListener);
-          if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
-          if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
-          syncRef = null;
-          syncListener = null;
-          syncConnectionRef = null;
-          syncConnectionListener = null;
-          syncHistoryRef = null;
-          syncHistoryListener = null;
-          firebaseReady = false;
-          // If redirect is still pending, don't clear config yet (waiting for redirect return)
-          if (!wasRedirectPending) {
-            localStorage.removeItem('sp26-sync-config');
-          }
-          syncStatus = 'offline';
-          updateSyncDot();
-          render();
-          return;
-        }
-
-        try {
-          localStorage.removeItem('sp26-sync-redirect-pending');
-          await initSync(config);
-          render();
-          if (wasRedirectPending) showToast('Sync connected');
-        } catch (err) {
-          firebaseReady = false;
-          syncStatus = 'offline';
-          updateSyncDot();
-          console.warn('Auto-sync failed:', err.message);
-        }
-      });
     }
 
     // ════════════════════════════════════════
@@ -1545,6 +1867,98 @@
       </div>
     </div>`;
 
+      // Helper: render one task item
+      function renderItem(item, extraClass, fromDay) {
+        const c = CAT[item.cat];
+        const st = getStatus(item.id);
+        const isDeferred = taskDeferred[item.id] && taskDeferred[item.id] !== dayName;
+        let cls = 'item';
+        if (st === 'done') cls += ' done';
+        else if (st === 'skip') cls += ' skip';
+        else if (st === 'progress') cls += ' progress';
+        if (isDeferred) cls += ' deferred-out';
+        if (extraClass) cls += ' ' + extraClass;
+        const textColor = item.cat === "class" || item.cat === "fameeting" ? c.border : "#e4e4e7";
+        const catLabel = CAT_LABEL[item.cat];
+        const note = taskNotes[item.id];
+        const hasActions = openActions === item.id;
+        const hasNoteInput = openNoteInput === item.id;
+        const hasDeferPicker = openDeferPicker === item.id;
+
+        let h = `
+        <div class="${cls}" role="checkbox" aria-checked="${st === 'done'}" tabindex="0"
+             data-task-id="${item.id}" style="background:${c.bg};border:1px solid ${c.border}22">
+          <div class="item-bar" style="background:${c.border}"></div>
+          <div class="item-body" onclick="toggle('${item.id}')">
+            <div class="item-check" aria-hidden="true"></div>
+            <div class="item-info">
+              <div class="item-text" style="color:${textColor}">${item.text}${note ? '<span class="note-icon">\ud83d\udcdd</span>' : ''}</div>
+              ${item.hint ? `<div class="item-hint">${item.hint}</div>` : ''}
+              ${catLabel ? `<div class="item-cat" style="color:${c.border}">${catLabel}</div>` : ''}
+              ${fromDay ? `<div class="deferred-from">\u2192 from ${fromDay}</div>` : ''}
+              ${note ? `<div class="item-note">${note}</div>` : ''}
+            </div>
+            <div class="item-actions-btn" onclick="toggleActionMenu('${item.id}',event)">\u22ee</div>
+          </div>`;
+
+        // Action bar
+        if (hasActions) {
+          h += `<div class="item-action-bar open">
+            <button class="action-btn act-skip" onclick="event.stopPropagation();setTaskStatus('${item.id}','skip')">\u23ed Skip</button>
+            <button class="action-btn act-progress" onclick="event.stopPropagation();setTaskStatus('${item.id}','progress')">\ud83d\udfe0 Progress</button>
+            <button class="action-btn act-note" onclick="event.stopPropagation();showNoteInput('${item.id}',event)">\ud83d\udcdd Note</button>
+            <button class="action-btn act-defer" onclick="event.stopPropagation();showDeferPicker('${item.id}',event)">\u2192 Defer</button>
+            <button class="action-btn act-clear" onclick="clearTask('${item.id}',event)">\u2715 Clear</button>
+          </div>`;
+        }
+
+        // Note input
+        if (hasNoteInput) {
+          h += `<input class="note-input" id="note-input-${item.id}" type="text"
+                 placeholder="Add a note\u2026" value="${(note || '').replace(/"/g, '&quot;')}"
+                 onclick="event.stopPropagation()"
+                 onkeydown="if(event.key==='Enter')saveNote('${item.id}')"
+                 onblur="saveNote('${item.id}')">`;
+        }
+
+        // Defer picker
+        if (hasDeferPicker) {
+          h += `<div class="defer-picker open">`;
+          DAYS.forEach(d => {
+            if (d !== dayName) {
+              h += `<button class="defer-day-btn" onclick="event.stopPropagation();deferTask('${item.id}','${d}')">${d.slice(0, 3)}</button>`;
+            }
+          });
+          h += `</div>`;
+        }
+
+        h += `</div>`;
+        return h;
+      }
+
+      // Deferred tasks coming INTO this day
+      const deferredIn = [];
+      Object.entries(taskDeferred).forEach(([id, target]) => {
+        if (target === dayName) {
+          // Find the original item across all days
+          for (const dName of DAYS) {
+            for (const sec of schedule[dName].sections) {
+              for (const item of sec.items) {
+                if (item.id === id) deferredIn.push({ item, fromDay: dName });
+              }
+            }
+          }
+        }
+      });
+
+      if (deferredIn.length > 0) {
+        html += `<div class="deferred-section"><div class="deferred-label">Deferred</div><div class="items">`;
+        deferredIn.forEach(({ item, fromDay }) => {
+          html += renderItem(item, '', fromDay);
+        });
+        html += `</div></div>`;
+      }
+
       // Sections
       html += `<div class="sections" role="list" aria-label="Tasks for ${dayName}">`;
       day.sections.forEach((section, sIdx) => {
@@ -1555,24 +1969,7 @@
         }
         html += `<div class="${sClass}"><div class="section-label">${section.label}</div><div class="items">`;
         section.items.forEach(item => {
-          const c = CAT[item.cat];
-          const isDone = !!checked[item.id];
-          const textColor = item.cat === "class" || item.cat === "fameeting" ? c.border : "#e4e4e7";
-          const catLabel = CAT_LABEL[item.cat];
-          html += `
-        <div class="item ${isDone ? 'done' : ''}" role="checkbox" aria-checked="${isDone}" tabindex="0"
-             data-task-id="${item.id}" style="background:${c.bg};border:1px solid ${c.border}22"
-             onclick="toggle('${item.id}')">
-          <div class="item-bar" style="background:${c.border}"></div>
-          <div class="item-body">
-            <div class="item-check" aria-hidden="true"></div>
-            <div class="item-info">
-              <div class="item-text" style="color:${textColor}">${item.text}</div>
-              ${item.hint ? `<div class="item-hint">${item.hint}</div>` : ''}
-              ${catLabel ? `<div class="item-cat" style="color:${c.border}">${catLabel}</div>` : ''}
-            </div>
-          </div>
-        </div>`;
+          html += renderItem(item);
         });
         html += `</div></div>`;
       });
@@ -1690,37 +2087,38 @@
 
       // ── Sync panel ──
       const syncOpen = openPanels['sync'];
-      const hasSyncConfig = !!getSyncConfig();
+      const hasSyncConfig = !!(HARDCODED_CONFIG || getSyncConfig());
       html += `<div class="panel">
     <div class="panel-header ${syncOpen ? 'open' : ''}" data-panel-id="sync" onclick="togglePanel('sync')"
          role="button" aria-expanded="${!!syncOpen}" aria-controls="panel-sync" tabindex="0">
-      <div class="panel-title">Sync ${hasSyncConfig ? '<span style="color:#00e676;font-size:9px;margin-left:6px">\u25cf connected</span>' : ''}</div>
+      <div class="panel-title">Sync ${hasSyncConfig && firebaseReady ? '<span style="color:#00e676;font-size:9px;margin-left:6px">\u25cf connected</span>' : ''}</div>
       <div class="panel-arrow">\u25bc</div>
     </div>
     <div class="panel-content ${syncOpen ? 'open' : ''}" id="panel-sync">`;
 
       if (hasSyncConfig && firebaseReady) {
         html += `
-      <div style="font-size:11px;color:#00e676;margin-bottom:10px">Syncing across all your devices via Firebase.</div>
+      <div style="font-size:11px;color:#00e676;margin-bottom:10px">Syncing across all your devices.</div>
       <button class="data-btn" onclick="event.stopPropagation();disconnectSync()" style="width:100%;color:#e94560;border-color:#e9456033">Disconnect Sync</button>`;
       } else if (hasSyncConfig && !firebaseReady) {
         html += `
-      <div style="font-size:11px;color:#ffab00;margin-bottom:10px">Reconnecting\u2026</div>
+      <div style="font-size:11px;color:#ffab00;margin-bottom:10px">Connecting\u2026</div>
       <button class="data-btn" onclick="event.stopPropagation();disconnectSync()" style="width:100%">Disconnect</button>`;
       } else {
         html += `
       <div class="sync-info">
-        Paste your Firebase config below to sync progress across all devices in real-time.
-        <a href="https://console.firebase.google.com" target="_blank" rel="noopener" style="color:var(--accent)">Firebase Console</a>
+        Paste your Firebase config and set a password to sync across devices.
       </div>
       <textarea class="sync-input" id="sync-config-input" placeholder='Paste firebaseConfig here, e.g.:
 {
   apiKey: "AIza...",
-  authDomain: "my-app.firebaseapp.com",
-  databaseURL: "https://my-app-default-rtdb...",
-  projectId: "my-app",
+  authDomain: "...",
+  databaseURL: "https://...",
+  projectId: "...",
   ...
 }'></textarea>
+      <input class="sync-input" id="sync-email" type="email" placeholder="Email" style="min-height:auto;resize:none;margin-bottom:4px">
+      <input class="sync-input" id="sync-password" type="password" placeholder="Password (min 6 chars)" style="min-height:auto;resize:none;margin-bottom:8px">
       <button class="data-btn" onclick="event.stopPropagation();connectSync()" style="width:100%;color:var(--accent);border-color:#00d2ff44">Connect Sync</button>
       <div id="sync-msg" class="sync-msg"></div>`;
       }
