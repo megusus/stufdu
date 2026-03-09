@@ -1600,18 +1600,12 @@
       }
       // Try direct JSON
       try { const obj = JSON.parse(text); if (fillDatabaseURL(obj)) return obj; } catch (e) { }
-      // Extract the config object block
+      // Find the object containing apiKey
       const match = text.match(/\{[^{}]*apiKey[^{}]*\}/s);
       if (match) {
         try {
-          // Parse line by line: extract key: "value" pairs safely
-          const obj = {};
-          const lines = match[0].split('\n');
-          for (const line of lines) {
-            const m = line.match(/["']?(\w+)["']?\s*:\s*["']([^"']*)["']/);
-            if (m) obj[m[1]] = m[2];
-          }
-          if (fillDatabaseURL(obj)) return obj;
+          const obj = new Function('return (' + match[0] + ')')();
+          if (obj && typeof obj === 'object' && fillDatabaseURL(obj)) return obj;
         } catch (e) { }
       }
       return null;
