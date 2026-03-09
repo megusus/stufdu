@@ -1592,8 +1592,14 @@
     }
 
     function parseFirebaseConfig(text) {
+      function fillDatabaseURL(obj) {
+        if (!obj.databaseURL && obj.projectId) {
+          obj.databaseURL = 'https://' + obj.projectId + '-default-rtdb.firebaseio.com';
+        }
+        return (obj.apiKey && obj.projectId) ? obj : null;
+      }
       // Try direct JSON
-      try { const obj = JSON.parse(text); if (obj.databaseURL) return obj; } catch (e) { }
+      try { const obj = JSON.parse(text); if (fillDatabaseURL(obj)) return obj; } catch (e) { }
       // Extract the config object block
       const match = text.match(/\{[^{}]*apiKey[^{}]*\}/s);
       if (match) {
@@ -1602,11 +1608,10 @@
           const obj = {};
           const lines = match[0].split('\n');
           for (const line of lines) {
-            // Match: key: "value" or key: 'value' (with optional quotes around key)
             const m = line.match(/["']?(\w+)["']?\s*:\s*["']([^"']*)["']/);
             if (m) obj[m[1]] = m[2];
           }
-          if (obj.databaseURL) return obj;
+          if (fillDatabaseURL(obj)) return obj;
         } catch (e) { }
       }
       return null;
