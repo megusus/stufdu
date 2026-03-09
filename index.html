@@ -1266,7 +1266,11 @@
         firebase.initializeApp(config);
       }
 
+      const user = firebase.auth().currentUser;
+      if (!user) throw new Error('Not signed in');
+
       const db = firebase.database();
+      const uid = user.uid;
 
       // Connection monitoring
       if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
@@ -1276,10 +1280,10 @@
         updateSyncDot();
       });
 
-      // Listen for current week's checked data
+      // Listen for current week's checked data (user-scoped path)
       if (syncRef && syncListener) syncRef.off('value', syncListener);
 
-      syncRef = db.ref('study/' + getWeekKey());
+      syncRef = db.ref('users/' + uid + '/study/' + getWeekKey());
       syncListener = syncRef.on('value', snap => {
         if (ignoreNextRemote) { ignoreNextRemote = false; return; }
         if (snap.exists()) {
@@ -1289,9 +1293,9 @@
         }
       });
 
-      // Also listen for history
+      // Also listen for history (user-scoped path)
       if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
-      syncHistoryRef = db.ref('study/history');
+      syncHistoryRef = db.ref('users/' + uid + '/study/history');
       syncHistoryListener = syncHistoryRef.on('value', snap => {
         if (snap.exists()) {
           localStorage.setItem('sp26-history', JSON.stringify(snap.val()));
@@ -1300,16 +1304,27 @@
 
       firebaseReady = true;
       saveSyncConfig(config);
+
+      // Push local data on first connect so existing checkmarks sync up
+      if (Object.keys(checked).length > 0) {
+        syncPush();
+      }
     }
 
     function syncPush() {
       if (!firebaseReady || !syncRef) return;
       ignoreNextRemote = true;
-      syncRef.set(checked).catch(() => { ignoreNextRemote = false; });
+      syncRef.set(checked).catch(err => {
+        ignoreNextRemote = false;
+        console.error('Sync write failed:', err.message);
+        showToast('Sync write failed \u2014 check Firebase rules');
+      });
       // Also push history
-      try {
-        firebase.database().ref('study/history').set(loadHistory()).catch(() => { });
-      } catch (e) { }
+      if (syncHistoryRef) {
+        syncHistoryRef.set(loadHistory()).catch(err => {
+          console.error('History sync failed:', err.message);
+        });
+      }
     }
 
     function updateSyncDot() {
