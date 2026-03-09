@@ -1,887 +1,1449 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#09090b">
-<title>Study Plan</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📘</text></svg>">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root {
-  --bg: #09090b; --surface: #111113; --surface2: #151518;
-  --border: #1c1c1f; --border2: #222; --text: #e4e4e7;
-  --muted: #71717a; --dim: #555; --faint: #333;
-  --accent: #00d2ff;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  background: var(--bg); color: var(--text);
-  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-  padding: 0; min-height: 100vh; overflow-x: hidden;
-  -webkit-tap-highlight-color: transparent;
-}
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 2px; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#09090b">
+  <title>Study Plan</title>
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📘</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface: #111113;
+      --surface2: #151518;
+      --border: #1c1c1f;
+      --border2: #222;
+      --text: #e4e4e7;
+      --muted: #71717a;
+      --dim: #555;
+      --faint: #333;
+      --accent: #00d2ff;
+    }
 
-.app { max-width: 680px; margin: 0 auto; padding: 20px 16px 100px; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-/* Header */
-.header { padding: 16px 0 20px; }
-.header-sub { font-size: 10px; letter-spacing: 3px; color: var(--dim); text-transform: uppercase; margin-bottom: 6px; }
-.header h1 { font-size: 24px; font-weight: 700; letter-spacing: -1px; color: #fafafa; margin-bottom: 2px; }
-.header-tag { font-size: 12px; color: var(--muted); }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+      padding: 0;
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-/* Weekly progress */
-.weekly-progress {
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 11px; color: var(--muted); margin-bottom: 8px;
-  padding: 8px 12px; background: var(--surface); border-radius: 8px;
-  border: 1px solid var(--border);
-}
-.weekly-label { color: var(--dim); letter-spacing: 1px; text-transform: uppercase; font-size: 10px; }
-.weekly-val { color: var(--text); font-weight: 500; }
-.weekly-bar { flex: 1; height: 3px; background: var(--border); border-radius: 2px; margin: 0 12px; overflow: hidden; }
-.weekly-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; }
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
 
-/* Progress bar */
-.progress-wrap { margin-bottom: 24px; }
-.progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
-.progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; }
-.progress-text { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--faint);
+      border-radius: 2px;
+    }
 
-/* Tabs */
-.tabs { display: flex; gap: 4px; margin-bottom: 24px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
-.tabs[role="tablist"] { outline: none; }
-.tab {
-  flex: 1 0 auto; padding: 10px 12px; font-size: 12px; font-weight: 400;
-  font-family: inherit; background: var(--surface2); color: var(--muted);
-  border: 1px solid var(--border2); border-radius: 8px; cursor: pointer;
-  transition: all 0.15s; letter-spacing: 0.5px; position: relative;
-}
-.tab.active { font-weight: 600; background: #fafafa; color: var(--bg); border-color: transparent; }
-.tab.today::after {
-  content: ''; position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%);
-  width: 4px; height: 4px; border-radius: 50%; background: var(--accent);
-}
-.tab .tab-progress {
-  position: absolute; bottom: 0; left: 0; height: 2px; border-radius: 0 0 8px 8px;
-  background: #00d2ff44; transition: width 0.3s;
-}
-.tab.active .tab-progress { background: #09090b33; }
-.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .app {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 20px 16px 100px;
+    }
 
-/* Day header */
-.day-header { margin-bottom: 20px; }
-.day-name { font-size: 20px; font-weight: 600; color: #fafafa; margin-bottom: 6px; }
-.day-meta { display: flex; gap: 12px; font-size: 11px; color: var(--muted); flex-wrap: wrap; align-items: center; }
-.day-meta .val { color: var(--text); }
-.day-meta .home { color: var(--accent); }
-.day-meta .flag { color: #ff9100; }
+    /* Header */
+    .header {
+      padding: 16px 0 20px;
+    }
 
-/* Sections */
-.sections { display: flex; flex-direction: column; gap: 22px; margin-bottom: 32px; }
-.section-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; padding-left: 2px; transition: color 0.3s; }
-.items { display: flex; flex-direction: column; gap: 4px; }
+    .header-sub {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--dim);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
 
-/* Section time awareness */
-.section-group { transition: opacity 0.3s; }
-.section-past { opacity: 0.45; }
-.section-past .item:not(.done) { opacity: 0.7; }
-.section-current > .section-label { color: var(--accent); }
-.section-current > .section-label::after {
-  content: ' now'; font-size: 9px; color: #00d2ff88; letter-spacing: 1px; font-weight: 400;
-}
+    .header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      color: #fafafa;
+      margin-bottom: 2px;
+    }
 
-/* Task item */
-.item {
-  display: flex; align-items: flex-start; border-radius: 10px; overflow: hidden;
-  transition: opacity 0.3s, transform 0.2s; cursor: pointer; user-select: none;
-  outline: none;
-}
-.item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 10px; }
-.item.done { opacity: 0.35; }
-.item.done .item-text { text-decoration: line-through; }
-.item-bar { width: 3px; flex-shrink: 0; align-self: stretch; }
-.item-body { padding: 10px 12px; flex: 1; display: flex; align-items: flex-start; gap: 10px; }
-.item-check {
-  width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--faint);
-  flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s; background: transparent;
-}
-.item.done .item-check { border-color: var(--accent); background: #00d2ff22; }
-.item.done .item-check::after { content: '\2713'; font-size: 11px; color: var(--accent); }
-.item-info { flex: 1; min-width: 0; }
-.item-text { font-size: 13px; font-weight: 500; line-height: 1.4; }
-.item-hint { font-size: 11px; color: var(--dim); margin-top: 2px; line-height: 1.4; }
-.item-cat { font-size: 8px; letter-spacing: 1px; text-transform: uppercase; margin-top: 3px; opacity: 0.6; }
+    .header-tag {
+      font-size: 12px;
+      color: var(--muted);
+    }
 
-/* Check animation */
-@keyframes checkPop {
-  0% { transform: scale(1); }
-  40% { transform: scale(0.96); }
-  100% { transform: scale(1); }
-}
-.item.just-toggled { animation: checkPop 0.25s ease; }
+    /* Weekly progress */
+    .weekly-progress {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      padding: 8px 12px;
+      background: var(--surface);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
 
-/* Panels */
-.panel {
-  background: var(--surface); border-radius: 12px; border: 1px solid var(--border);
-  margin-bottom: 16px; overflow: hidden;
-}
-.panel-header {
-  padding: 14px 16px; cursor: pointer; display: flex; justify-content: space-between;
-  align-items: center; user-select: none; outline: none;
-}
-.panel-header:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 12px; }
-.panel-title { font-size: 13px; font-weight: 600; color: #fafafa; letter-spacing: 0.5px; }
-.panel-arrow { font-size: 12px; color: var(--muted); transition: transform 0.2s; }
-.panel-header.open .panel-arrow { transform: rotate(180deg); }
-.panel-content { padding: 0 16px 16px; display: none; }
-.panel-content.open { display: block; }
+    .weekly-label {
+      color: var(--dim);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-size: 10px;
+    }
 
-/* Overview */
-.overview-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: baseline; flex-wrap: wrap; }
-.overview-day { width: 30px; font-size: 11px; font-weight: 600; flex-shrink: 0; }
-.overview-tag { font-size: 9px; padding: 2px 5px; border-radius: 4px; flex-shrink: 0; white-space: nowrap; }
-.overview-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+    .weekly-val {
+      color: var(--text);
+      font-weight: 500;
+    }
 
-/* Info panels */
-.info { padding: 14px; border-radius: 10px; font-size: 11px; line-height: 1.7; margin-bottom: 12px; }
-.info strong { color: #aabbcc; }
-.info p { margin-top: 6px; }
-.info p:first-child { margin-top: 0; }
+    .weekly-bar {
+      flex: 1;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 0 12px;
+      overflow: hidden;
+    }
 
-/* Streak chart */
-.streak-chart {
-  display: flex; align-items: flex-end; gap: 3px; height: 36px; padding: 4px 0;
-}
-.streak-bar {
-  flex: 1; background: var(--faint); border-radius: 2px; min-height: 3px;
-  transition: height 0.3s; position: relative;
-}
-.streak-bar.current { background: var(--accent); }
-.streak-bar-label {
-  position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%);
-  font-size: 8px; color: var(--dim); white-space: nowrap;
-}
-.streak-bar.current .streak-bar-label { color: var(--accent); }
-.streak-empty { font-size: 11px; color: var(--dim); padding: 8px 0; }
+    .weekly-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
 
-/* Data controls */
-.data-controls { display: flex; gap: 8px; }
-.data-btn {
-  font-family: inherit; font-size: 11px; color: var(--muted); background: var(--surface2);
-  border: 1px solid var(--border2); border-radius: 6px; padding: 8px 14px;
-  cursor: pointer; transition: all 0.15s; letter-spacing: 0.5px; flex: 1;
-}
-.data-btn:hover { color: var(--text); border-color: #00d2ff44; }
-.data-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    /* Progress bar */
+    .progress-wrap {
+      margin-bottom: 24px;
+    }
 
-/* Sync */
-.sync-dot {
-  width: 7px; height: 7px; border-radius: 50%; display: inline-block;
-  margin-left: 8px; vertical-align: middle; position: relative; top: -1px;
-}
-.sync-dot.connected { background: #00e676; box-shadow: 0 0 6px #00e67644; }
-.sync-dot.syncing { background: #ffab00; animation: syncPulse 1.2s infinite; }
-.sync-dot.offline { background: var(--faint); }
-.sync-dot.hidden { display: none; }
-@keyframes syncPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
 
-.sync-input {
-  width: 100%; font-family: inherit; font-size: 10px; background: var(--bg);
-  color: var(--text); border: 1px solid var(--border2); border-radius: 6px;
-  padding: 8px 10px; resize: vertical; min-height: 80px; margin-bottom: 8px;
-  line-height: 1.5;
-}
-.sync-input:focus { outline: none; border-color: var(--accent); }
-.sync-input::placeholder { color: var(--faint); }
-.sync-msg { font-size: 11px; margin-top: 8px; line-height: 1.4; }
-.sync-msg.ok { color: #00e676; }
-.sync-msg.err { color: #e94560; }
-.sync-msg.wait { color: #ffab00; }
-.sync-info { font-size: 10px; color: var(--dim); line-height: 1.6; margin-bottom: 10px; }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
 
-/* Reset button */
-.reset-wrap { text-align: center; padding: 20px 0; }
-.reset-btn {
-  font-family: inherit; font-size: 11px; color: var(--dim); background: none;
-  border: 1px solid var(--border2); border-radius: 6px; padding: 6px 14px;
-  cursor: pointer; transition: all 0.15s; letter-spacing: 0.5px;
-}
-.reset-btn:hover { color: #e94560; border-color: #e9456044; }
-.reset-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .progress-text {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
 
-/* Toast */
-.toast {
-  position: fixed; bottom: -70px; left: 50%; transform: translateX(-50%);
-  background: var(--surface2); border: 1px solid var(--border2); border-radius: 10px;
-  padding: 10px 16px; font-family: inherit; font-size: 12px; color: var(--text);
-  display: flex; align-items: center; gap: 12px; z-index: 100;
-  transition: bottom 0.3s ease; box-shadow: 0 4px 24px rgba(0,0,0,0.5);
-  white-space: nowrap; max-width: 90vw;
-}
-.toast.show { bottom: 28px; }
-.toast-undo {
-  font-family: inherit; font-size: 11px; font-weight: 600; color: var(--accent);
-  background: none; border: none; cursor: pointer; padding: 2px 8px; border-radius: 4px;
-}
-.toast-undo:hover { background: #00d2ff15; }
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+    }
 
-@media (max-width: 400px) {
-  .app { padding: 12px 12px 100px; }
-  .header h1 { font-size: 20px; }
-  .item-text { font-size: 12px; }
-  .tab { padding: 8px 10px; font-size: 11px; }
-}
-</style>
+    .tabs[role="tablist"] {
+      outline: none;
+    }
+
+    .tab {
+      flex: 1 0 auto;
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 400;
+      font-family: inherit;
+      background: var(--surface2);
+      color: var(--muted);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.5px;
+      position: relative;
+    }
+
+    .tab.active {
+      font-weight: 600;
+      background: #fafafa;
+      color: var(--bg);
+      border-color: transparent;
+    }
+
+    .tab.today::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .tab .tab-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 2px;
+      border-radius: 0 0 8px 8px;
+      background: #00d2ff44;
+      transition: width 0.3s;
+    }
+
+    .tab.active .tab-progress {
+      background: #09090b33;
+    }
+
+    .tab:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* Day header */
+    .day-header {
+      margin-bottom: 20px;
+    }
+
+    .day-name {
+      font-size: 20px;
+      font-weight: 600;
+      color: #fafafa;
+      margin-bottom: 6px;
+    }
+
+    .day-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--muted);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .day-meta .val {
+      color: var(--text);
+    }
+
+    .day-meta .home {
+      color: var(--accent);
+    }
+
+    .day-meta .flag {
+      color: #ff9100;
+    }
+
+    /* Sections */
+    .sections {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      margin-bottom: 32px;
+    }
+
+    .section-label {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 8px;
+      padding-left: 2px;
+      transition: color 0.3s;
+    }
+
+    .items {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* Section time awareness */
+    .section-group {
+      transition: opacity 0.3s;
+    }
+
+    .section-past {
+      opacity: 0.45;
+    }
+
+    .section-past .item:not(.done) {
+      opacity: 0.7;
+    }
+
+    .section-current>.section-label {
+      color: var(--accent);
+    }
+
+    .section-current>.section-label::after {
+      content: ' now';
+      font-size: 9px;
+      color: #00d2ff88;
+      letter-spacing: 1px;
+      font-weight: 400;
+    }
+
+    /* Task item */
+    .item {
+      display: flex;
+      align-items: flex-start;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: opacity 0.3s, transform 0.2s;
+      cursor: pointer;
+      user-select: none;
+      outline: none;
+    }
+
+    .item:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-radius: 10px;
+    }
+
+    .item.done {
+      opacity: 0.35;
+    }
+
+    .item.done .item-text {
+      text-decoration: line-through;
+    }
+
+    .item-bar {
+      width: 3px;
+      flex-shrink: 0;
+      align-self: stretch;
+    }
+
+    .item-body {
+      padding: 10px 12px;
+      flex: 1;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .item-check {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      border: 1.5px solid var(--faint);
+      flex-shrink: 0;
+      margin-top: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      background: transparent;
+    }
+
+    .item.done .item-check {
+      border-color: var(--accent);
+      background: #00d2ff22;
+    }
+
+    .item.done .item-check::after {
+      content: '\2713';
+      font-size: 11px;
+      color: var(--accent);
+    }
+
+    .item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-text {
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    .item-hint {
+      font-size: 11px;
+      color: var(--dim);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    .item-cat {
+      font-size: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-top: 3px;
+      opacity: 0.6;
+    }
+
+    /* Check animation */
+    @keyframes checkPop {
+      0% {
+        transform: scale(1);
+      }
+
+      40% {
+        transform: scale(0.96);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    .item.just-toggled {
+      animation: checkPop 0.25s ease;
+    }
+
+    /* Panels */
+    .panel {
+      background: var(--surface);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 14px 16px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+      outline: none;
+    }
+
+    .panel-header:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+      border-radius: 12px;
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fafafa;
+      letter-spacing: 0.5px;
+    }
+
+    .panel-arrow {
+      font-size: 12px;
+      color: var(--muted);
+      transition: transform 0.2s;
+    }
+
+    .panel-header.open .panel-arrow {
+      transform: rotate(180deg);
+    }
+
+    .panel-content {
+      padding: 0 16px 16px;
+      display: none;
+    }
+
+    .panel-content.open {
+      display: block;
+    }
+
+    /* Overview */
+    .overview-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: baseline;
+      flex-wrap: wrap;
+    }
+
+    .overview-day {
+      width: 30px;
+      font-size: 11px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .overview-tag {
+      font-size: 9px;
+      padding: 2px 5px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .overview-desc {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* Info panels */
+    .info {
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 11px;
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+
+    .info strong {
+      color: #aabbcc;
+    }
+
+    .info p {
+      margin-top: 6px;
+    }
+
+    .info p:first-child {
+      margin-top: 0;
+    }
+
+    /* Streak chart */
+    .streak-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 36px;
+      padding: 4px 0;
+    }
+
+    .streak-bar {
+      flex: 1;
+      background: var(--faint);
+      border-radius: 2px;
+      min-height: 3px;
+      transition: height 0.3s;
+      position: relative;
+    }
+
+    .streak-bar.current {
+      background: var(--accent);
+    }
+
+    .streak-bar-label {
+      position: absolute;
+      bottom: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 8px;
+      color: var(--dim);
+      white-space: nowrap;
+    }
+
+    .streak-bar.current .streak-bar-label {
+      color: var(--accent);
+    }
+
+    .streak-empty {
+      font-size: 11px;
+      color: var(--dim);
+      padding: 8px 0;
+    }
+
+    /* Data controls */
+    .data-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .data-btn {
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 8px 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.5px;
+      flex: 1;
+    }
+
+    .data-btn:hover {
+      color: var(--text);
+      border-color: #00d2ff44;
+    }
+
+    .data-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    /* Sync */
+    .sync-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-left: 8px;
+      vertical-align: middle;
+      position: relative;
+      top: -1px;
+    }
+
+    .sync-dot.connected {
+      background: #00e676;
+      box-shadow: 0 0 6px #00e67644;
+    }
+
+    .sync-dot.syncing {
+      background: #ffab00;
+      animation: syncPulse 1.2s infinite;
+    }
+
+    .sync-dot.offline {
+      background: var(--faint);
+    }
+
+    .sync-dot.hidden {
+      display: none;
+    }
+
+    @keyframes syncPulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+    }
+
+    .sync-input {
+      width: 100%;
+      font-family: inherit;
+      font-size: 10px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 8px 10px;
+      resize: vertical;
+      min-height: 80px;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .sync-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .sync-input::placeholder {
+      color: var(--faint);
+    }
+
+    .sync-msg {
+      font-size: 11px;
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    .sync-msg.ok {
+      color: #00e676;
+    }
+
+    .sync-msg.err {
+      color: #e94560;
+    }
+
+    .sync-msg.wait {
+      color: #ffab00;
+    }
+
+    .sync-info {
+      font-size: 10px;
+      color: var(--dim);
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+
+    /* Reset button */
+    .reset-wrap {
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .reset-btn {
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--dim);
+      background: none;
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.5px;
+    }
+
+    .reset-btn:hover {
+      color: #e94560;
+      border-color: #e9456044;
+    }
+
+    .reset-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: -70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 100;
+      transition: bottom 0.3s ease;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+      white-space: nowrap;
+      max-width: 90vw;
+    }
+
+    .toast.show {
+      bottom: 28px;
+    }
+
+    .toast-undo {
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .toast-undo:hover {
+      background: #00d2ff15;
+    }
+
+    @media (max-width: 400px) {
+      .app {
+        padding: 12px 12px 100px;
+      }
+
+      .header h1 {
+        font-size: 20px;
+      }
+
+      .item-text {
+        font-size: 12px;
+      }
+
+      .tab {
+        padding: 8px 10px;
+        font-size: 11px;
+      }
+    }
+  </style>
 </head>
+
 <body>
-<div class="app" id="app"></div>
-<div class="toast" id="toast"></div>
+  <div class="app" id="app"></div>
+  <div class="toast" id="toast"></div>
 
-<script>
-const CAT = {
-  class:     { bg: "#1a1a2e", border: "#e94560" },
-  fa:        { bg: "#0a1628", border: "#00d2ff" },
-  fameeting: { bg: "#1a1408", border: "#ff9100" },
-  analysis:  { bg: "#1a0a28", border: "#b44aff" },
-  algebra:   { bg: "#0a2818", border: "#00e676" },
-  diffeq:    { bg: "#28200a", border: "#ffab00" },
-  numtheory: { bg: "#281a0a", border: "#ff6d00" },
-  physics:   { bg: "#1a0a1a", border: "#e040fb" },
-  homework:  { bg: "#1a1a0a", border: "#c6a700" },
-  routine:   { bg: "#0f1a0f", border: "#66bb6a" },
-  reflect:   { bg: "#14140a", border: "#8d8d00" },
-};
-
-const CAT_LABEL = {
-  class: "CLASS", fa: "FA", fameeting: "MTG", analysis: "ANL IV",
-  algebra: "ALG II", diffeq: "DEQ II", numtheory: "NT II",
-  physics: "PHY II", homework: "HW", routine: "", reflect: "",
-};
-
-const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-const SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-
-const schedule = {
-  Monday: {
-    wake: "08:00", leave: "11:15", meta: null,
-    sections: [
-      { label: "Before class", items: [
-        { id: "mon-1", text: "Functional Analysis", hint: "Deep work \u2014 proofs & theory. Building toward Thursday\u2019s meeting.", cat: "fa" },
-      ]},
-      { label: "Class", items: [
-        { id: "mon-2", text: "MATE2202 Analiz IV (Teori) \u2014 12:20\u201314:50", hint: "Feza G\u00fcrsey Amfisi", cat: "class" },
-      ]},
-      { label: "After class", items: [
-        { id: "mon-3", text: "Analysis IV \u2014 homework", hint: "Start while lecture is fresh. Office hours Wednesday.", cat: "analysis" },
-        { id: "mon-4", text: "Functional Analysis", hint: "Exercises & problems", cat: "fa" },
-      ]},
-      { label: "Evening", items: [
-        { id: "mon-5", text: "French + Physio", hint: null, cat: "routine" },
-        { id: "mon-6", text: "Tue preview: Physics II", hint: "Light skim for tomorrow\u2019s lecture", cat: "physics" },
-        { id: "mon-7", text: "Tue preview: Algebra II", hint: "Skim Cebir Teori topics", cat: "algebra" },
-      ]},
-    ],
-  },
-  Tuesday: {
-    wake: "07:15", leave: "07:50", meta: null,
-    sections: [
-      { label: "Class (full day)", items: [
-        { id: "tue-1", text: "MATE2259 Physics II (Teori + Uyg + Lab) \u2014 09:00\u201313:10", hint: "AUBB B\u00fcy\u00fck Amfi I / Fizik Lab-208", cat: "class" },
-        { id: "tue-2", text: "MATE2200 Cebir II (Teori) \u2014 14:00\u201316:30", hint: "Feza G\u00fcrsey Amfisi", cat: "class" },
-      ]},
-      { label: "After class", items: [
-        { id: "tue-3", text: "Functional Analysis", hint: "Deep work \u2014 best evening slot", cat: "fa" },
-      ]},
-      { label: "Evening", items: [
-        { id: "tue-4", text: "French + Physio", hint: null, cat: "routine" },
-        { id: "tue-5", text: "Analysis IV \u2014 homework", hint: "Continue from Monday. Must finish before Wed office hours.", cat: "analysis" },
-      ]},
-    ],
-  },
-  Wednesday: {
-    wake: "07:15", leave: "07:50", meta: "Analysis IV office hours today",
-    sections: [
-      { label: "Class (full day)", items: [
-        { id: "wed-1", text: "MATE2204 Bilgisayarda Matematik \u2014 09:00\u201311:30", hint: "Bilgisayar Lab II", cat: "class" },
-        { id: "wed-2", text: "MATE2202 Analiz IV (Uyg) \u2014 11:30\u201313:10", hint: "Feza G\u00fcrsey Amfisi", cat: "class" },
-        { id: "wed-3", text: "Analysis IV office hours", hint: "Bring Monday\u2019s hw. Ask about anything you\u2019re stuck on.", cat: "analysis" },
-        { id: "wed-4", text: "MATE2203 Say\u0131lar Teorisi II \u2014 14:00\u201316:30", hint: "AUBB B\u00fcy\u00fck Amfi II", cat: "class" },
-      ]},
-      { label: "After class", items: [
-        { id: "wed-5", text: "Functional Analysis \u2014 meeting prep", hint: "Last chance to polish exercises & intuition for Thursday.", cat: "fa" },
-      ]},
-      { label: "Evening", items: [
-        { id: "wed-6", text: "French + Physio", hint: null, cat: "routine" },
-        { id: "wed-7", text: "Number Theory II \u2014 homework", hint: "Start while today\u2019s lecture is fresh", cat: "numtheory" },
-        { id: "wed-8", text: "Thu preview: Diff Eq II", hint: "Quick skim of tomorrow\u2019s topics (skippable)", cat: "diffeq" },
-      ]},
-    ],
-  },
-  Thursday: {
-    wake: "07:15", leave: "07:50", meta: "FA meeting day",
-    sections: [
-      { label: "Class + meeting", items: [
-        { id: "thu-1", text: "MATE2201 Diff Eq II (Teori + Uyg) \u2014 09:00\u201312:20", hint: "Feza G\u00fcrsey Amfisi", cat: "class" },
-        { id: "thu-2", text: "FA teacher meeting \u2014 ~12:30\u201314:00", hint: "Present exercises, discuss intuition, get follow-ups", cat: "fameeting" },
-      ]},
-      { label: "After (home ~15:10)", items: [
-        { id: "thu-3", text: "Functional Analysis \u2014 follow-ups", hint: "Start on whatever the teacher asked while it\u2019s fresh", cat: "fa" },
-        { id: "thu-4", text: "Diff Equations II \u2014 homework", hint: "Process today\u2019s lecture", cat: "diffeq" },
-        { id: "thu-5", text: "Number Theory II \u2014 homework", hint: "Continue from Wednesday", cat: "numtheory" },
-      ]},
-      { label: "Evening", items: [
-        { id: "thu-6", text: "French + Physio", hint: null, cat: "routine" },
-        { id: "thu-7", text: "Fri preview: Algebra II", hint: "Prep for Cebir II Uyg", cat: "algebra" },
-      ]},
-    ],
-  },
-  Friday: {
-    wake: "08:50", leave: "09:30", meta: null,
-    sections: [
-      { label: "Class", items: [
-        { id: "fri-1", text: "MATE2200 Cebir II (Uyg) \u2014 10:40\u201312:20", hint: "Feza G\u00fcrsey Amfisi", cat: "class" },
-      ]},
-      { label: "After class", items: [
-        { id: "fri-2", text: "Algebra II \u2014 homework", hint: "Process today\u2019s Uyg + start problem sets", cat: "algebra" },
-        { id: "fri-3", text: "Homework \u2014 all courses", hint: "Physics II, Comp Math, Diff Eq overflow. Clear the backlog.", cat: "homework" },
-        { id: "fri-4", text: "Functional Analysis", hint: "Weekly consolidation. Thu follow-ups continue.", cat: "fa" },
-      ]},
-      { label: "Evening", items: [
-        { id: "fri-5", text: "French + Physio", hint: null, cat: "routine" },
-        { id: "fri-6", text: "Homework overflow", hint: "Finish anything remaining", cat: "homework" },
-      ]},
-    ],
-  },
-  Saturday: {
-    wake: "08:30", leave: null, meta: null,
-    sections: [
-      { label: "Morning \u2014 peak hours", items: [
-        { id: "sat-1", text: "Functional Analysis \u2014 deep work", hint: "Theory & proofs. Fueled by Thursday\u2019s feedback.", cat: "fa" },
-        { id: "sat-2", text: "Functional Analysis \u2014 exercises & whiteboard", hint: null, cat: "fa" },
-      ]},
-      { label: "Afternoon", items: [
-        { id: "sat-3", text: "Remaining homework", hint: "Clear anything left from the week", cat: "homework" },
-        { id: "sat-4", text: "Functional Analysis \u2014 lighter review & notes", hint: "Or more hw if needed", cat: "fa" },
-      ]},
-      { label: "Evening", items: [
-        { id: "sat-5", text: "French + Physio", hint: null, cat: "routine" },
-      ]},
-    ],
-  },
-  Sunday: {
-    wake: "08:30", leave: null, meta: null,
-    sections: [
-      { label: "Core", items: [
-        { id: "sun-1", text: "Functional Analysis \u2014 deep theory session", hint: "Flagship block of the week", cat: "fa" },
-        { id: "sun-2", text: "Functional Analysis \u2014 exercises & proofs", hint: "If energy is there", cat: "fa" },
-      ]},
-      { label: "Evening", items: [
-        { id: "sun-3", text: "10-min weekly reflection", hint: "What did I skip? What\u2019s piling up? What do I show Thursday?", cat: "reflect" },
-        { id: "sun-4", text: "Monday prep: Analysis IV", hint: "Preview next Teori lecture topics", cat: "analysis" },
-        { id: "sun-5", text: "Monday prep: Algebra II", hint: "Skim ahead for Tuesday\u2019s Teori", cat: "algebra" },
-        { id: "sun-6", text: "French + Physio", hint: null, cat: "routine" },
-      ]},
-    ],
-  },
-};
-
-const overviewData = [
-  { day: "Mon", tag: "Late start", desc: "FA \u2192 class \u2192 Analysis IV hw \u2192 FA \u2192 preview Tue", color: "#00d2ff" },
-  { day: "Tue", tag: "Heavy", desc: "Classes all day \u2192 FA \u2192 Analysis IV hw (before Wed)", color: "#e94560" },
-  { day: "Wed", tag: "Heavy", desc: "Classes + office hours \u2192 FA meeting prep \u2192 NumTheory hw", color: "#e94560" },
-  { day: "Thu", tag: "Meeting", desc: "Diff Eq \u2192 FA meeting \u2192 follow-ups \u2192 Diff Eq hw", color: "#ff9100" },
-  { day: "Fri", tag: "Half day", desc: "Cebir Uyg \u2192 Algebra hw \u2192 all-course hw \u2192 FA", color: "#ffab00" },
-  { day: "Sat", tag: "Home", desc: "FA (peak hours) \u2192 remaining hw \u2192 more FA", color: "#00d2ff" },
-  { day: "Sun", tag: "Home", desc: "FA deep \u2192 reflect \u2192 Mon prep (Analiz + Algebra)", color: "#00d2ff" },
-];
-
-// ── State ──
-const today = new Date().getDay();
-const todayIdx = today === 0 ? 6 : today - 1;
-let selectedDay = todayIdx;
-let checked = {};
-let openPanels = {};
-let lastToggle = null;
-let toastTimer = null;
-
-// ── Sync state ──
-let firebaseReady = false;
-let syncRef = null;
-let syncStatus = 'offline';
-let syncListener = null;
-let ignoreNextRemote = false;
-let firebaseSDKPromise = null;
-let syncConnectionRef = null;
-let syncConnectionListener = null;
-let syncHistoryRef = null;
-let syncHistoryListener = null;
-let authUnsubscribe = null;
-
-// ── ISO Week (fixed) ──
-function getISOWeek(d) {
-  const date = new Date(d.getTime());
-  date.setHours(0, 0, 0, 0);
-  date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
-  const week1 = new Date(date.getFullYear(), 0, 4);
-  return 1 + Math.round(((date - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
-}
-
-function getWeekKey() { return `sp26-w${getISOWeek(new Date())}`; }
-function getWeekNum() { return getISOWeek(new Date()); }
-
-// ── Persistence ──
-function loadState() {
-  try {
-    const raw = localStorage.getItem(getWeekKey());
-    if (raw) checked = JSON.parse(raw);
-  } catch(e) { checked = {}; }
-}
-
-function saveState() {
-  try {
-    localStorage.setItem(getWeekKey(), JSON.stringify(checked));
-    saveHistory();
-    syncPush();
-  } catch(e) {}
-}
-
-// ── History / Streak ──
-function saveHistory() {
-  try {
-    const hist = JSON.parse(localStorage.getItem('sp26-history') || '{}');
-    hist[getWeekKey()] = getWeeklyProgress().pct;
-    localStorage.setItem('sp26-history', JSON.stringify(hist));
-  } catch(e) {}
-}
-
-function loadHistory() {
-  try { return JSON.parse(localStorage.getItem('sp26-history') || '{}'); }
-  catch(e) { return {}; }
-}
-
-// ── Toast / Undo ──
-function showToast(msg) {
-  const toast = document.getElementById('toast');
-  toast.innerHTML = `<span>${msg}</span><button class="toast-undo" onclick="undoToggle()">Undo</button>`;
-  toast.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(hideToast, 3500);
-}
-
-function hideToast() {
-  document.getElementById('toast').classList.remove('show');
-}
-
-function undoToggle() {
-  if (!lastToggle) return;
-  checked[lastToggle.id] = !lastToggle.wasChecked;
-  lastToggle = null;
-  saveState();
-  hideToast();
-  render();
-}
-
-// ── Toggle (targeted DOM update) ──
-function toggle(id) {
-  checked[id] = !checked[id];
-  lastToggle = { id, wasChecked: checked[id] };
-  saveState();
-
-  const item = document.querySelector(`[data-task-id="${id}"]`);
-  if (item) {
-    const isDone = !!checked[id];
-    item.classList.toggle('done', isDone);
-    item.setAttribute('aria-checked', String(isDone));
-    if (isDone) {
-      item.classList.remove('just-toggled');
-      void item.offsetWidth;
-      item.classList.add('just-toggled');
-      setTimeout(() => item.classList.remove('just-toggled'), 300);
-    }
-    updateProgressBars();
-    showToast(isDone ? 'Task completed' : 'Task unchecked');
-  } else {
-    render();
-    showToast(checked[id] ? 'Task completed' : 'Task unchecked');
-  }
-}
-
-function updateProgressBars() {
-  const dayName = DAYS[selectedDay];
-  const prog = getDayProgress(dayName);
-  const wp = getWeeklyProgress();
-
-  const fill = document.querySelector('.progress-fill');
-  if (fill) fill.style.width = prog.pct + '%';
-
-  const taskCount = document.getElementById('task-count');
-  const taskPct = document.getElementById('task-pct');
-  if (taskCount) taskCount.textContent = `${prog.done}/${prog.total} tasks`;
-  if (taskPct) taskPct.textContent = `${prog.pct}%`;
-
-  const weekVal = document.getElementById('week-val');
-  if (weekVal) weekVal.textContent = `${wp.done}/${wp.total} \u00b7 ${wp.pct}%`;
-  const weekFill = document.querySelector('.weekly-bar-fill');
-  if (weekFill) weekFill.style.width = wp.pct + '%';
-
-  document.querySelectorAll('.tab').forEach((tab, i) => {
-    const p = getDayProgress(DAYS[i]);
-    const bar = tab.querySelector('.tab-progress');
-    if (bar) bar.style.width = p.pct + '%';
-  });
-}
-
-function togglePanel(id) {
-  openPanels[id] = !openPanels[id];
-  const header = document.querySelector(`[data-panel-id="${id}"]`);
-  if (header) {
-    const content = document.getElementById(`panel-${id}`);
-    header.classList.toggle('open', !!openPanels[id]);
-    header.setAttribute('aria-expanded', String(!!openPanels[id]));
-    if (content) content.classList.toggle('open', !!openPanels[id]);
-  } else {
-    render();
-  }
-}
-
-function resetDay() {
-  if (!confirm(`Reset all tasks for ${DAYS[selectedDay]}?`)) return;
-  const dayName = DAYS[selectedDay];
-  schedule[dayName].sections.forEach(s => s.items.forEach(item => { delete checked[item.id]; }));
-  saveState();
-  render();
-}
-
-// ── Progress ──
-function getDayProgress(dayName) {
-  const day = schedule[dayName];
-  let total = 0, done = 0;
-  day.sections.forEach(s => s.items.forEach(item => {
-    total++;
-    if (checked[item.id]) done++;
-  }));
-  return { total, done, pct: total ? Math.round((done/total)*100) : 0 };
-}
-
-function getWeeklyProgress() {
-  let total = 0, done = 0;
-  DAYS.forEach(d => { const p = getDayProgress(d); total += p.total; done += p.done; });
-  return { total, done, pct: total ? Math.round((done/total)*100) : 0 };
-}
-
-// ── Time-aware sections ──
-function getCurrentSectionIndex(sections) {
-  const now = new Date();
-  const h = now.getHours() + now.getMinutes() / 60;
-  const times = sections.map((s, i) => {
-    for (const item of s.items) {
-      const m = item.text.match(/(\d{1,2}):(\d{2})/);
-      if (m) return parseInt(m[1]) + parseInt(m[2]) / 60;
-    }
-    const l = s.label.toLowerCase();
-    if (l.includes('before') || l.includes('morning') || l.includes('core')) return 8;
-    if (l.includes('class') || l.includes('meeting')) return 9;
-    if (l.includes('after') || l.includes('afternoon')) return 15;
-    if (l.includes('evening')) return 18;
-    return 8 + i * 3;
-  });
-  let idx = 0;
-  for (let i = 0; i < times.length; i++) { if (h >= times[i]) idx = i; }
-  return idx;
-}
-
-// ── Export / Import ──
-function exportData() {
-  const data = { checked, history: loadHistory(), weekKey: getWeekKey(), exported: new Date().toISOString() };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `study-plan-${getWeekKey()}.json`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function importData() {
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = '.json';
-  input.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (data.checked) { checked = data.checked; saveState(); }
-        if (data.history) localStorage.setItem('sp26-history', JSON.stringify(data.history));
-        render();
-        showToast('Data imported');
-      } catch(err) { showToast('Invalid file'); }
+  <script>
+    const CAT = {
+      class: { bg: "#1a1a2e", border: "#e94560" },
+      fa: { bg: "#0a1628", border: "#00d2ff" },
+      fameeting: { bg: "#1a1408", border: "#ff9100" },
+      analysis: { bg: "#1a0a28", border: "#b44aff" },
+      algebra: { bg: "#0a2818", border: "#00e676" },
+      diffeq: { bg: "#28200a", border: "#ffab00" },
+      numtheory: { bg: "#281a0a", border: "#ff6d00" },
+      physics: { bg: "#1a0a1a", border: "#e040fb" },
+      homework: { bg: "#1a1a0a", border: "#c6a700" },
+      routine: { bg: "#0f1a0f", border: "#66bb6a" },
+      reflect: { bg: "#14140a", border: "#8d8d00" },
     };
-    reader.readAsText(file);
-  };
-  input.click();
-}
 
-// ════════════════════════════════════════
-// ── Firebase Sync ──
-// ════════════════════════════════════════
+    const CAT_LABEL = {
+      class: "CLASS", fa: "FA", fameeting: "MTG", analysis: "ANL IV",
+      algebra: "ALG II", diffeq: "DEQ II", numtheory: "NT II",
+      physics: "PHY II", homework: "HW", routine: "", reflect: "",
+    };
 
-function getSyncConfig() {
-  try { return JSON.parse(localStorage.getItem('sp26-sync-config')); }
-  catch(e) { return null; }
-}
+    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-function saveSyncConfig(config) {
-  localStorage.setItem('sp26-sync-config', JSON.stringify(config));
-}
+    const schedule = {
+      Monday: {
+        wake: "08:00", leave: "11:15", meta: null,
+        sections: [
+          {
+            label: "Before class", items: [
+              { id: "mon-1", text: "Functional Analysis", hint: "Deep work \u2014 proofs & theory. Building toward Thursday\u2019s meeting.", cat: "fa" },
+            ]
+          },
+          {
+            label: "Class", items: [
+              { id: "mon-2", text: "MATE2202 Analiz IV (Teori) \u2014 12:20\u201314:50", hint: "Feza G\u00fcrsey Amfisi", cat: "class" },
+            ]
+          },
+          {
+            label: "After class", items: [
+              { id: "mon-3", text: "Analysis IV \u2014 homework", hint: "Start while lecture is fresh. Office hours Wednesday.", cat: "analysis" },
+              { id: "mon-4", text: "Functional Analysis", hint: "Exercises & problems", cat: "fa" },
+            ]
+          },
+          {
+            label: "Evening", items: [
+              { id: "mon-5", text: "French + Physio", hint: null, cat: "routine" },
+              { id: "mon-6", text: "Tue preview: Physics II", hint: "Light skim for tomorrow\u2019s lecture", cat: "physics" },
+              { id: "mon-7", text: "Tue preview: Algebra II", hint: "Skim Cebir Teori topics", cat: "algebra" },
+            ]
+          },
+        ],
+      },
+      Tuesday: {
+        wake: "07:15", leave: "07:50", meta: null,
+        sections: [
+          {
+            label: "Class (full day)", items: [
+              { id: "tue-1", text: "MATE2259 Physics II (Teori + Uyg + Lab) \u2014 09:00\u201313:10", hint: "AUBB B\u00fcy\u00fck Amfi I / Fizik Lab-208", cat: "class" },
+              { id: "tue-2", text: "MATE2200 Cebir II (Teori) \u2014 14:00\u201316:30", hint: "Feza G\u00fcrsey Amfisi", cat: "class" },
+            ]
+          },
+          {
+            label: "After class", items: [
+              { id: "tue-3", text: "Functional Analysis", hint: "Deep work \u2014 best evening slot", cat: "fa" },
+            ]
+          },
+          {
+            label: "Evening", items: [
+              { id: "tue-4", text: "French + Physio", hint: null, cat: "routine" },
+              { id: "tue-5", text: "Analysis IV \u2014 homework", hint: "Continue from Monday. Must finish before Wed office hours.", cat: "analysis" },
+            ]
+          },
+        ],
+      },
+      Wednesday: {
+        wake: "07:15", leave: "07:50", meta: "Analysis IV office hours today",
+        sections: [
+          {
+            label: "Class (full day)", items: [
+              { id: "wed-1", text: "MATE2204 Bilgisayarda Matematik \u2014 09:00\u201311:30", hint: "Bilgisayar Lab II", cat: "class" },
+              { id: "wed-2", text: "MATE2202 Analiz IV (Uyg) \u2014 11:30\u201313:10", hint: "Feza G\u00fcrsey Amfisi", cat: "class" },
+              { id: "wed-3", text: "Analysis IV office hours", hint: "Bring Monday\u2019s hw. Ask about anything you\u2019re stuck on.", cat: "analysis" },
+              { id: "wed-4", text: "MATE2203 Say\u0131lar Teorisi II \u2014 14:00\u201316:30", hint: "AUBB B\u00fcy\u00fck Amfi II", cat: "class" },
+            ]
+          },
+          {
+            label: "After class", items: [
+              { id: "wed-5", text: "Functional Analysis \u2014 meeting prep", hint: "Last chance to polish exercises & intuition for Thursday.", cat: "fa" },
+            ]
+          },
+          {
+            label: "Evening", items: [
+              { id: "wed-6", text: "French + Physio", hint: null, cat: "routine" },
+              { id: "wed-7", text: "Number Theory II \u2014 homework", hint: "Start while today\u2019s lecture is fresh", cat: "numtheory" },
+              { id: "wed-8", text: "Thu preview: Diff Eq II", hint: "Quick skim of tomorrow\u2019s topics (skippable)", cat: "diffeq" },
+            ]
+          },
+        ],
+      },
+      Thursday: {
+        wake: "07:15", leave: "07:50", meta: "FA meeting day",
+        sections: [
+          {
+            label: "Class + meeting", items: [
+              { id: "thu-1", text: "MATE2201 Diff Eq II (Teori + Uyg) \u2014 09:00\u201312:20", hint: "Feza G\u00fcrsey Amfisi", cat: "class" },
+              { id: "thu-2", text: "FA teacher meeting \u2014 ~12:30\u201314:00", hint: "Present exercises, discuss intuition, get follow-ups", cat: "fameeting" },
+            ]
+          },
+          {
+            label: "After (home ~15:10)", items: [
+              { id: "thu-3", text: "Functional Analysis \u2014 follow-ups", hint: "Start on whatever the teacher asked while it\u2019s fresh", cat: "fa" },
+              { id: "thu-4", text: "Diff Equations II \u2014 homework", hint: "Process today\u2019s lecture", cat: "diffeq" },
+              { id: "thu-5", text: "Number Theory II \u2014 homework", hint: "Continue from Wednesday", cat: "numtheory" },
+            ]
+          },
+          {
+            label: "Evening", items: [
+              { id: "thu-6", text: "French + Physio", hint: null, cat: "routine" },
+              { id: "thu-7", text: "Fri preview: Algebra II", hint: "Prep for Cebir II Uyg", cat: "algebra" },
+            ]
+          },
+        ],
+      },
+      Friday: {
+        wake: "08:50", leave: "09:30", meta: null,
+        sections: [
+          {
+            label: "Class", items: [
+              { id: "fri-1", text: "MATE2200 Cebir II (Uyg) \u2014 10:40\u201312:20", hint: "Feza G\u00fcrsey Amfisi", cat: "class" },
+            ]
+          },
+          {
+            label: "After class", items: [
+              { id: "fri-2", text: "Algebra II \u2014 homework", hint: "Process today\u2019s Uyg + start problem sets", cat: "algebra" },
+              { id: "fri-3", text: "Homework \u2014 all courses", hint: "Physics II, Comp Math, Diff Eq overflow. Clear the backlog.", cat: "homework" },
+              { id: "fri-4", text: "Functional Analysis", hint: "Weekly consolidation. Thu follow-ups continue.", cat: "fa" },
+            ]
+          },
+          {
+            label: "Evening", items: [
+              { id: "fri-5", text: "French + Physio", hint: null, cat: "routine" },
+              { id: "fri-6", text: "Homework overflow", hint: "Finish anything remaining", cat: "homework" },
+            ]
+          },
+        ],
+      },
+      Saturday: {
+        wake: "08:30", leave: null, meta: null,
+        sections: [
+          {
+            label: "Morning \u2014 peak hours", items: [
+              { id: "sat-1", text: "Functional Analysis \u2014 deep work", hint: "Theory & proofs. Fueled by Thursday\u2019s feedback.", cat: "fa" },
+              { id: "sat-2", text: "Functional Analysis \u2014 exercises & whiteboard", hint: null, cat: "fa" },
+            ]
+          },
+          {
+            label: "Afternoon", items: [
+              { id: "sat-3", text: "Remaining homework", hint: "Clear anything left from the week", cat: "homework" },
+              { id: "sat-4", text: "Functional Analysis \u2014 lighter review & notes", hint: "Or more hw if needed", cat: "fa" },
+            ]
+          },
+          {
+            label: "Evening", items: [
+              { id: "sat-5", text: "French + Physio", hint: null, cat: "routine" },
+            ]
+          },
+        ],
+      },
+      Sunday: {
+        wake: "08:30", leave: null, meta: null,
+        sections: [
+          {
+            label: "Core", items: [
+              { id: "sun-1", text: "Functional Analysis \u2014 deep theory session", hint: "Flagship block of the week", cat: "fa" },
+              { id: "sun-2", text: "Functional Analysis \u2014 exercises & proofs", hint: "If energy is there", cat: "fa" },
+            ]
+          },
+          {
+            label: "Evening", items: [
+              { id: "sun-3", text: "10-min weekly reflection", hint: "What did I skip? What\u2019s piling up? What do I show Thursday?", cat: "reflect" },
+              { id: "sun-4", text: "Monday prep: Analysis IV", hint: "Preview next Teori lecture topics", cat: "analysis" },
+              { id: "sun-5", text: "Monday prep: Algebra II", hint: "Skim ahead for Tuesday\u2019s Teori", cat: "algebra" },
+              { id: "sun-6", text: "French + Physio", hint: null, cat: "routine" },
+            ]
+          },
+        ],
+      },
+    };
 
-function loadFirebaseSDK() {
-  if (window.firebase && window.firebase.auth && window.firebase.database) return Promise.resolve();
-  if (firebaseSDKPromise) return firebaseSDKPromise;
+    const overviewData = [
+      { day: "Mon", tag: "Late start", desc: "FA \u2192 class \u2192 Analysis IV hw \u2192 FA \u2192 preview Tue", color: "#00d2ff" },
+      { day: "Tue", tag: "Heavy", desc: "Classes all day \u2192 FA \u2192 Analysis IV hw (before Wed)", color: "#e94560" },
+      { day: "Wed", tag: "Heavy", desc: "Classes + office hours \u2192 FA meeting prep \u2192 NumTheory hw", color: "#e94560" },
+      { day: "Thu", tag: "Meeting", desc: "Diff Eq \u2192 FA meeting \u2192 follow-ups \u2192 Diff Eq hw", color: "#ff9100" },
+      { day: "Fri", tag: "Half day", desc: "Cebir Uyg \u2192 Algebra hw \u2192 all-course hw \u2192 FA", color: "#ffab00" },
+      { day: "Sat", tag: "Home", desc: "FA (peak hours) \u2192 remaining hw \u2192 more FA", color: "#00d2ff" },
+      { day: "Sun", tag: "Home", desc: "FA deep \u2192 reflect \u2192 Mon prep (Analiz + Algebra)", color: "#00d2ff" },
+    ];
 
-  const scripts = [
-    ['https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js', 'Firebase app SDK'],
-    ['https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js', 'Firebase auth SDK'],
-    ['https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js', 'Firebase database SDK'],
-  ];
+    // ── State ──
+    const today = new Date().getDay();
+    const todayIdx = today === 0 ? 6 : today - 1;
+    let selectedDay = todayIdx;
+    let checked = {};
+    let openPanels = {};
+    let lastToggle = null;
+    let toastTimer = null;
 
-  firebaseSDKPromise = scripts.reduce((promise, [src, label]) => {
-    return promise.then(() => new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-      const script = document.createElement('script');
-      script.src = src;
-      script.onload = resolve;
-      script.onerror = () => reject(new Error(`Failed to load ${label}`));
-      document.head.appendChild(script);
-    }));
-  }, Promise.resolve()).catch(err => {
-    firebaseSDKPromise = null;
-    throw err;
-  });
+    // ── Sync state ──
+    let firebaseReady = false;
+    let syncRef = null;
+    let syncStatus = 'offline';
+    let syncListener = null;
+    let ignoreNextRemote = false;
+    let firebaseSDKPromise = null;
+    let syncConnectionRef = null;
+    let syncConnectionListener = null;
+    let syncHistoryRef = null;
+    let syncHistoryListener = null;
+    let authUnsubscribe = null;
 
-  return firebaseSDKPromise;
-}
+    // ── ISO Week (fixed) ──
+    function getISOWeek(d) {
+      const date = new Date(d.getTime());
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
+      const week1 = new Date(date.getFullYear(), 0, 4);
+      return 1 + Math.round(((date - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+    }
 
-function parseFirebaseConfig(text) {
-  // Try direct JSON
-  try { const obj = JSON.parse(text); if (obj.databaseURL) return obj; } catch(e) {}
-  // Find the object containing apiKey (handles full SDK snippet, surrounding code, etc.)
-  const match = text.match(/\{[^{}]*apiKey[^{}]*\}/s);
-  if (match) {
-    try {
-      // Evaluate as JS object literal — handles unquoted keys, single quotes, trailing commas
-      const obj = new Function('return (' + match[0] + ')')();
-      if (obj && typeof obj === 'object' && obj.databaseURL) return obj;
-    } catch(e) {}
-  }
-  return null;
-}
+    function getWeekKey() { return `sp26-w${getISOWeek(new Date())}`; }
+    function getWeekNum() { return getISOWeek(new Date()); }
 
-async function initSync(config) {
-  syncStatus = 'syncing';
-  updateSyncDot();
+    // ── Persistence ──
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(getWeekKey());
+        if (raw) checked = JSON.parse(raw);
+      } catch (e) { checked = {}; }
+    }
 
-  await loadFirebaseSDK();
+    function saveState() {
+      try {
+        localStorage.setItem(getWeekKey(), JSON.stringify(checked));
+        saveHistory();
+        syncPush();
+      } catch (e) { }
+    }
 
-  if (!firebase.apps.length) {
-    firebase.initializeApp(config);
-  }
+    // ── History / Streak ──
+    function saveHistory() {
+      try {
+        const hist = JSON.parse(localStorage.getItem('sp26-history') || '{}');
+        hist[getWeekKey()] = getWeeklyProgress().pct;
+        localStorage.setItem('sp26-history', JSON.stringify(hist));
+      } catch (e) { }
+    }
 
-  const user = firebase.auth().currentUser;
-  if (!user) throw new Error('Please sign in with Google to enable sync.');
+    function loadHistory() {
+      try { return JSON.parse(localStorage.getItem('sp26-history') || '{}'); }
+      catch (e) { return {}; }
+    }
 
-  const db = firebase.database();
+    // ── Toast / Undo ──
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerHTML = `<span>${msg}</span><button class="toast-undo" onclick="undoToggle()">Undo</button>`;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(hideToast, 3500);
+    }
 
-  // Connection monitoring
-  if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
-  syncConnectionRef = db.ref('.info/connected');
-  syncConnectionListener = syncConnectionRef.on('value', snap => {
-    syncStatus = snap.val() ? 'connected' : 'offline';
-    updateSyncDot();
-  });
+    function hideToast() {
+      document.getElementById('toast').classList.remove('show');
+    }
 
-  // Listen for current week's checked data
-  if (syncRef && syncListener) syncRef.off('value', syncListener);
-
-  syncRef = db.ref('study/' + getWeekKey());
-  syncListener = syncRef.on('value', snap => {
-    if (ignoreNextRemote) { ignoreNextRemote = false; return; }
-    if (snap.exists()) {
-      checked = snap.val();
-      localStorage.setItem(getWeekKey(), JSON.stringify(checked));
+    function undoToggle() {
+      if (!lastToggle) return;
+      checked[lastToggle.id] = !lastToggle.wasChecked;
+      lastToggle = null;
+      saveState();
+      hideToast();
       render();
     }
-  });
 
-  // Also listen for history
-  if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
-  syncHistoryRef = db.ref('study/history');
-  syncHistoryListener = syncHistoryRef.on('value', snap => {
-    if (snap.exists()) {
-      localStorage.setItem('sp26-history', JSON.stringify(snap.val()));
+    // ── Toggle (targeted DOM update) ──
+    function toggle(id) {
+      checked[id] = !checked[id];
+      lastToggle = { id, wasChecked: checked[id] };
+      saveState();
+
+      const item = document.querySelector(`[data-task-id="${id}"]`);
+      if (item) {
+        const isDone = !!checked[id];
+        item.classList.toggle('done', isDone);
+        item.setAttribute('aria-checked', String(isDone));
+        if (isDone) {
+          item.classList.remove('just-toggled');
+          void item.offsetWidth;
+          item.classList.add('just-toggled');
+          setTimeout(() => item.classList.remove('just-toggled'), 300);
+        }
+        updateProgressBars();
+        showToast(isDone ? 'Task completed' : 'Task unchecked');
+      } else {
+        render();
+        showToast(checked[id] ? 'Task completed' : 'Task unchecked');
+      }
     }
-  });
 
-  firebaseReady = true;
-  saveSyncConfig(config);
-}
+    function updateProgressBars() {
+      const dayName = DAYS[selectedDay];
+      const prog = getDayProgress(dayName);
+      const wp = getWeeklyProgress();
 
-function syncPush() {
-  if (!firebaseReady || !syncRef) return;
-  ignoreNextRemote = true;
-  syncRef.set(checked).catch(() => { ignoreNextRemote = false; });
-  // Also push history
-  try {
-    firebase.database().ref('study/history').set(loadHistory()).catch(() => {});
-  } catch(e) {}
-}
+      const fill = document.querySelector('.progress-fill');
+      if (fill) fill.style.width = prog.pct + '%';
 
-function updateSyncDot() {
-  const dot = document.getElementById('sync-dot');
-  if (!dot) return;
-  dot.className = 'sync-dot ' + (getSyncConfig() ? syncStatus : 'hidden');
-  dot.title = syncStatus === 'connected' ? 'Synced' :
-              syncStatus === 'syncing' ? 'Syncing\u2026' : 'Offline';
-}
+      const taskCount = document.getElementById('task-count');
+      const taskPct = document.getElementById('task-pct');
+      if (taskCount) taskCount.textContent = `${prog.done}/${prog.total} tasks`;
+      if (taskPct) taskPct.textContent = `${prog.pct}%`;
 
-async function connectSync() {
-  const input = document.getElementById('sync-config-input');
-  const msg = document.getElementById('sync-msg');
-  if (!input || !msg) return;
+      const weekVal = document.getElementById('week-val');
+      if (weekVal) weekVal.textContent = `${wp.done}/${wp.total} \u00b7 ${wp.pct}%`;
+      const weekFill = document.querySelector('.weekly-bar-fill');
+      if (weekFill) weekFill.style.width = wp.pct + '%';
 
-  const config = parseFirebaseConfig(input.value.trim());
-  if (!config) {
-    msg.className = 'sync-msg err';
-    msg.textContent = 'Could not parse config. Make sure you copied the full firebaseConfig object.';
-    return;
-  }
-
-  msg.className = 'sync-msg wait';
-  msg.textContent = 'Redirecting to Google sign-in\u2026';
-
-  try {
-    saveSyncConfig(config);
-    syncStatus = 'syncing';
-    updateSyncDot();
-    await loadFirebaseSDK();
-    if (!firebase.apps.length) {
-      firebase.initializeApp(config);
+      document.querySelectorAll('.tab').forEach((tab, i) => {
+        const p = getDayProgress(DAYS[i]);
+        const bar = tab.querySelector('.tab-progress');
+        if (bar) bar.style.width = p.pct + '%';
+      });
     }
-    localStorage.setItem('sp26-sync-auth-pending', '1');
-    await firebase.auth().signInWithRedirect(new firebase.auth.GoogleAuthProvider());
-  } catch(err) {
-    msg.className = 'sync-msg err';
-    msg.textContent = 'Failed: ' + err.message;
-  }
-}
 
-function disconnectSync() {
-  if (syncRef && syncListener) syncRef.off('value', syncListener);
-  if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
-  if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
-  if (authUnsubscribe) { authUnsubscribe(); authUnsubscribe = null; }
-  try {
-    if (firebase.apps.length) {
-      firebase.auth().signOut().catch(() => {});
+    function togglePanel(id) {
+      openPanels[id] = !openPanels[id];
+      const header = document.querySelector(`[data-panel-id="${id}"]`);
+      if (header) {
+        const content = document.getElementById(`panel-${id}`);
+        header.classList.toggle('open', !!openPanels[id]);
+        header.setAttribute('aria-expanded', String(!!openPanels[id]));
+        if (content) content.classList.toggle('open', !!openPanels[id]);
+      } else {
+        render();
+      }
     }
-  } catch(e) {}
-  localStorage.removeItem('sp26-sync-config');
-  localStorage.removeItem('sp26-sync-auth-pending');
-  firebaseReady = false;
-  syncRef = null;
-  syncListener = null;
-  syncConnectionRef = null;
-  syncConnectionListener = null;
-  syncHistoryRef = null;
-  syncHistoryListener = null;
-  syncStatus = 'offline';
-  render();
-  showToast('Sync disconnected');
-}
 
-async function setupStoredSync() {
-  const config = getSyncConfig();
-  if (!config) return;
+    function resetDay() {
+      if (!confirm(`Reset all tasks for ${DAYS[selectedDay]}?`)) return;
+      const dayName = DAYS[selectedDay];
+      schedule[dayName].sections.forEach(s => s.items.forEach(item => { delete checked[item.id]; }));
+      saveState();
+      render();
+    }
 
-  syncStatus = 'syncing';
-  updateSyncDot();
-  const hadPendingAuth = localStorage.getItem('sp26-sync-auth-pending') === '1';
+    // ── Progress ──
+    function getDayProgress(dayName) {
+      const day = schedule[dayName];
+      let total = 0, done = 0;
+      day.sections.forEach(s => s.items.forEach(item => {
+        total++;
+        if (checked[item.id]) done++;
+      }));
+      return { total, done, pct: total ? Math.round((done / total) * 100) : 0 };
+    }
 
-  await loadFirebaseSDK();
+    function getWeeklyProgress() {
+      let total = 0, done = 0;
+      DAYS.forEach(d => { const p = getDayProgress(d); total += p.total; done += p.done; });
+      return { total, done, pct: total ? Math.round((done / total) * 100) : 0 };
+    }
 
-  if (!firebase.apps.length) {
-    firebase.initializeApp(config);
-  }
+    // ── Time-aware sections ──
+    function getCurrentSectionIndex(sections) {
+      const now = new Date();
+      const h = now.getHours() + now.getMinutes() / 60;
+      const times = sections.map((s, i) => {
+        for (const item of s.items) {
+          const m = item.text.match(/(\d{1,2}):(\d{2})/);
+          if (m) return parseInt(m[1]) + parseInt(m[2]) / 60;
+        }
+        const l = s.label.toLowerCase();
+        if (l.includes('before') || l.includes('morning') || l.includes('core')) return 8;
+        if (l.includes('class') || l.includes('meeting')) return 9;
+        if (l.includes('after') || l.includes('afternoon')) return 15;
+        if (l.includes('evening')) return 18;
+        return 8 + i * 3;
+      });
+      let idx = 0;
+      for (let i = 0; i < times.length; i++) { if (h >= times[i]) idx = i; }
+      return idx;
+    }
 
-  let redirectResult = null;
-  try {
-    redirectResult = await firebase.auth().getRedirectResult();
-  } catch (err) {
-    localStorage.removeItem('sp26-sync-auth-pending');
-    syncStatus = 'offline';
-    updateSyncDot();
-    throw err;
-  }
+    // ── Export / Import ──
+    function exportData() {
+      const data = { checked, history: loadHistory(), weekKey: getWeekKey(), exported: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `study-plan-${getWeekKey()}.json`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
 
-  if (authUnsubscribe) authUnsubscribe();
-  authUnsubscribe = firebase.auth().onAuthStateChanged(async user => {
-    if (!user) {
+    function importData() {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = '.json';
+      input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          try {
+            const data = JSON.parse(ev.target.result);
+            if (data.checked) { checked = data.checked; saveState(); }
+            if (data.history) localStorage.setItem('sp26-history', JSON.stringify(data.history));
+            render();
+            showToast('Data imported');
+          } catch (err) { showToast('Invalid file'); }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
+    // ════════════════════════════════════════
+    // ── Firebase Sync ──
+    // ════════════════════════════════════════
+
+    function getSyncConfig() {
+      try { return JSON.parse(localStorage.getItem('sp26-sync-config')); }
+      catch (e) { return null; }
+    }
+
+    function saveSyncConfig(config) {
+      localStorage.setItem('sp26-sync-config', JSON.stringify(config));
+    }
+
+    function loadFirebaseSDK() {
+      if (window.firebase && window.firebase.auth && window.firebase.database) return Promise.resolve();
+      if (firebaseSDKPromise) return firebaseSDKPromise;
+
+      const scripts = [
+        ['https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js', 'Firebase app SDK'],
+        ['https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js', 'Firebase auth SDK'],
+        ['https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js', 'Firebase database SDK'],
+      ];
+
+      firebaseSDKPromise = scripts.reduce((promise, [src, label]) => {
+        return promise.then(() => new Promise((resolve, reject) => {
+          if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+          const script = document.createElement('script');
+          script.src = src;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error(`Failed to load ${label}`));
+          document.head.appendChild(script);
+        }));
+      }, Promise.resolve()).catch(err => {
+        firebaseSDKPromise = null;
+        throw err;
+      });
+
+      return firebaseSDKPromise;
+    }
+
+    function parseFirebaseConfig(text) {
+      // Try direct JSON
+      try { const obj = JSON.parse(text); if (obj.databaseURL) return obj; } catch (e) { }
+      // Find the object containing apiKey (handles full SDK snippet, surrounding code, etc.)
+      const match = text.match(/\{[^{}]*apiKey[^{}]*\}/s);
+      if (match) {
+        try {
+          // Evaluate as JS object literal — handles unquoted keys, single quotes, trailing commas
+          const obj = new Function('return (' + match[0] + ')')();
+          if (obj && typeof obj === 'object' && obj.databaseURL) return obj;
+        } catch (e) { }
+      }
+      return null;
+    }
+
+    async function initSync(config) {
+      syncStatus = 'syncing';
+      updateSyncDot();
+
+      await loadFirebaseSDK();
+
+      if (!firebase.apps.length) {
+        firebase.initializeApp(config);
+      }
+
+      const db = firebase.database();
+
+      // Connection monitoring
+      if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
+      syncConnectionRef = db.ref('.info/connected');
+      syncConnectionListener = syncConnectionRef.on('value', snap => {
+        syncStatus = snap.val() ? 'connected' : 'offline';
+        updateSyncDot();
+      });
+
+      // Listen for current week's checked data
+      if (syncRef && syncListener) syncRef.off('value', syncListener);
+
+      syncRef = db.ref('study/' + getWeekKey());
+      syncListener = syncRef.on('value', snap => {
+        if (ignoreNextRemote) { ignoreNextRemote = false; return; }
+        if (snap.exists()) {
+          checked = snap.val();
+          localStorage.setItem(getWeekKey(), JSON.stringify(checked));
+          render();
+        }
+      });
+
+      // Also listen for history
+      if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
+      syncHistoryRef = db.ref('study/history');
+      syncHistoryListener = syncHistoryRef.on('value', snap => {
+        if (snap.exists()) {
+          localStorage.setItem('sp26-history', JSON.stringify(snap.val()));
+        }
+      });
+
+      firebaseReady = true;
+      saveSyncConfig(config);
+    }
+
+    function syncPush() {
+      if (!firebaseReady || !syncRef) return;
+      ignoreNextRemote = true;
+      syncRef.set(checked).catch(() => { ignoreNextRemote = false; });
+      // Also push history
+      try {
+        firebase.database().ref('study/history').set(loadHistory()).catch(() => { });
+      } catch (e) { }
+    }
+
+    function updateSyncDot() {
+      const dot = document.getElementById('sync-dot');
+      if (!dot) return;
+      dot.className = 'sync-dot ' + (getSyncConfig() ? syncStatus : 'hidden');
+      dot.title = syncStatus === 'connected' ? 'Synced' :
+        syncStatus === 'syncing' ? 'Syncing\u2026' : 'Offline';
+    }
+
+    async function connectSync() {
+      const input = document.getElementById('sync-config-input');
+      const msg = document.getElementById('sync-msg');
+      if (!input || !msg) return;
+
+      const config = parseFirebaseConfig(input.value.trim());
+      if (!config) {
+        msg.className = 'sync-msg err';
+        msg.textContent = 'Could not parse config. Make sure you copied the full firebaseConfig object.';
+        return;
+      }
+
+      msg.className = 'sync-msg wait';
+      msg.textContent = 'Opening Google sign-in\u2026';
+
+      try {
+        syncStatus = 'syncing';
+        updateSyncDot();
+        await loadFirebaseSDK();
+        if (!firebase.apps.length) {
+          firebase.initializeApp(config);
+        }
+        // Use popup instead of redirect — works on file:// and https://
+        await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider());
+        // Auth succeeded — now save config and init sync
+        await initSync(config);
+        render();
+        showToast('Sync connected');
+      } catch (err) {
+        firebaseReady = false;
+        syncStatus = 'offline';
+        updateSyncDot();
+        msg.className = 'sync-msg err';
+        msg.textContent = 'Failed: ' + err.message;
+      }
+    }
+
+    function disconnectSync() {
       if (syncRef && syncListener) syncRef.off('value', syncListener);
       if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
       if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
+      if (authUnsubscribe) { authUnsubscribe(); authUnsubscribe = null; }
+      try {
+        if (firebase.apps.length) {
+          firebase.auth().signOut().catch(() => { });
+        }
+      } catch (e) { }
+      localStorage.removeItem('sp26-sync-config');
+      firebaseReady = false;
       syncRef = null;
       syncListener = null;
       syncConnectionRef = null;
       syncConnectionListener = null;
       syncHistoryRef = null;
       syncHistoryListener = null;
-      firebaseReady = false;
-      if (hadPendingAuth) localStorage.removeItem('sp26-sync-auth-pending');
       syncStatus = 'offline';
-      updateSyncDot();
       render();
-      return;
+      showToast('Sync disconnected');
     }
 
-    try {
-      await initSync(config);
-      render();
-      if ((redirectResult && redirectResult.user) || hadPendingAuth) {
-        localStorage.removeItem('sp26-sync-auth-pending');
-        showToast('Sync connected');
+    async function setupStoredSync() {
+      const config = getSyncConfig();
+      if (!config) return;
+
+      syncStatus = 'syncing';
+      updateSyncDot();
+
+      await loadFirebaseSDK();
+
+      if (!firebase.apps.length) {
+        firebase.initializeApp(config);
       }
-    } catch (err) {
-      firebaseReady = false;
-      syncStatus = 'offline';
-      updateSyncDot();
-      console.warn('Auto-sync failed:', err.message);
+
+      if (authUnsubscribe) authUnsubscribe();
+      authUnsubscribe = firebase.auth().onAuthStateChanged(async user => {
+        if (!user) {
+          // User not signed in — tear down listeners and clear saved config
+          if (syncRef && syncListener) syncRef.off('value', syncListener);
+          if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
+          if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
+          syncRef = null;
+          syncListener = null;
+          syncConnectionRef = null;
+          syncConnectionListener = null;
+          syncHistoryRef = null;
+          syncHistoryListener = null;
+          firebaseReady = false;
+          // Config was saved after auth, so if we're not signed in it's stale — remove it
+          localStorage.removeItem('sp26-sync-config');
+          syncStatus = 'offline';
+          updateSyncDot();
+          render();
+          return;
+        }
+
+        try {
+          await initSync(config);
+          render();
+        } catch (err) {
+          firebaseReady = false;
+          syncStatus = 'offline';
+          updateSyncDot();
+          console.warn('Auto-sync failed:', err.message);
+        }
+      });
     }
-  });
-}
 
-// ════════════════════════════════════════
-// ── Render ──
-// ════════════════════════════════════════
+    // ════════════════════════════════════════
+    // ── Render ──
+    // ════════════════════════════════════════
 
-function render() {
-  const scrollY = window.scrollY;
-  const dayName = DAYS[selectedDay];
-  const day = schedule[dayName];
-  const prog = getDayProgress(dayName);
-  const wp = getWeeklyProgress();
-  const isToday = selectedDay === todayIdx;
-  const currentSectionIdx = isToday ? getCurrentSectionIndex(day.sections) : -1;
+    function render() {
+      const scrollY = window.scrollY;
+      const dayName = DAYS[selectedDay];
+      const day = schedule[dayName];
+      const prog = getDayProgress(dayName);
+      const wp = getWeeklyProgress();
+      const isToday = selectedDay === todayIdx;
+      const currentSectionIdx = isToday ? getCurrentSectionIndex(day.sections) : -1;
 
-  let html = '';
+      let html = '';
 
-  // Header
-  html += `
+      // Header
+      html += `
     <div class="header">
       <div class="header-sub">Spring 2026 \u00b7 4th Semester</div>
       <h1>Study Plan <span id="sync-dot" class="sync-dot ${getSyncConfig() ? syncStatus : 'hidden'}"
@@ -889,16 +1451,16 @@ function render() {
       <div class="header-tag">FA \u2265 18h/week \u00b7 preview \u2192 class \u2192 hw</div>
     </div>`;
 
-  // Weekly progress
-  html += `
+      // Weekly progress
+      html += `
     <div class="weekly-progress">
       <span class="weekly-label">Week ${getWeekNum()}</span>
       <div class="weekly-bar"><div class="weekly-bar-fill" style="width:${wp.pct}%"></div></div>
       <span class="weekly-val" id="week-val">${wp.done}/${wp.total} \u00b7 ${wp.pct}%</span>
     </div>`;
 
-  // Day progress
-  html += `
+      // Day progress
+      html += `
     <div class="progress-wrap">
       <div class="progress-bar"><div class="progress-fill" style="width:${prog.pct}%"></div></div>
       <div class="progress-text">
@@ -907,21 +1469,21 @@ function render() {
       </div>
     </div>`;
 
-  // Tabs
-  html += `<div class="tabs" role="tablist" aria-label="Days of the week">`;
-  DAYS.forEach((d, i) => {
-    const p = getDayProgress(d);
-    const cls = [i === selectedDay ? 'active' : '', i === todayIdx ? 'today' : ''].filter(Boolean).join(' ');
-    html += `<button class="tab ${cls}" role="tab" aria-selected="${i === selectedDay}" onclick="selectDay(${i})">
+      // Tabs
+      html += `<div class="tabs" role="tablist" aria-label="Days of the week">`;
+      DAYS.forEach((d, i) => {
+        const p = getDayProgress(d);
+        const cls = [i === selectedDay ? 'active' : '', i === todayIdx ? 'today' : ''].filter(Boolean).join(' ');
+        html += `<button class="tab ${cls}" role="tab" aria-selected="${i === selectedDay}" onclick="selectDay(${i})">
       ${SHORT[i]}<div class="tab-progress" style="width:${p.pct}%"></div>
     </button>`;
-  });
-  html += `</div>`;
+      });
+      html += `</div>`;
 
-  // Day header
-  const leaveHtml = day.leave ? `<span>Leave <span class="val">${day.leave}</span></span>` : `<span class="home">Home day</span>`;
-  const metaHtml = day.meta ? `<span class="flag">\u2691 ${day.meta}</span>` : '';
-  html += `
+      // Day header
+      const leaveHtml = day.leave ? `<span>Leave <span class="val">${day.leave}</span></span>` : `<span class="home">Home day</span>`;
+      const metaHtml = day.meta ? `<span class="flag">\u2691 ${day.meta}</span>` : '';
+      html += `
     <div class="day-header">
       <div class="day-name">${dayName}${isToday ? ' <span style="font-size:12px;color:var(--accent);font-weight:400">today</span>' : ''}</div>
       <div class="day-meta">
@@ -930,21 +1492,21 @@ function render() {
       </div>
     </div>`;
 
-  // Sections
-  html += `<div class="sections" role="list" aria-label="Tasks for ${dayName}">`;
-  day.sections.forEach((section, sIdx) => {
-    let sClass = 'section-group';
-    if (isToday) {
-      if (sIdx < currentSectionIdx) sClass += ' section-past';
-      else if (sIdx === currentSectionIdx) sClass += ' section-current';
-    }
-    html += `<div class="${sClass}"><div class="section-label">${section.label}</div><div class="items">`;
-    section.items.forEach(item => {
-      const c = CAT[item.cat];
-      const isDone = !!checked[item.id];
-      const textColor = item.cat === "class" || item.cat === "fameeting" ? c.border : "#e4e4e7";
-      const catLabel = CAT_LABEL[item.cat];
-      html += `
+      // Sections
+      html += `<div class="sections" role="list" aria-label="Tasks for ${dayName}">`;
+      day.sections.forEach((section, sIdx) => {
+        let sClass = 'section-group';
+        if (isToday) {
+          if (sIdx < currentSectionIdx) sClass += ' section-past';
+          else if (sIdx === currentSectionIdx) sClass += ' section-current';
+        }
+        html += `<div class="${sClass}"><div class="section-label">${section.label}</div><div class="items">`;
+        section.items.forEach(item => {
+          const c = CAT[item.cat];
+          const isDone = !!checked[item.id];
+          const textColor = item.cat === "class" || item.cat === "fameeting" ? c.border : "#e4e4e7";
+          const catLabel = CAT_LABEL[item.cat];
+          html += `
         <div class="item ${isDone ? 'done' : ''}" role="checkbox" aria-checked="${isDone}" tabindex="0"
              data-task-id="${item.id}" style="background:${c.bg};border:1px solid ${c.border}22"
              onclick="toggle('${item.id}')">
@@ -958,38 +1520,38 @@ function render() {
             </div>
           </div>
         </div>`;
-    });
-    html += `</div></div>`;
-  });
-  html += `</div>`;
+        });
+        html += `</div></div>`;
+      });
+      html += `</div>`;
 
-  // ── Panels ──
+      // ── Panels ──
 
-  // Weekly overview
-  const ovOpen = openPanels['overview'];
-  html += `<div class="panel">
-    <div class="panel-header ${ovOpen?'open':''}" data-panel-id="overview" onclick="togglePanel('overview')"
+      // Weekly overview
+      const ovOpen = openPanels['overview'];
+      html += `<div class="panel">
+    <div class="panel-header ${ovOpen ? 'open' : ''}" data-panel-id="overview" onclick="togglePanel('overview')"
          role="button" aria-expanded="${!!ovOpen}" aria-controls="panel-overview" tabindex="0">
       <div class="panel-title">Weekly Pattern</div><div class="panel-arrow">\u25bc</div>
     </div>
-    <div class="panel-content ${ovOpen?'open':''}" id="panel-overview">`;
-  overviewData.forEach(row => {
-    html += `<div class="overview-row">
+    <div class="panel-content ${ovOpen ? 'open' : ''}" id="panel-overview">`;
+      overviewData.forEach(row => {
+        html += `<div class="overview-row">
       <div class="overview-day" style="color:${row.color}">${row.day}</div>
       <div class="overview-tag" style="background:${row.color}15;color:${row.color};border:1px solid ${row.color}30">${row.tag}</div>
       <div class="overview-desc">${row.desc}</div>
     </div>`;
-  });
-  html += `</div></div>`;
+      });
+      html += `</div></div>`;
 
-  // FA Engine
-  const faOpen = openPanels['fa'];
-  html += `<div class="panel">
-    <div class="panel-header ${faOpen?'open':''}" data-panel-id="fa" onclick="togglePanel('fa')"
+      // FA Engine
+      const faOpen = openPanels['fa'];
+      html += `<div class="panel">
+    <div class="panel-header ${faOpen ? 'open' : ''}" data-panel-id="fa" onclick="togglePanel('fa')"
          role="button" aria-expanded="${!!faOpen}" aria-controls="panel-fa" tabindex="0">
       <div class="panel-title">FA Weekly Engine</div><div class="panel-arrow">\u25bc</div>
     </div>
-    <div class="panel-content ${faOpen?'open':''}" id="panel-fa" style="font-size:12px;color:#71717a;line-height:1.8">
+    <div class="panel-content ${faOpen ? 'open' : ''}" id="panel-fa" style="font-size:12px;color:#71717a;line-height:1.8">
       <span style="color:#ff9100;font-weight:600">Thu</span> Meeting \u2192 feedback + follow-up questions<br>
       <span style="color:#ffab00;font-weight:600">Thu\u2013Fri</span> Start follow-ups while conversation is fresh<br>
       <span style="color:#00d2ff;font-weight:600">Sat\u2013Sun</span> Bulk deep work (fueled by Thu feedback)<br>
@@ -998,14 +1560,14 @@ function render() {
     </div>
   </div>`;
 
-  // How it works
-  const howOpen = openPanels['how'];
-  html += `<div class="panel">
-    <div class="panel-header ${howOpen?'open':''}" data-panel-id="how" onclick="togglePanel('how')"
+      // How it works
+      const howOpen = openPanels['how'];
+      html += `<div class="panel">
+    <div class="panel-header ${howOpen ? 'open' : ''}" data-panel-id="how" onclick="togglePanel('how')"
          role="button" aria-expanded="${!!howOpen}" aria-controls="panel-how" tabindex="0">
       <div class="panel-title">How this works</div><div class="panel-arrow">\u25bc</div>
     </div>
-    <div class="panel-content ${howOpen?'open':''}" id="panel-how">
+    <div class="panel-content ${howOpen ? 'open' : ''}" id="panel-how">
       <div class="info" style="background:#0a1628;border:1px solid rgba(0,210,255,0.13);color:#8899aa">
         <p><strong>No fixed times except class, wake & FA meeting.</strong> Work through tasks in order. Finish early? Take the slack.</p>
         <p><strong>Every course block = homework.</strong> The schedule routes hw to optimal days based on lecture timing.</p>
@@ -1014,14 +1576,14 @@ function render() {
     </div>
   </div>`;
 
-  // Cut order
-  const cutOpen = openPanels['cut'];
-  html += `<div class="panel">
-    <div class="panel-header ${cutOpen?'open':''}" data-panel-id="cut" onclick="togglePanel('cut')"
+      // Cut order
+      const cutOpen = openPanels['cut'];
+      html += `<div class="panel">
+    <div class="panel-header ${cutOpen ? 'open' : ''}" data-panel-id="cut" onclick="togglePanel('cut')"
          role="button" aria-expanded="${!!cutOpen}" aria-controls="panel-cut" tabindex="0">
       <div class="panel-title" style="color:#e94560">Bad day? Cut order</div><div class="panel-arrow">\u25bc</div>
     </div>
-    <div class="panel-content ${cutOpen?'open':''}" id="panel-cut">
+    <div class="panel-content ${cutOpen ? 'open' : ''}" id="panel-cut">
       <div class="info" style="background:#1a0a0a;border:1px solid rgba(233,69,96,0.13);color:#aa8888">
         <p>1. Next-day previews</p>
         <p>2. Physics II / Comp Math hw</p>
@@ -1034,14 +1596,14 @@ function render() {
     </div>
   </div>`;
 
-  // 3-week rhythm
-  const rOpen = openPanels['rhythm'];
-  html += `<div class="panel">
-    <div class="panel-header ${rOpen?'open':''}" data-panel-id="rhythm" onclick="togglePanel('rhythm')"
+      // 3-week rhythm
+      const rOpen = openPanels['rhythm'];
+      html += `<div class="panel">
+    <div class="panel-header ${rOpen ? 'open' : ''}" data-panel-id="rhythm" onclick="togglePanel('rhythm')"
          role="button" aria-expanded="${!!rOpen}" aria-controls="panel-rhythm" tabindex="0">
       <div class="panel-title" style="color:#00e676">3-week rhythm</div><div class="panel-arrow">\u25bc</div>
     </div>
-    <div class="panel-content ${rOpen?'open':''}" id="panel-rhythm">
+    <div class="panel-content ${rOpen ? 'open' : ''}" id="panel-rhythm">
       <div class="info" style="background:#0a1a18;border:1px solid rgba(0,230,118,0.13);color:#88aa99">
         <p><strong>Weeks 1\u20132:</strong> Every course block = homework only.</p>
         <p><strong>Week 3:</strong> Swap one session per course for a once-over of the last 3 weeks.</p>
@@ -1049,51 +1611,51 @@ function render() {
     </div>
   </div>`;
 
-  // Streak
-  const stOpen = openPanels['streak'];
-  const hist = loadHistory();
-  const recentWeeks = Object.entries(hist).sort((a,b) => a[0].localeCompare(b[0])).slice(-8);
-  html += `<div class="panel">
-    <div class="panel-header ${stOpen?'open':''}" data-panel-id="streak" onclick="togglePanel('streak')"
+      // Streak
+      const stOpen = openPanels['streak'];
+      const hist = loadHistory();
+      const recentWeeks = Object.entries(hist).sort((a, b) => a[0].localeCompare(b[0])).slice(-8);
+      html += `<div class="panel">
+    <div class="panel-header ${stOpen ? 'open' : ''}" data-panel-id="streak" onclick="togglePanel('streak')"
          role="button" aria-expanded="${!!stOpen}" aria-controls="panel-streak" tabindex="0">
       <div class="panel-title">Weekly Streak</div><div class="panel-arrow">\u25bc</div>
     </div>
-    <div class="panel-content ${stOpen?'open':''}" id="panel-streak">`;
-  if (recentWeeks.length > 0) {
-    html += `<div class="streak-chart" style="margin-bottom:20px">`;
-    recentWeeks.forEach(([key, pct]) => {
-      const isCurrent = key === getWeekKey();
-      html += `<div class="streak-bar${isCurrent ? ' current' : ''}" style="height:${Math.max(pct, 4)}%" title="${key}: ${pct}%">
-        <div class="streak-bar-label">${key.replace('sp26-','')}</div>
+    <div class="panel-content ${stOpen ? 'open' : ''}" id="panel-streak">`;
+      if (recentWeeks.length > 0) {
+        html += `<div class="streak-chart" style="margin-bottom:20px">`;
+        recentWeeks.forEach(([key, pct]) => {
+          const isCurrent = key === getWeekKey();
+          html += `<div class="streak-bar${isCurrent ? ' current' : ''}" style="height:${Math.max(pct, 4)}%" title="${key}: ${pct}%">
+        <div class="streak-bar-label">${key.replace('sp26-', '')}</div>
       </div>`;
-    });
-    html += `</div>`;
-  } else {
-    html += `<div class="streak-empty">Complete tasks to start tracking your streak.</div>`;
-  }
-  html += `</div></div>`;
+        });
+        html += `</div>`;
+      } else {
+        html += `<div class="streak-empty">Complete tasks to start tracking your streak.</div>`;
+      }
+      html += `</div></div>`;
 
-  // ── Sync panel ──
-  const syncOpen = openPanels['sync'];
-  const hasSyncConfig = !!getSyncConfig();
-  html += `<div class="panel">
-    <div class="panel-header ${syncOpen?'open':''}" data-panel-id="sync" onclick="togglePanel('sync')"
+      // ── Sync panel ──
+      const syncOpen = openPanels['sync'];
+      const hasSyncConfig = !!getSyncConfig();
+      html += `<div class="panel">
+    <div class="panel-header ${syncOpen ? 'open' : ''}" data-panel-id="sync" onclick="togglePanel('sync')"
          role="button" aria-expanded="${!!syncOpen}" aria-controls="panel-sync" tabindex="0">
       <div class="panel-title">Sync ${hasSyncConfig ? '<span style="color:#00e676;font-size:9px;margin-left:6px">\u25cf connected</span>' : ''}</div>
       <div class="panel-arrow">\u25bc</div>
     </div>
-    <div class="panel-content ${syncOpen?'open':''}" id="panel-sync">`;
+    <div class="panel-content ${syncOpen ? 'open' : ''}" id="panel-sync">`;
 
-  if (hasSyncConfig && firebaseReady) {
-    html += `
+      if (hasSyncConfig && firebaseReady) {
+        html += `
       <div style="font-size:11px;color:#00e676;margin-bottom:10px">Syncing across all your devices via Firebase.</div>
       <button class="data-btn" onclick="event.stopPropagation();disconnectSync()" style="width:100%;color:#e94560;border-color:#e9456033">Disconnect Sync</button>`;
-  } else if (hasSyncConfig && !firebaseReady) {
-    html += `
+      } else if (hasSyncConfig && !firebaseReady) {
+        html += `
       <div style="font-size:11px;color:#ffab00;margin-bottom:10px">Reconnecting\u2026</div>
       <button class="data-btn" onclick="event.stopPropagation();disconnectSync()" style="width:100%">Disconnect</button>`;
-  } else {
-    html += `
+      } else {
+        html += `
       <div class="sync-info">
         Paste your Firebase config below to sync progress across all devices in real-time.
         <a href="https://console.firebase.google.com" target="_blank" rel="noopener" style="color:var(--accent)">Firebase Console</a>
@@ -1108,17 +1670,17 @@ function render() {
 }'></textarea>
       <button class="data-btn" onclick="event.stopPropagation();connectSync()" style="width:100%;color:var(--accent);border-color:#00d2ff44">Connect Sync</button>
       <div id="sync-msg" class="sync-msg"></div>`;
-  }
-  html += `</div></div>`;
+      }
+      html += `</div></div>`;
 
-  // Data
-  const dataOpen = openPanels['data'];
-  html += `<div class="panel">
-    <div class="panel-header ${dataOpen?'open':''}" data-panel-id="data" onclick="togglePanel('data')"
+      // Data
+      const dataOpen = openPanels['data'];
+      html += `<div class="panel">
+    <div class="panel-header ${dataOpen ? 'open' : ''}" data-panel-id="data" onclick="togglePanel('data')"
          role="button" aria-expanded="${!!dataOpen}" aria-controls="panel-data" tabindex="0">
       <div class="panel-title">Data</div><div class="panel-arrow">\u25bc</div>
     </div>
-    <div class="panel-content ${dataOpen?'open':''}" id="panel-data">
+    <div class="panel-content ${dataOpen ? 'open' : ''}" id="panel-data">
       <div class="data-controls">
         <button class="data-btn" onclick="event.stopPropagation();exportData()">Export JSON</button>
         <button class="data-btn" onclick="event.stopPropagation();importData()">Import JSON</button>
@@ -1126,66 +1688,69 @@ function render() {
     </div>
   </div>`;
 
-  // Reset
-  html += `<div class="reset-wrap"><button class="reset-btn" onclick="resetDay()">Reset ${dayName}</button></div>`;
+      // Reset
+      html += `<div class="reset-wrap"><button class="reset-btn" onclick="resetDay()">Reset ${dayName}</button></div>`;
 
-  document.getElementById('app').innerHTML = html;
-  requestAnimationFrame(() => window.scrollTo(0, scrollY));
-}
+      document.getElementById('app').innerHTML = html;
+      requestAnimationFrame(() => window.scrollTo(0, scrollY));
+    }
 
-function selectDay(i) {
-  selectedDay = i;
-  render();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+    function selectDay(i) {
+      selectedDay = i;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
-// ── Swipe (with vertical guard) ──
-let touchStartX = 0, touchStartY = 0;
-document.addEventListener('touchstart', e => {
-  touchStartX = e.changedTouches[0].screenX;
-  touchStartY = e.changedTouches[0].screenY;
-}, { passive: true });
-document.addEventListener('touchend', e => {
-  const diffX = e.changedTouches[0].screenX - touchStartX;
-  const diffY = e.changedTouches[0].screenY - touchStartY;
-  if (Math.abs(diffY) > Math.abs(diffX)) return;
-  if (Math.abs(diffX) > 60) {
-    if (diffX < 0 && selectedDay < 6) selectDay(selectedDay + 1);
-    else if (diffX > 0 && selectedDay > 0) selectDay(selectedDay - 1);
-  }
-}, { passive: true });
+    // ── Swipe (with vertical guard) ──
+    let touchStartX = 0, touchStartY = 0;
+    document.addEventListener('touchstart', e => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+    document.addEventListener('touchend', e => {
+      const diffX = e.changedTouches[0].screenX - touchStartX;
+      const diffY = e.changedTouches[0].screenY - touchStartY;
+      if (Math.abs(diffY) > Math.abs(diffX)) return;
+      if (Math.abs(diffX) > 60) {
+        if (diffX < 0 && selectedDay < 6) selectDay(selectedDay + 1);
+        else if (diffX > 0 && selectedDay > 0) selectDay(selectedDay - 1);
+      }
+    }, { passive: true });
 
-// ── Keyboard ──
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' || e.key === ' ') {
-    const el = document.activeElement;
-    if (el && el.dataset.taskId) { e.preventDefault(); toggle(el.dataset.taskId); return; }
-    if (el && el.dataset.panelId) { e.preventDefault(); togglePanel(el.dataset.panelId); return; }
-  }
-  if (e.key === 'ArrowRight' && selectedDay < 6) selectDay(selectedDay + 1);
-  if (e.key === 'ArrowLeft' && selectedDay > 0) selectDay(selectedDay - 1);
-});
+    // ── Keyboard ──
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const el = document.activeElement;
+        if (el && el.dataset.taskId) { e.preventDefault(); toggle(el.dataset.taskId); return; }
+        if (el && el.dataset.panelId) { e.preventDefault(); togglePanel(el.dataset.panelId); return; }
+      }
+      if (e.key === 'ArrowRight' && selectedDay < 6) selectDay(selectedDay + 1);
+      if (e.key === 'ArrowLeft' && selectedDay > 0) selectDay(selectedDay - 1);
+    });
 
-// ── PWA Manifest ──
-(function() {
-  const m = { name:'Study Plan', short_name:'Study', start_url:'.', display:'standalone',
-    background_color:'#09090b', theme_color:'#09090b',
-    icons:[{src:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>\ud83d\udcd8</text></svg>",sizes:'any',type:'image/svg+xml'}]};
-  const l = document.createElement('link'); l.rel = 'manifest';
-  l.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(m));
-  document.head.appendChild(l);
-})();
+    // ── PWA Manifest ──
+    (function () {
+      const m = {
+        name: 'Study Plan', short_name: 'Study', start_url: '.', display: 'standalone',
+        background_color: '#09090b', theme_color: '#09090b',
+        icons: [{ src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>\ud83d\udcd8</text></svg>", sizes: 'any', type: 'image/svg+xml' }]
+      };
+      const l = document.createElement('link'); l.rel = 'manifest';
+      l.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(m));
+      document.head.appendChild(l);
+    })();
 
-// ── Init ──
-loadState();
-render();
+    // ── Init ──
+    loadState();
+    render();
 
-// Auto-connect sync if previously configured
-(function() {
-  setupStoredSync().catch(err => {
-    console.warn('Auto-sync failed:', err.message);
-  });
-})();
-</script>
+    // Auto-connect sync if previously configured
+    (function () {
+      setupStoredSync().catch(err => {
+        console.warn('Auto-sync failed:', err.message);
+      });
+    })();
+  </script>
 </body>
+
 </html>
