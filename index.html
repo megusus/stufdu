@@ -1342,12 +1342,27 @@
         if (!firebase.apps.length) {
           firebase.initializeApp(config);
         }
-        // Use popup instead of redirect — works on file:// and https://
-        await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider());
-        // Auth succeeded — now save config and init sync
-        await initSync(config);
-        render();
-        showToast('Sync connected');
+
+        // Try popup first (works on desktop)
+        try {
+          await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider());
+          // Popup succeeded — save config and init sync
+          await initSync(config);
+          render();
+          showToast('Sync connected');
+          return;
+        } catch (popupErr) {
+          // If popup blocked (iOS Safari, etc.), fall back to redirect
+          if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/operation-not-supported-in-this-environment') {
+            msg.textContent = 'Redirecting to Google sign-in\u2026';
+            // Must save config BEFORE redirect since the page navigates away
+            saveSyncConfig(config);
+            localStorage.setItem('sp26-sync-redirect-pending', '1');
+            await firebase.auth().signInWithRedirect(new firebase.auth.GoogleAuthProvider());
+            return;
+          }
+          throw popupErr;
+        }
       } catch (err) {
         firebaseReady = false;
         syncStatus = 'offline';
@@ -1368,6 +1383,7 @@
         }
       } catch (e) { }
       localStorage.removeItem('sp26-sync-config');
+      localStorage.removeItem('sp26-sync-redirect-pending');
       firebaseReady = false;
       syncRef = null;
       syncListener = null;
@@ -1386,6 +1402,7 @@
 
       syncStatus = 'syncing';
       updateSyncDot();
+      const wasRedirectPending = localStorage.getItem('sp26-sync-redirect-pending') === '1';
 
       await loadFirebaseSDK();
 
@@ -1393,10 +1410,27 @@
         firebase.initializeApp(config);
       }
 
+      // Handle redirect result (from mobile fallback flow)
+      try {
+        const redirectResult = await firebase.auth().getRedirectResult();
+        if (redirectResult && redirectResult.user) {
+          // Redirect auth succeeded
+          localStorage.removeItem('sp26-sync-redirect-pending');
+        }
+      } catch (err) {
+        // Redirect auth failed — clean up
+        localStorage.removeItem('sp26-sync-redirect-pending');
+        localStorage.removeItem('sp26-sync-config');
+        syncStatus = 'offline';
+        updateSyncDot();
+        render();
+        return;
+      }
+
       if (authUnsubscribe) authUnsubscribe();
       authUnsubscribe = firebase.auth().onAuthStateChanged(async user => {
         if (!user) {
-          // User not signed in — tear down listeners and clear saved config
+          // User not signed in — tear down listeners
           if (syncRef && syncListener) syncRef.off('value', syncListener);
           if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
           if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
@@ -1407,8 +1441,10 @@
           syncHistoryRef = null;
           syncHistoryListener = null;
           firebaseReady = false;
-          // Config was saved after auth, so if we're not signed in it's stale — remove it
-          localStorage.removeItem('sp26-sync-config');
+          // If redirect is still pending, don't clear config yet (waiting for redirect return)
+          if (!wasRedirectPending) {
+            localStorage.removeItem('sp26-sync-config');
+          }
           syncStatus = 'offline';
           updateSyncDot();
           render();
@@ -1416,8 +1452,10 @@
         }
 
         try {
+          localStorage.removeItem('sp26-sync-redirect-pending');
           await initSync(config);
           render();
+          if (wasRedirectPending) showToast('Sync connected');
         } catch (err) {
           firebaseReady = false;
           syncStatus = 'offline';
