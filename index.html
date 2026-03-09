@@ -416,6 +416,12 @@ let syncRef = null;
 let syncStatus = 'offline';
 let syncListener = null;
 let ignoreNextRemote = false;
+let firebaseSDKPromise = null;
+let syncConnectionRef = null;
+let syncConnectionListener = null;
+let syncHistoryRef = null;
+let syncHistoryListener = null;
+let authUnsubscribe = null;
 
 // ── ISO Week (fixed) ──
 function getISOWeek(d) {
@@ -636,20 +642,30 @@ function saveSyncConfig(config) {
 }
 
 function loadFirebaseSDK() {
-  return new Promise((resolve, reject) => {
-    if (window.firebase && window.firebase.database) { resolve(); return; }
-    const s1 = document.createElement('script');
-    s1.src = 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js';
-    s1.onload = () => {
-      const s2 = document.createElement('script');
-      s2.src = 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js';
-      s2.onload = resolve;
-      s2.onerror = () => reject(new Error('Failed to load database SDK'));
-      document.head.appendChild(s2);
-    };
-    s1.onerror = () => reject(new Error('Failed to load Firebase SDK'));
-    document.head.appendChild(s1);
+  if (window.firebase && window.firebase.auth && window.firebase.database) return Promise.resolve();
+  if (firebaseSDKPromise) return firebaseSDKPromise;
+
+  const scripts = [
+    ['https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js', 'Firebase app SDK'],
+    ['https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js', 'Firebase auth SDK'],
+    ['https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js', 'Firebase database SDK'],
+  ];
+
+  firebaseSDKPromise = scripts.reduce((promise, [src, label]) => {
+    return promise.then(() => new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Failed to load ${label}`));
+      document.head.appendChild(script);
+    }));
+  }, Promise.resolve()).catch(err => {
+    firebaseSDKPromise = null;
+    throw err;
   });
+
+  return firebaseSDKPromise;
 }
 
 function parseFirebaseConfig(text) {
@@ -677,10 +693,15 @@ async function initSync(config) {
     firebase.initializeApp(config);
   }
 
+  const user = firebase.auth().currentUser;
+  if (!user) throw new Error('Please sign in with Google to enable sync.');
+
   const db = firebase.database();
 
   // Connection monitoring
-  db.ref('.info/connected').on('value', snap => {
+  if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
+  syncConnectionRef = db.ref('.info/connected');
+  syncConnectionListener = syncConnectionRef.on('value', snap => {
     syncStatus = snap.val() ? 'connected' : 'offline';
     updateSyncDot();
   });
@@ -699,7 +720,9 @@ async function initSync(config) {
   });
 
   // Also listen for history
-  db.ref('study/history').on('value', snap => {
+  if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
+  syncHistoryRef = db.ref('study/history');
+  syncHistoryListener = syncHistoryRef.on('value', snap => {
     if (snap.exists()) {
       localStorage.setItem('sp26-history', JSON.stringify(snap.val()));
     }
@@ -740,12 +763,18 @@ async function connectSync() {
   }
 
   msg.className = 'sync-msg wait';
-  msg.textContent = 'Connecting\u2026';
+  msg.textContent = 'Redirecting to Google sign-in\u2026';
 
   try {
-    await initSync(config);
-    render();
-    showToast('Sync connected');
+    saveSyncConfig(config);
+    syncStatus = 'syncing';
+    updateSyncDot();
+    await loadFirebaseSDK();
+    if (!firebase.apps.length) {
+      firebase.initializeApp(config);
+    }
+    localStorage.setItem('sp26-sync-auth-pending', '1');
+    await firebase.auth().signInWithRedirect(new firebase.auth.GoogleAuthProvider());
   } catch(err) {
     msg.className = 'sync-msg err';
     msg.textContent = 'Failed: ' + err.message;
@@ -754,19 +783,86 @@ async function connectSync() {
 
 function disconnectSync() {
   if (syncRef && syncListener) syncRef.off('value', syncListener);
+  if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
+  if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
+  if (authUnsubscribe) { authUnsubscribe(); authUnsubscribe = null; }
   try {
     if (firebase.apps.length) {
-      firebase.database().ref('.info/connected').off();
-      firebase.database().ref('study/history').off();
+      firebase.auth().signOut().catch(() => {});
     }
   } catch(e) {}
   localStorage.removeItem('sp26-sync-config');
+  localStorage.removeItem('sp26-sync-auth-pending');
   firebaseReady = false;
   syncRef = null;
   syncListener = null;
+  syncConnectionRef = null;
+  syncConnectionListener = null;
+  syncHistoryRef = null;
+  syncHistoryListener = null;
   syncStatus = 'offline';
   render();
   showToast('Sync disconnected');
+}
+
+async function setupStoredSync() {
+  const config = getSyncConfig();
+  if (!config) return;
+
+  syncStatus = 'syncing';
+  updateSyncDot();
+  const hadPendingAuth = localStorage.getItem('sp26-sync-auth-pending') === '1';
+
+  await loadFirebaseSDK();
+
+  if (!firebase.apps.length) {
+    firebase.initializeApp(config);
+  }
+
+  let redirectResult = null;
+  try {
+    redirectResult = await firebase.auth().getRedirectResult();
+  } catch (err) {
+    localStorage.removeItem('sp26-sync-auth-pending');
+    syncStatus = 'offline';
+    updateSyncDot();
+    throw err;
+  }
+
+  if (authUnsubscribe) authUnsubscribe();
+  authUnsubscribe = firebase.auth().onAuthStateChanged(async user => {
+    if (!user) {
+      if (syncRef && syncListener) syncRef.off('value', syncListener);
+      if (syncConnectionRef && syncConnectionListener) syncConnectionRef.off('value', syncConnectionListener);
+      if (syncHistoryRef && syncHistoryListener) syncHistoryRef.off('value', syncHistoryListener);
+      syncRef = null;
+      syncListener = null;
+      syncConnectionRef = null;
+      syncConnectionListener = null;
+      syncHistoryRef = null;
+      syncHistoryListener = null;
+      firebaseReady = false;
+      if (hadPendingAuth) localStorage.removeItem('sp26-sync-auth-pending');
+      syncStatus = 'offline';
+      updateSyncDot();
+      render();
+      return;
+    }
+
+    try {
+      await initSync(config);
+      render();
+      if ((redirectResult && redirectResult.user) || hadPendingAuth) {
+        localStorage.removeItem('sp26-sync-auth-pending');
+        showToast('Sync connected');
+      }
+    } catch (err) {
+      firebaseReady = false;
+      syncStatus = 'offline';
+      updateSyncDot();
+      console.warn('Auto-sync failed:', err.message);
+    }
+  });
 }
 
 // ════════════════════════════════════════
@@ -1086,12 +1182,9 @@ render();
 
 // Auto-connect sync if previously configured
 (function() {
-  const config = getSyncConfig();
-  if (config) {
-    initSync(config).catch(err => {
-      console.warn('Auto-sync failed:', err.message);
-    });
-  }
+  setupStoredSync().catch(err => {
+    console.warn('Auto-sync failed:', err.message);
+  });
 })();
 </script>
 </body>
