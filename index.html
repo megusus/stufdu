@@ -1654,8 +1654,17 @@
       render();
     }
 
+    // ── Timezone ──
+    const TZ = 'Europe/Istanbul';
+
+    function nowInTZ() {
+      // Returns a Date-like object whose getDay/getHours/getMinutes reflect Turkey time
+      const str = new Date().toLocaleString('en-US', { timeZone: TZ });
+      return new Date(str);
+    }
+
     // ── State ──
-    const today = new Date().getDay();
+    const today = nowInTZ().getDay();
     const todayIdx = today === 0 ? 6 : today - 1;
     let selectedDay = todayIdx;
     let checked = {};       // { id: "done"|"skip"|"progress"|true }
@@ -1709,8 +1718,8 @@
       return 1 + Math.round(((date - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
     }
 
-    function getWeekKey() { return `sp26-w${getISOWeek(new Date())}`; }
-    function getWeekNum() { return getISOWeek(new Date()); }
+    function getWeekKey() { return `sp26-w${getISOWeek(nowInTZ())}`; }
+    function getWeekNum() { return getISOWeek(nowInTZ()); }
 
     // ── Constants ──
     const STORAGE_PREFIX = 'sp26';
@@ -2075,7 +2084,7 @@
 
     // ── Time-aware sections ──
     function getCurrentSectionIndex(sections) {
-      const now = new Date();
+      const now = nowInTZ();
       const h = now.getHours() + now.getMinutes() / 60;
       const times = sections.map((s, i) => {
         for (const item of s.items) {
