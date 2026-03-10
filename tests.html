@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Study Plan — Unit Tests</title>
+  <style>
+    body { font-family: 'JetBrains Mono', monospace; background: #09090b; color: #e4e4e7; padding: 20px; }
+    .pass { color: #00e676; }
+    .fail { color: #e94560; }
+    .suite { margin-bottom: 16px; }
+    .suite-name { font-size: 14px; font-weight: 600; margin-bottom: 6px; color: #00d2ff; }
+    .test { font-size: 12px; padding: 2px 0; padding-left: 16px; }
+    .summary { margin-top: 20px; font-size: 14px; font-weight: 600; padding: 12px; border-radius: 8px; }
+    .summary.all-pass { background: #00e67615; color: #00e676; border: 1px solid #00e67633; }
+    .summary.has-fail { background: #e9456015; color: #e94560; border: 1px solid #e9456033; }
+  </style>
+</head>
+<body>
+  <h1>Unit Tests</h1>
+  <div id="results"></div>
+  <div id="summary"></div>
+
+  <script>
+    // ── Minimal test runner ──
+    let totalTests = 0, passedTests = 0, failedTests = 0;
+    const results = document.getElementById('results');
+
+    function suite(name, fn) {
+      const div = document.createElement('div');
+      div.className = 'suite';
+      div.innerHTML = `<div class="suite-name">${name}</div>`;
+      results.appendChild(div);
+      window._currentSuite = div;
+      fn();
+    }
+
+    function test(name, fn) {
+      totalTests++;
+      const div = document.createElement('div');
+      div.className = 'test';
+      try {
+        fn();
+        passedTests++;
+        div.innerHTML = `<span class="pass">PASS</span> ${name}`;
+      } catch (e) {
+        failedTests++;
+        div.innerHTML = `<span class="fail">FAIL</span> ${name} — ${e.message}`;
+      }
+      window._currentSuite.appendChild(div);
+    }
+
+    function assert(condition, msg) {
+      if (!condition) throw new Error(msg || 'Assertion failed');
+    }
+
+    function assertEqual(actual, expected, msg) {
+      if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+    }
+
+    function assertDeepEqual(actual, expected, msg) {
+      if (JSON.stringify(actual) !== JSON.stringify(expected))
+        throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+    }
+
+    // ═══════════════════════════════════════
+    // ── Functions under test (extracted) ──
+    // ═══════════════════════════════════════
+
+    function getISOWeek(d) {
+      const date = new Date(d.getTime());
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
+      const week1 = new Date(date.getFullYear(), 0, 4);
+      return 1 + Math.round(((date - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function parseFirebaseConfig(text) {
+      function fillDatabaseURL(obj) {
+        if (!obj.databaseURL && obj.projectId) {
+          obj.databaseURL = 'https://' + obj.projectId + '-default-rtdb.firebaseio.com';
+        }
+        return (obj.apiKey && obj.projectId) ? obj : null;
+      }
+      try { const obj = JSON.parse(text); if (fillDatabaseURL(obj)) return obj; } catch (e) { }
+      const match = text.match(/\{[^{}]*apiKey[^{}]*\}/s);
+      if (match) {
+        try {
+          const jsonStr = match[0].replace(/(['"])?(\w+)(['"])?\s*:/g, '"$2":').replace(/'/g, '"').replace(/,\s*}/g, '}');
+          const obj = JSON.parse(jsonStr);
+          if (obj && typeof obj === 'object' && fillDatabaseURL(obj)) return obj;
+        } catch (e) { }
+      }
+      return null;
+    }
+
+    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+    function getStatus(checked, id) {
+      const v = checked[id];
+      if (v === true || v === 'done') return 'done';
+      if (v === 'skip' || v === 'progress') return v;
+      return '';
+    }
+
+    // Simulate getDayProgress with minimal schedule
+    function getDayProgress(schedule, checked, taskDeferred, dayName) {
+      const day = schedule[dayName];
+      if (!day) return { total: 0, done: 0, pct: 0 };
+      let total = 0, done = 0;
+      day.sections.forEach(s => s.items.forEach(item => {
+        if (taskDeferred[item.id] && taskDeferred[item.id] !== dayName) return;
+        total++;
+        const st = getStatus(checked, item.id);
+        if (st === 'done' || st === 'skip') done++;
+      }));
+      Object.entries(taskDeferred).forEach(([id, target]) => {
+        if (target === dayName) {
+          total++;
+          const st = getStatus(checked, id);
+          if (st === 'done' || st === 'skip') done++;
+        }
+      });
+      return { total, done, pct: total ? Math.round((done / total) * 100) : 0 };
+    }
+
+    // ═══════════════════════════════════════
+    // ── Tests ──
+    // ═══════════════════════════════════════
+
+    suite('getISOWeek', () => {
+      test('returns week 1 for Jan 1 2024 (Monday)', () => {
+        assertEqual(getISOWeek(new Date(2024, 0, 1)), 1);
+      });
+
+      test('returns week 1 for Jan 4 2024 (Thursday)', () => {
+        assertEqual(getISOWeek(new Date(2024, 0, 4)), 1);
+      });
+
+      test('returns week 52 or 1 for Dec 31', () => {
+        const w = getISOWeek(new Date(2024, 11, 31));
+        assert(w === 1 || w === 52 || w === 53, `Week ${w} not valid for Dec 31`);
+      });
+
+      test('returns correct week for mid-year date', () => {
+        // June 15 2024 is a Saturday, should be week 24
+        const w = getISOWeek(new Date(2024, 5, 15));
+        assertEqual(w, 24);
+      });
+
+      test('returns week 10 for March 2026 (test semester)', () => {
+        // March 2, 2026 is a Monday, should be week 10
+        const w = getISOWeek(new Date(2026, 2, 2));
+        assertEqual(w, 10);
+      });
+
+      test('handles year boundary correctly', () => {
+        // Jan 1 2026 is a Thursday, should be week 1
+        assertEqual(getISOWeek(new Date(2026, 0, 1)), 1);
+      });
+    });
+
+    suite('escapeHtml', () => {
+      test('escapes angle brackets', () => {
+        assertEqual(escapeHtml('<script>alert("xss")</script>'), '&lt;script&gt;alert("xss")&lt;/script&gt;');
+      });
+
+      test('escapes ampersands', () => {
+        assertEqual(escapeHtml('a & b'), 'a &amp; b');
+      });
+
+      test('passes through normal text', () => {
+        assertEqual(escapeHtml('Hello world'), 'Hello world');
+      });
+
+      test('handles empty string', () => {
+        assertEqual(escapeHtml(''), '');
+      });
+
+      test('escapes quotes in content', () => {
+        const result = escapeHtml('"test"');
+        assert(result.includes('"') || result.includes('&quot;'), 'Should handle quotes');
+      });
+    });
+
+    suite('getStatus', () => {
+      test('returns done for true (legacy)', () => {
+        assertEqual(getStatus({ 'mon-1': true }, 'mon-1'), 'done');
+      });
+
+      test('returns done for "done"', () => {
+        assertEqual(getStatus({ 'mon-1': 'done' }, 'mon-1'), 'done');
+      });
+
+      test('returns skip', () => {
+        assertEqual(getStatus({ 'mon-1': 'skip' }, 'mon-1'), 'skip');
+      });
+
+      test('returns progress', () => {
+        assertEqual(getStatus({ 'mon-1': 'progress' }, 'mon-1'), 'progress');
+      });
+
+      test('returns empty for missing', () => {
+        assertEqual(getStatus({}, 'mon-1'), '');
+      });
+
+      test('returns empty for unknown status', () => {
+        assertEqual(getStatus({ 'mon-1': 'invalid' }, 'mon-1'), '');
+      });
+    });
+
+    suite('parseFirebaseConfig', () => {
+      test('parses valid JSON config', () => {
+        const config = parseFirebaseConfig('{"apiKey":"AIza123","projectId":"test-app"}');
+        assert(config !== null, 'Should parse valid config');
+        assertEqual(config.apiKey, 'AIza123');
+        assertEqual(config.projectId, 'test-app');
+      });
+
+      test('auto-fills databaseURL', () => {
+        const config = parseFirebaseConfig('{"apiKey":"AIza123","projectId":"test-app"}');
+        assertEqual(config.databaseURL, 'https://test-app-default-rtdb.firebaseio.com');
+      });
+
+      test('preserves existing databaseURL', () => {
+        const config = parseFirebaseConfig('{"apiKey":"AIza123","projectId":"test-app","databaseURL":"https://custom.com"}');
+        assertEqual(config.databaseURL, 'https://custom.com');
+      });
+
+      test('returns null for missing apiKey', () => {
+        const config = parseFirebaseConfig('{"projectId":"test-app"}');
+        assertEqual(config, null);
+      });
+
+      test('returns null for missing projectId', () => {
+        const config = parseFirebaseConfig('{"apiKey":"AIza123"}');
+        assertEqual(config, null);
+      });
+
+      test('returns null for garbage input', () => {
+        assertEqual(parseFirebaseConfig('hello world'), null);
+      });
+
+      test('parses JS object literal format', () => {
+        const input = `const config = { apiKey: "AIza123", projectId: "test-app" };`;
+        const config = parseFirebaseConfig(input);
+        assert(config !== null, 'Should parse JS literal');
+        assertEqual(config.apiKey, 'AIza123');
+      });
+    });
+
+    suite('getDayProgress', () => {
+      const testSchedule = {
+        Monday: {
+          sections: [
+            { label: 'Morning', items: [
+              { id: 'mon-1', text: 'Task 1', cat: 'fa' },
+              { id: 'mon-2', text: 'Task 2', cat: 'fa' },
+              { id: 'mon-3', text: 'Task 3', cat: 'fa' },
+            ]}
+          ]
+        },
+        Tuesday: {
+          sections: [
+            { label: 'Morning', items: [
+              { id: 'tue-1', text: 'Task 1', cat: 'fa' },
+            ]}
+          ]
+        }
+      };
+
+      test('counts total tasks', () => {
+        const p = getDayProgress(testSchedule, {}, {}, 'Monday');
+        assertEqual(p.total, 3);
+        assertEqual(p.done, 0);
+        assertEqual(p.pct, 0);
+      });
+
+      test('counts done tasks', () => {
+        const p = getDayProgress(testSchedule, { 'mon-1': 'done', 'mon-2': 'skip' }, {}, 'Monday');
+        assertEqual(p.done, 2);
+        assertEqual(p.pct, 67);
+      });
+
+      test('excludes deferred-out tasks', () => {
+        const p = getDayProgress(testSchedule, {}, { 'mon-1': 'Tuesday' }, 'Monday');
+        assertEqual(p.total, 2);
+      });
+
+      test('includes deferred-in tasks', () => {
+        const p = getDayProgress(testSchedule, {}, { 'mon-1': 'Tuesday' }, 'Tuesday');
+        // tue-1 + mon-1 deferred in = 2
+        assertEqual(p.total, 2);
+      });
+
+      test('counts deferred-in done tasks', () => {
+        const p = getDayProgress(testSchedule, { 'mon-1': 'done' }, { 'mon-1': 'Tuesday' }, 'Tuesday');
+        assertEqual(p.done, 1);
+      });
+
+      test('returns 100% when all done', () => {
+        const p = getDayProgress(testSchedule, { 'mon-1': 'done', 'mon-2': 'done', 'mon-3': 'skip' }, {}, 'Monday');
+        assertEqual(p.pct, 100);
+      });
+
+      test('returns 0 for empty day', () => {
+        const emptySchedule = { Empty: { sections: [{ label: 'Test', items: [] }] } };
+        const p = getDayProgress(emptySchedule, {}, {}, 'Empty');
+        assertEqual(p.pct, 0);
+      });
+    });
+
+    suite('Import validation patterns', () => {
+      const taskIdPattern = /^[a-z]{3}-\d+$/;
+      const historyKeyPattern = /^sp26-w\d+$/;
+      const validStates = ['done', 'skip', 'progress'];
+
+      test('valid task IDs pass', () => {
+        assert(taskIdPattern.test('mon-1'));
+        assert(taskIdPattern.test('tue-12'));
+        assert(taskIdPattern.test('sat-5'));
+      });
+
+      test('invalid task IDs fail', () => {
+        assert(!taskIdPattern.test('Monday-1'));
+        assert(!taskIdPattern.test('mon1'));
+        assert(!taskIdPattern.test(''));
+        assert(!taskIdPattern.test('m-1'));
+      });
+
+      test('valid states pass', () => {
+        assert(validStates.includes('done'));
+        assert(validStates.includes('skip'));
+        assert(validStates.includes('progress'));
+      });
+
+      test('invalid states fail', () => {
+        assert(!validStates.includes('pending'));
+        assert(!validStates.includes(''));
+      });
+
+      test('valid history keys pass', () => {
+        assert(historyKeyPattern.test('sp26-w1'));
+        assert(historyKeyPattern.test('sp26-w52'));
+      });
+
+      test('invalid history keys fail', () => {
+        assert(!historyKeyPattern.test('sp25-w1'));
+        assert(!historyKeyPattern.test('sp26-w'));
+        assert(!historyKeyPattern.test('w10'));
+      });
+
+      test('DAYS array contains all days', () => {
+        assertEqual(DAYS.length, 7);
+        assert(DAYS.includes('Monday'));
+        assert(DAYS.includes('Sunday'));
+      });
+    });
+
+    // ── Show summary ──
+    const summaryDiv = document.getElementById('summary');
+    const allPassed = failedTests === 0;
+    summaryDiv.className = 'summary ' + (allPassed ? 'all-pass' : 'has-fail');
+    summaryDiv.textContent = allPassed
+      ? `All ${totalTests} tests passed`
+      : `${failedTests} of ${totalTests} tests failed`;
+  </script>
+</body>
+</html>

@@ -20,10 +20,86 @@
       --border: #1c1c1f;
       --border2: #222;
       --text: #e4e4e7;
+      --text-bright: #fafafa;
       --muted: #71717a;
       --dim: #555;
       --faint: #333;
       --accent: #00d2ff;
+      --toast-shadow: rgba(0, 0, 0, 0.5);
+    }
+
+    [data-theme="light"] {
+      --bg: #faf6ed;
+      --surface: #f2ead8;
+      --surface2: #ebe3d0;
+      --border: #ddd4bf;
+      --border2: #d0c7b0;
+      --text: #3c3836;
+      --text-bright: #2c2620;
+      --muted: #7c6f64;
+      --dim: #a89984;
+      --faint: #d5c8ac;
+      --accent: #007a99;
+      --toast-shadow: rgba(0, 0, 0, 0.15);
+    }
+
+    [data-theme="light"] .tab.active {
+      background: var(--text-bright);
+      color: var(--bg);
+    }
+
+    [data-theme="light"] .tab .tab-progress {
+      background: #007a9944;
+    }
+
+    [data-theme="light"] .tab.active .tab-progress {
+      background: #faf6ed33;
+    }
+
+    [data-theme="light"] .item {
+      background: var(--surface) !important;
+      border-color: var(--border) !important;
+    }
+
+    [data-theme="light"] .item.done .item-check {
+      border-color: var(--accent);
+      background: #007a9922;
+    }
+
+    [data-theme="light"] .item.done .item-check::after {
+      color: var(--accent);
+    }
+
+    [data-theme="light"] .item.done .item-text::after {
+      color: var(--accent);
+    }
+
+    [data-theme="light"] .info {
+      background: var(--surface) !important;
+      border-color: var(--border) !important;
+    }
+
+    [data-theme="light"] .sync-dot.connected {
+      background: #2e8b57;
+      box-shadow: 0 0 6px #2e8b5744;
+    }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      transition: all 0.15s;
+      color: var(--muted);
+      vertical-align: middle;
+    }
+
+    .theme-toggle:hover {
+      border-color: var(--accent);
+      color: var(--text);
     }
 
     * {
@@ -74,7 +150,7 @@
       font-size: 24px;
       font-weight: 700;
       letter-spacing: -1px;
-      color: #fafafa;
+      color: var(--text-bright);
       margin-bottom: 2px;
     }
 
@@ -184,7 +260,7 @@
 
     .tab.active {
       font-weight: 600;
-      background: #fafafa;
+      background: var(--text-bright);
       color: var(--bg);
       border-color: transparent;
     }
@@ -228,7 +304,7 @@
     .day-name {
       font-size: 20px;
       font-weight: 600;
-      color: #fafafa;
+      color: var(--text-bright);
       margin-bottom: 6px;
     }
 
@@ -674,7 +750,7 @@
     .panel-title {
       font-size: 13px;
       font-weight: 600;
-      color: #fafafa;
+      color: var(--text-bright);
       letter-spacing: 0.5px;
     }
 
@@ -958,7 +1034,7 @@
       gap: 12px;
       z-index: 100;
       transition: bottom 0.3s ease;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 4px 24px var(--toast-shadow);
       white-space: nowrap;
       max-width: 90vw;
     }
@@ -980,6 +1056,105 @@
     }
 
     .toast-undo:hover {
+      background: #00d2ff15;
+    }
+
+    /* Schedule editor */
+    .editor-section {
+      margin-bottom: 12px;
+    }
+
+    .editor-section-label {
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 6px;
+    }
+
+    .editor-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 4px;
+      font-size: 11px;
+      color: var(--text);
+    }
+
+    .editor-item-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .editor-item-cat {
+      font-size: 9px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .editor-remove-btn {
+      background: none;
+      border: none;
+      color: #e94560;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0 4px;
+      line-height: 1;
+    }
+
+    .editor-add-row {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .editor-input {
+      flex: 1;
+      font-family: inherit;
+      font-size: 10px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      padding: 5px 8px;
+    }
+
+    .editor-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .editor-select {
+      font-family: inherit;
+      font-size: 10px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      padding: 5px 6px;
+      width: 70px;
+    }
+
+    .editor-add-btn {
+      font-family: inherit;
+      font-size: 10px;
+      background: var(--surface2);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      padding: 5px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .editor-add-btn:hover {
       background: #00d2ff15;
     }
 
@@ -1226,6 +1401,20 @@
       { day: "Sat", tag: "Home", desc: "FA (peak hours) \u2192 remaining hw \u2192 more FA", color: "#00d2ff" },
       { day: "Sun", tag: "Home", desc: "FA deep \u2192 reflect \u2192 Mon prep (Analiz + Algebra)", color: "#00d2ff" },
     ];
+
+    // ── Theme ──
+    let currentTheme = localStorage.getItem('sp26-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+
+    function toggleTheme() {
+      currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', currentTheme);
+      localStorage.setItem('sp26-theme', currentTheme);
+      // Update theme-color meta tag
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.content = currentTheme === 'light' ? '#faf6ed' : '#09090b';
+      render();
+    }
 
     // ── State ──
     const today = new Date().getDay();
@@ -1893,6 +2082,68 @@
       }
     }
 
+    // ── Schedule Editor ──
+    function addTaskToSection(dayName, sectionIdx, text, cat, hint) {
+      const section = schedule[dayName].sections[sectionIdx];
+      if (!section || !text.trim()) return;
+      // Generate unique ID
+      const dayPrefix = dayName.slice(0, 3).toLowerCase();
+      let maxNum = 0;
+      schedule[dayName].sections.forEach(s => s.items.forEach(item => {
+        const m = item.id.match(new RegExp('^' + dayPrefix + '-(\\d+)$'));
+        if (m) maxNum = Math.max(maxNum, parseInt(m[1]));
+      }));
+      const newId = dayPrefix + '-' + (maxNum + 1);
+      section.items.push({ id: newId, text: text.trim(), hint: hint || null, cat: cat || 'homework' });
+      // Add cat to CAT if not present (use default colors)
+      if (!CAT[cat]) {
+        CAT[cat] = { bg: '#1a1a1a', border: '#888' };
+        CAT_LABEL[cat] = cat.toUpperCase();
+      }
+      saveScheduleToStorage();
+      render();
+      showToast('Task added');
+    }
+
+    function removeTaskFromSchedule(dayName, sectionIdx, itemIdx) {
+      const section = schedule[dayName].sections[sectionIdx];
+      if (!section) return;
+      const item = section.items[itemIdx];
+      if (item) {
+        delete checked[item.id];
+        delete taskNotes[item.id];
+        delete taskDeferred[item.id];
+      }
+      section.items.splice(itemIdx, 1);
+      saveScheduleToStorage();
+      saveState();
+      render();
+      showToast('Task removed');
+    }
+
+    function saveScheduleToStorage() {
+      try {
+        localStorage.setItem('sp26-custom-schedule', JSON.stringify(schedule));
+      } catch (e) { console.warn('Failed to save schedule:', e.message); }
+    }
+
+    function loadCustomSchedule() {
+      try {
+        const raw = localStorage.getItem('sp26-custom-schedule');
+        if (!raw) return;
+        const custom = JSON.parse(raw);
+        if (typeof custom !== 'object') return;
+        for (const day of DAYS) {
+          if (custom[day] && custom[day].sections) {
+            schedule[day] = custom[day];
+          }
+        }
+      } catch (e) { console.warn('Failed to load custom schedule:', e.message); }
+    }
+
+    // Load custom schedule overrides
+    loadCustomSchedule();
+
     // ════════════════════════════════════════
     // ── Render ──
     // ════════════════════════════════════════
@@ -1909,11 +2160,14 @@
       let html = '';
 
       // Header
+      const themeIcon = currentTheme === 'dark' ? '\u2600\ufe0f' : '\ud83c\udf19';
       html += `
     <div class="header">
       <div class="header-sub">Spring 2026 \u00b7 4th Semester</div>
       <h1>Study Plan <span id="sync-dot" class="sync-dot ${getSyncConfig() ? syncStatus : 'hidden'}"
-          title="${syncStatus === 'connected' ? 'Synced' : syncStatus === 'syncing' ? 'Syncing' : 'Offline'}"></span></h1>
+          title="${syncStatus === 'connected' ? 'Synced' : syncStatus === 'syncing' ? 'Syncing' : 'Offline'}"></span>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">${themeIcon}</button>
+      </h1>
       <div class="header-tag">FA \u2265 18h/week \u00b7 preview \u2192 class \u2192 hw</div>
     </div>`;
 
@@ -1969,7 +2223,7 @@
         else if (st === 'progress') cls += ' progress';
         if (isDeferred) cls += ' deferred-out';
         if (extraClass) cls += ' ' + extraClass;
-        const textColor = item.cat === "class" || item.cat === "fameeting" ? c.border : "#e4e4e7";
+        const textColor = item.cat === "class" || item.cat === "fameeting" ? c.border : "var(--text)";
         const catLabel = CAT_LABEL[item.cat];
         const note = taskNotes[item.id];
         const hasActions = openActions === item.id;
@@ -2215,6 +2469,37 @@
       }
       html += `</div></div>`;
 
+      // Schedule editor
+      const editorOpen = openPanels['editor'];
+      html += `<div class="panel">
+    <div class="panel-header ${editorOpen ? 'open' : ''}" data-panel-id="editor" onclick="togglePanel('editor')"
+         role="button" aria-expanded="${!!editorOpen}" aria-controls="panel-editor" tabindex="0">
+      <div class="panel-title">Edit Schedule</div><div class="panel-arrow">\u25bc</div>
+    </div>
+    <div class="panel-content ${editorOpen ? 'open' : ''}" id="panel-editor">
+      <div style="font-size:10px;color:var(--dim);margin-bottom:10px">Add or remove tasks for ${dayName}. Changes persist in localStorage.</div>`;
+      day.sections.forEach((section, sIdx) => {
+        html += `<div class="editor-section">
+        <div class="editor-section-label">${section.label}</div>`;
+        section.items.forEach((item, iIdx) => {
+          html += `<div class="editor-item">
+          <span class="editor-item-text">${escapeHtml(item.text)}</span>
+          <span class="editor-item-cat">${CAT_LABEL[item.cat] || item.cat}</span>
+          <button class="editor-remove-btn" onclick="event.stopPropagation();removeTaskFromSchedule('${dayName}',${sIdx},${iIdx})" title="Remove">\u2715</button>
+        </div>`;
+        });
+        html += `<div class="editor-add-row">
+          <input class="editor-input" id="editor-text-${sIdx}" type="text" placeholder="Task text...">
+          <select class="editor-select" id="editor-cat-${sIdx}">`;
+        Object.keys(CAT).forEach(k => {
+          html += `<option value="${k}">${CAT_LABEL[k] || k}</option>`;
+        });
+        html += `</select>
+          <button class="editor-add-btn" onclick="event.stopPropagation();addTaskToSection('${dayName}',${sIdx},document.getElementById('editor-text-${sIdx}').value,document.getElementById('editor-cat-${sIdx}').value)">+ Add</button>
+        </div></div>`;
+      });
+      html += `</div></div>`;
+
       // Data
       const dataOpen = openPanels['data'];
       html += `<div class="panel">
@@ -2281,6 +2566,13 @@
       l.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(m));
       document.head.appendChild(l);
     })();
+
+    // ── Service Worker ──
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(err => {
+        console.warn('SW registration failed:', err.message);
+      });
+    }
 
     // ── Init ──
     loadState();
