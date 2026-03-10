@@ -421,12 +421,31 @@
     }
 
     .item.progress .item-check::after {
-      content: '';
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #ffab00;
+      content: '\25B6';
+      font-size: 9px;
+      color: #ffab00;
       animation: progressPulse 1.5s infinite;
+    }
+
+    .item.progress .item-text::after {
+      content: ' [in progress]';
+      font-size: 9px;
+      color: #ffab00;
+      font-weight: 400;
+    }
+
+    .item.skip .item-text::after {
+      content: ' [skipped]';
+      font-size: 9px;
+      color: #e94560;
+      font-weight: 400;
+    }
+
+    .item.done .item-text::after {
+      content: ' [done]';
+      font-size: 9px;
+      color: var(--accent);
+      font-weight: 400;
     }
 
     @keyframes progressPulse {
@@ -964,6 +983,25 @@
       background: #00d2ff15;
     }
 
+    @media (max-width: 768px) {
+      .app {
+        padding: 16px 14px 100px;
+      }
+
+      .header h1 {
+        font-size: 22px;
+      }
+
+      .overview-row {
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .overview-day {
+        width: auto;
+      }
+    }
+
     @media (max-width: 400px) {
       .app {
         padding: 12px 12px 100px;
@@ -1246,11 +1284,20 @@
     function getWeekKey() { return `sp26-w${getISOWeek(new Date())}`; }
     function getWeekNum() { return getISOWeek(new Date()); }
 
+    // ── Constants ──
+    const STORAGE_PREFIX = 'sp26';
+    const HISTORY_KEY = STORAGE_PREFIX + '-history';
+    const SYNC_CONFIG_KEY = STORAGE_PREFIX + '-sync-config';
+    const SYNC_CREDS_KEY = STORAGE_PREFIX + '-sync-creds';
+    const STATUS_DONE = 'done';
+    const STATUS_SKIP = 'skip';
+    const STATUS_PROGRESS = 'progress';
+
     // ── Persistence ──
     function getStatus(id) {
       const v = checked[id];
-      if (v === true || v === 'done') return 'done';
-      if (v === 'skip' || v === 'progress') return v;
+      if (v === true || v === STATUS_DONE) return STATUS_DONE;
+      if (v === STATUS_SKIP || v === STATUS_PROGRESS) return v;
       return '';
     }
 
@@ -1258,15 +1305,15 @@
       try {
         const raw = localStorage.getItem(getWeekKey());
         if (raw) checked = JSON.parse(raw);
-      } catch (e) { checked = {}; }
+      } catch (e) { console.warn('Failed to load task states:', e.message); checked = {}; }
       try {
         const raw = localStorage.getItem(getWeekKey() + '-notes');
         if (raw) taskNotes = JSON.parse(raw);
-      } catch (e) { taskNotes = {}; }
+      } catch (e) { console.warn('Failed to load notes:', e.message); taskNotes = {}; }
       try {
         const raw = localStorage.getItem(getWeekKey() + '-defer');
         if (raw) taskDeferred = JSON.parse(raw);
-      } catch (e) { taskDeferred = {}; }
+      } catch (e) { console.warn('Failed to load deferred tasks:', e.message); taskDeferred = {}; }
     }
 
     function saveState() {
@@ -1276,27 +1323,34 @@
         localStorage.setItem(getWeekKey() + '-defer', JSON.stringify(taskDeferred));
         saveHistory();
         syncPush();
-      } catch (e) { }
+      } catch (e) { console.warn('Failed to save state:', e.message); }
     }
 
     // ── History / Streak ──
     function saveHistory() {
       try {
-        const hist = JSON.parse(localStorage.getItem('sp26-history') || '{}');
+        const hist = JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}');
         hist[getWeekKey()] = getWeeklyProgress().pct;
-        localStorage.setItem('sp26-history', JSON.stringify(hist));
-      } catch (e) { }
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+      } catch (e) { console.warn('Failed to save history:', e.message); }
     }
 
     function loadHistory() {
-      try { return JSON.parse(localStorage.getItem('sp26-history') || '{}'); }
+      try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}'); }
       catch (e) { return {}; }
+    }
+
+    // ── HTML escaping ──
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
     }
 
     // ── Toast / Undo ──
     function showToast(msg) {
       const toast = document.getElementById('toast');
-      toast.innerHTML = `<span>${msg}</span><button class="toast-undo" onclick="undoToggle()">Undo</button>`;
+      toast.innerHTML = `<span>${escapeHtml(msg)}</span><button class="toast-undo" onclick="undoToggle()">Undo</button>`;
       toast.classList.add('show');
       clearTimeout(toastTimer);
       toastTimer = setTimeout(hideToast, 3500);
@@ -1531,8 +1585,38 @@
         reader.onload = ev => {
           try {
             const data = JSON.parse(ev.target.result);
-            if (data.checked) { checked = data.checked; saveState(); }
-            if (data.history) localStorage.setItem('sp26-history', JSON.stringify(data.history));
+            if (typeof data !== 'object' || data === null) { showToast('Invalid file format'); return; }
+            const validStates = ['done', 'skip', 'progress'];
+            if (data.checked && typeof data.checked === 'object') {
+              // Validate: keys should match task ID pattern, values should be valid states
+              const clean = {};
+              for (const [k, v] of Object.entries(data.checked)) {
+                if (/^[a-z]{3}-\d+$/.test(k) && (v === true || validStates.includes(v))) clean[k] = v;
+              }
+              checked = clean;
+            }
+            if (data.notes && typeof data.notes === 'object') {
+              const clean = {};
+              for (const [k, v] of Object.entries(data.notes)) {
+                if (/^[a-z]{3}-\d+$/.test(k) && typeof v === 'string' && v.length < 1000) clean[k] = v;
+              }
+              taskNotes = clean;
+            }
+            if (data.deferred && typeof data.deferred === 'object') {
+              const clean = {};
+              for (const [k, v] of Object.entries(data.deferred)) {
+                if (/^[a-z]{3}-\d+$/.test(k) && DAYS.includes(v)) clean[k] = v;
+              }
+              taskDeferred = clean;
+            }
+            saveState();
+            if (data.history && typeof data.history === 'object') {
+              const cleanHist = {};
+              for (const [k, v] of Object.entries(data.history)) {
+                if (/^sp26-w\d+$/.test(k) && typeof v === 'number' && v >= 0 && v <= 100) cleanHist[k] = v;
+              }
+              localStorage.setItem(HISTORY_KEY, JSON.stringify(cleanHist));
+            }
             render();
             showToast('Data imported');
           } catch (err) { showToast('Invalid file'); }
@@ -1547,21 +1631,21 @@
     // ════════════════════════════════════════
 
     function getSyncConfig() {
-      try { return JSON.parse(localStorage.getItem('sp26-sync-config')); }
+      try { return JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)); }
       catch (e) { return null; }
     }
 
     function saveSyncConfig(config) {
-      localStorage.setItem('sp26-sync-config', JSON.stringify(config));
+      localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(config));
     }
 
     function getSyncCreds() {
-      try { return JSON.parse(localStorage.getItem('sp26-sync-creds')); }
+      try { return JSON.parse(sessionStorage.getItem(SYNC_CREDS_KEY)); }
       catch (e) { return null; }
     }
 
     function saveSyncCreds(email, password) {
-      localStorage.setItem('sp26-sync-creds', JSON.stringify({ email, password }));
+      sessionStorage.setItem(SYNC_CREDS_KEY, JSON.stringify({ email, password }));
     }
 
     function loadFirebaseSDK() {
@@ -1600,11 +1684,13 @@
       }
       // Try direct JSON
       try { const obj = JSON.parse(text); if (fillDatabaseURL(obj)) return obj; } catch (e) { }
-      // Find the object containing apiKey
+      // Find the object containing apiKey and convert JS object literal to JSON
       const match = text.match(/\{[^{}]*apiKey[^{}]*\}/s);
       if (match) {
         try {
-          const obj = new Function('return (' + match[0] + ')')();
+          // Convert JS object literal to valid JSON (quote unquoted keys)
+          const jsonStr = match[0].replace(/(['"])?(\w+)(['"])?\s*:/g, '"$2":').replace(/'/g, '"').replace(/,\s*}/g, '}');
+          const obj = JSON.parse(jsonStr);
           if (obj && typeof obj === 'object' && fillDatabaseURL(obj)) return obj;
         } catch (e) { }
       }
@@ -1685,7 +1771,7 @@
       syncHistoryRef = db.ref(base + 'history');
       syncHistoryListener = syncHistoryRef.on('value', snap => {
         if (snap.exists()) {
-          localStorage.setItem('sp26-history', JSON.stringify(snap.val()));
+          localStorage.setItem(HISTORY_KEY, JSON.stringify(snap.val()));
         }
       });
 
@@ -1697,19 +1783,23 @@
       syncPush();
     }
 
+    let syncPushTimer = null;
     function syncPush() {
       if (!firebaseReady || !syncRef) return;
-      ignoreNextRemote = true;
-      syncRef.set(checked).catch(err => {
-        ignoreNextRemote = false;
-        console.error('Sync write failed:', err.message);
-        showToast('Sync write failed \u2014 check Firebase rules');
-      });
-      if (syncNotesRef) syncNotesRef.set(taskNotes).catch(() => { });
-      if (syncDeferRef) syncDeferRef.set(taskDeferred).catch(() => { });
-      if (syncHistoryRef) {
-        syncHistoryRef.set(loadHistory()).catch(() => { });
-      }
+      clearTimeout(syncPushTimer);
+      syncPushTimer = setTimeout(() => {
+        ignoreNextRemote = true;
+        syncRef.set(checked).catch(err => {
+          ignoreNextRemote = false;
+          console.error('Sync write failed:', err.message);
+          showToast('Sync write failed \u2014 check Firebase rules');
+        });
+        if (syncNotesRef) syncNotesRef.set(taskNotes).catch(err => console.warn('Notes sync failed:', err.message));
+        if (syncDeferRef) syncDeferRef.set(taskDeferred).catch(err => console.warn('Defer sync failed:', err.message));
+        if (syncHistoryRef) {
+          syncHistoryRef.set(loadHistory()).catch(err => console.warn('History sync failed:', err.message));
+        }
+      }, 500);
     }
 
     function updateSyncDot() {
@@ -1770,11 +1860,11 @@
       if (syncDeferRef && syncDeferListener) syncDeferRef.off('value', syncDeferListener);
       try {
         if (firebase.apps.length) {
-          firebase.auth().signOut().catch(() => { });
+          firebase.auth().signOut().catch(err => console.warn('Sign-out failed:', err.message));
         }
-      } catch (e) { }
-      localStorage.removeItem('sp26-sync-config');
-      localStorage.removeItem('sp26-sync-creds');
+      } catch (e) { console.warn('Disconnect error:', e.message); }
+      localStorage.removeItem(SYNC_CONFIG_KEY);
+      sessionStorage.removeItem(SYNC_CREDS_KEY);
       firebaseReady = false;
       syncRef = null; syncListener = null;
       syncConnectionRef = null; syncConnectionListener = null;
@@ -1868,7 +1958,7 @@
       </div>
     </div>`;
 
-      // Helper: render one task item
+      // Helper: render one task item (uses dayName from render scope)
       function renderItem(item, extraClass, fromDay) {
         const c = CAT[item.cat];
         const st = getStatus(item.id);
@@ -1897,7 +1987,7 @@
               ${item.hint ? `<div class="item-hint">${item.hint}</div>` : ''}
               ${catLabel ? `<div class="item-cat" style="color:${c.border}">${catLabel}</div>` : ''}
               ${fromDay ? `<div class="deferred-from">\u2192 from ${fromDay}</div>` : ''}
-              ${note ? `<div class="item-note">${note}</div>` : ''}
+              ${note ? `<div class="item-note">${escapeHtml(note)}</div>` : ''}
             </div>
             <div class="item-actions-btn" onclick="toggleActionMenu('${item.id}',event)">\u22ee</div>
           </div>`;
