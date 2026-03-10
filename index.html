@@ -1935,6 +1935,110 @@
     .week-task.filtered-out {
       opacity: 0.1 !important;
     }
+
+    /* ── Meal widget ── */
+    .meal-card {
+      background: linear-gradient(135deg, #1a1408, #0f1a0f);
+      border: 1px solid #ff910030;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      transition: all 0.3s;
+    }
+    [data-theme="light"] .meal-card {
+      background: linear-gradient(135deg, #f5edd8, #edf5e8);
+      border-color: #ff910040;
+    }
+    .meal-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .meal-card-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #ff9100;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .meal-card-refresh {
+      font-size: 10px;
+      color: var(--dim);
+      cursor: pointer;
+      background: none;
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .meal-card-refresh:hover { color: #ff9100; border-color: #ff910044; }
+    .meal-items {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .meal-item {
+      font-size: 12px;
+      color: var(--text);
+      padding: 3px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .meal-item-dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #ff9100;
+      flex-shrink: 0;
+    }
+    .meal-item-cal {
+      font-size: 9px;
+      color: var(--dim);
+      margin-left: auto;
+    }
+    .meal-type-label {
+      font-size: 9px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #ff910088;
+      margin-top: 6px;
+      margin-bottom: 2px;
+    }
+    .meal-type-label:first-child { margin-top: 0; }
+    .meal-empty {
+      font-size: 11px;
+      color: var(--dim);
+      font-style: italic;
+    }
+    .meal-paste-area {
+      width: 100%;
+      font-family: inherit;
+      font-size: 10px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid #ff910033;
+      border-radius: 8px;
+      padding: 8px 10px;
+      resize: vertical;
+      min-height: 80px;
+      max-height: 200px;
+      margin: 8px 0;
+      outline: none;
+      line-height: 1.5;
+    }
+    .meal-paste-area:focus { border-color: #ff9100; }
+    .meal-paste-area::placeholder { color: var(--faint); }
+    .meal-status {
+      font-size: 9px;
+      color: var(--dim);
+      margin-top: 4px;
+    }
+    .meal-status.ok { color: #00e676; }
+    .meal-status.err { color: #e94560; }
+    .meal-status.wait { color: #ffab00; }
   </style>
 </head>
 
@@ -2617,6 +2721,256 @@
       haptic('select');
       render();
     }
+
+    // ════════════════════════════════════════
+    // ── Meal Widget ──
+    // ════════════════════════════════════════
+
+    const MEAL_KEY = 'sp26-meals';
+    const MEAL_URL = 'https://sks.istanbul.edu.tr/yemek-listesi';
+    const MEAL_CORS_PROXIES = [
+      url => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+      url => 'https://corsproxy.io/?' + encodeURIComponent(url),
+      url => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url),
+    ];
+
+    let mealData = {}; // { "2026-03-10": { kahvalti: [...], ogle: [...], aksam: [...] } }
+    let mealFetchStatus = ''; // '', 'fetching', 'ok', 'error'
+    let mealShowPaste = false;
+
+    function loadMeals() {
+      try {
+        const raw = localStorage.getItem(MEAL_KEY);
+        if (raw) mealData = JSON.parse(raw);
+      } catch (e) { mealData = {}; }
+    }
+
+    function saveMeals() {
+      try { localStorage.setItem(MEAL_KEY, JSON.stringify(mealData)); }
+      catch (e) { console.warn('Failed to save meals:', e.message); }
+    }
+
+    function getTodayMeals() {
+      const now = nowInTZ();
+      const key = now.getFullYear() + '-' +
+        String(now.getMonth() + 1).padStart(2, '0') + '-' +
+        String(now.getDate()).padStart(2, '0');
+      return mealData[key] || null;
+    }
+
+    function getDayMeals(dayIdx) {
+      // Get the date for a given day index in the current week
+      const now = nowInTZ();
+      const currentDay = now.getDay() === 0 ? 6 : now.getDay() - 1;
+      const diff = dayIdx - currentDay;
+      const target = new Date(now);
+      target.setDate(target.getDate() + diff);
+      const key = target.getFullYear() + '-' +
+        String(target.getMonth() + 1).padStart(2, '0') + '-' +
+        String(target.getDate()).padStart(2, '0');
+      return mealData[key] || null;
+    }
+
+    function parseMealText(text) {
+      // Parse pasted meal text into structured data
+      // Supports various formats: tab-separated, line-separated, etc.
+      const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
+      const newData = {};
+      let currentDate = null;
+      let currentType = 'ogle'; // default to lunch
+
+      // Turkish day names to detect dates
+      const trDays = { 'pazartesi': 1, 'sali': 2, 'salı': 2, 'carsamba': 3, 'çarşamba': 3,
+                        'persembe': 4, 'perşembe': 4, 'cuma': 5, 'cumartesi': 6, 'pazar': 0 };
+      const months = { 'ocak': 1, 'şubat': 2, 'subat': 2, 'mart': 3, 'nisan': 4, 'mayıs': 5, 'mayis': 5,
+                        'haziran': 6, 'temmuz': 7, 'ağustos': 8, 'agustos': 8, 'eylül': 9, 'eylul': 9,
+                        'ekim': 10, 'kasım': 11, 'kasim': 11, 'aralık': 12, 'aralik': 12 };
+
+      for (const line of lines) {
+        const lower = line.toLowerCase();
+
+        // Detect date patterns: "10 Mart 2026", "10.03.2026", "2026-03-10"
+        const dateMatch1 = line.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+        const dateMatch2 = line.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+        const dateMatch3 = line.match(/(\d{4})-(\d{2})-(\d{2})/);
+
+        if (dateMatch3) {
+          currentDate = dateMatch3[0];
+          if (!newData[currentDate]) newData[currentDate] = { kahvalti: [], ogle: [], aksam: [] };
+          continue;
+        }
+        if (dateMatch2) {
+          currentDate = `${dateMatch2[3]}-${dateMatch2[2].padStart(2,'0')}-${dateMatch2[1].padStart(2,'0')}`;
+          if (!newData[currentDate]) newData[currentDate] = { kahvalti: [], ogle: [], aksam: [] };
+          continue;
+        }
+        if (dateMatch1 && months[dateMatch1[2].toLowerCase()]) {
+          const m = months[dateMatch1[2].toLowerCase()];
+          currentDate = `${dateMatch1[3]}-${String(m).padStart(2,'0')}-${dateMatch1[1].padStart(2,'0')}`;
+          if (!newData[currentDate]) newData[currentDate] = { kahvalti: [], ogle: [], aksam: [] };
+          continue;
+        }
+
+        // Detect day name with date: "Pazartesi 10"
+        for (const [dayName, dayNum] of Object.entries(trDays)) {
+          if (lower.includes(dayName)) {
+            const numMatch = line.match(/(\d{1,2})/);
+            if (numMatch) {
+              const now = nowInTZ();
+              const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${numMatch[1].padStart(2,'0')}`;
+              currentDate = dateStr;
+              if (!newData[currentDate]) newData[currentDate] = { kahvalti: [], ogle: [], aksam: [] };
+            }
+            break;
+          }
+        }
+
+        // Detect meal type headers
+        if (lower.includes('kahvalt') || lower.includes('breakfast')) {
+          currentType = 'kahvalti'; continue;
+        }
+        if (lower.includes('öğle') || lower.includes('ogle') || lower.includes('lunch')) {
+          currentType = 'ogle'; continue;
+        }
+        if (lower.includes('akşam') || lower.includes('aksam') || lower.includes('dinner')) {
+          currentType = 'aksam'; continue;
+        }
+
+        // If we have a date context, add as food item
+        if (currentDate && newData[currentDate]) {
+          // Skip header-like lines
+          if (lower === 'tarih' || lower === 'gün' || lower === 'gun' || lower === 'menü' || lower === 'menu') continue;
+          // Clean up and add
+          const clean = line.replace(/^\d+[\.\)]\s*/, '').replace(/\t+/g, ' ').trim();
+          if (clean.length > 1 && clean.length < 100) {
+            newData[currentDate][currentType].push(clean);
+          }
+        }
+      }
+
+      return newData;
+    }
+
+    function parseMealHTML(html) {
+      // Try to parse meal data from the SKS HTML page
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const newData = {};
+
+      // Try table format
+      const tables = doc.querySelectorAll('table');
+      for (const table of tables) {
+        const rows = table.querySelectorAll('tr');
+        for (const row of rows) {
+          const cells = row.querySelectorAll('td, th');
+          if (cells.length < 2) continue;
+          const firstCell = cells[0].textContent.trim();
+          // Check if first cell is a date
+          const dateMatch = firstCell.match(/(\d{1,2})[\.\s\/](\d{1,2})[\.\s\/](\d{4})/);
+          if (dateMatch) {
+            const key = `${dateMatch[3]}-${dateMatch[2].padStart(2,'0')}-${dateMatch[1].padStart(2,'0')}`;
+            if (!newData[key]) newData[key] = { kahvalti: [], ogle: [], aksam: [] };
+            for (let i = 1; i < cells.length; i++) {
+              const items = cells[i].textContent.trim().split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+              if (i === 1) newData[key].ogle.push(...items);
+              if (i === 2) newData[key].aksam.push(...items);
+            }
+          }
+        }
+      }
+
+      // Try div/list format
+      if (Object.keys(newData).length === 0) {
+        const text = doc.body ? doc.body.textContent : '';
+        return parseMealText(text);
+      }
+
+      return newData;
+    }
+
+    async function fetchMeals() {
+      mealFetchStatus = 'fetching';
+      render();
+
+      for (const makeUrl of MEAL_CORS_PROXIES) {
+        try {
+          const url = makeUrl(MEAL_URL);
+          const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+          if (!res.ok) continue;
+          const html = await res.text();
+          if (html.length < 200) continue;
+          const parsed = parseMealHTML(html);
+          if (Object.keys(parsed).length > 0) {
+            Object.assign(mealData, parsed);
+            saveMeals();
+            mealFetchStatus = 'ok';
+            render();
+            showToast('Meal menu loaded');
+            return;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+
+      // Also try the alternate URL
+      for (const makeUrl of MEAL_CORS_PROXIES) {
+        try {
+          const url = makeUrl('https://yemek.istanbul.edu.tr/');
+          const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+          if (!res.ok) continue;
+          const html = await res.text();
+          if (html.length < 200) continue;
+          const parsed = parseMealHTML(html);
+          if (Object.keys(parsed).length > 0) {
+            Object.assign(mealData, parsed);
+            saveMeals();
+            mealFetchStatus = 'ok';
+            render();
+            showToast('Meal menu loaded');
+            return;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+
+      mealFetchStatus = 'error';
+      mealShowPaste = true;
+      render();
+    }
+
+    function savePastedMeals() {
+      const ta = document.getElementById('meal-paste-input');
+      if (!ta || !ta.value.trim()) { showToast('Paste meal data first'); return; }
+      const parsed = parseMealText(ta.value);
+      const count = Object.keys(parsed).length;
+      if (count === 0) {
+        showToast('Could not parse any dates from text');
+        return;
+      }
+      Object.assign(mealData, parsed);
+      saveMeals();
+      mealShowPaste = false;
+      haptic('success');
+      render();
+      showToast(`Loaded meals for ${count} day${count > 1 ? 's' : ''}`);
+    }
+
+    function toggleMealPaste() {
+      mealShowPaste = !mealShowPaste;
+      render();
+    }
+
+    function clearMealData() {
+      mealData = {};
+      localStorage.removeItem(MEAL_KEY);
+      render();
+      showToast('Meal data cleared');
+    }
+
+    // Load meals on init
+    loadMeals();
 
     // ── Swipe gestures ──
     let swipeState = null;
@@ -3384,6 +3738,36 @@
       </div>
     </div>`;
 
+      // Meal card
+      const dayMeals = getDayMeals(selectedDay);
+      if (dayMeals && (dayMeals.kahvalti.length || dayMeals.ogle.length || dayMeals.aksam.length)) {
+        html += `<div class="meal-card">
+          <div class="meal-card-header">
+            <div class="meal-card-title">\uD83C\uDF7D\uFE0F Today's Menu</div>
+            <button class="meal-card-refresh" onclick="event.stopPropagation();fetchMeals()">Refresh</button>
+          </div>
+          <div class="meal-items">`;
+        if (dayMeals.kahvalti.length) {
+          html += `<div class="meal-type-label">Kahvalt\u0131</div>`;
+          dayMeals.kahvalti.forEach(item => {
+            html += `<div class="meal-item"><div class="meal-item-dot"></div>${escapeHtml(item)}</div>`;
+          });
+        }
+        if (dayMeals.ogle.length) {
+          html += `<div class="meal-type-label">\u00D6\u011Fle</div>`;
+          dayMeals.ogle.forEach(item => {
+            html += `<div class="meal-item"><div class="meal-item-dot"></div>${escapeHtml(item)}</div>`;
+          });
+        }
+        if (dayMeals.aksam.length) {
+          html += `<div class="meal-type-label">Ak\u015Fam</div>`;
+          dayMeals.aksam.forEach(item => {
+            html += `<div class="meal-item"><div class="meal-item-dot"></div>${escapeHtml(item)}</div>`;
+          });
+        }
+        html += `</div></div>`;
+      }
+
       // Skipped tasks banner
       const skippedItems = [];
       day.sections.forEach(s => s.items.forEach(item => {
@@ -3809,6 +4193,64 @@
           <button class="editor-add-btn" onclick="event.stopPropagation();addTaskToSection('${dayName}',${sIdx},document.getElementById('editor-text-${sIdx}').value,document.getElementById('editor-cat-${sIdx}').value)">+ Add</button>
         </div></div>`;
       });
+      html += `</div></div>`;
+
+      // Meal panel
+      const mealOpen = openPanels['meal'];
+      const hasMealData = Object.keys(mealData).length > 0;
+      html += `<div class="panel">
+    <div class="panel-header ${mealOpen ? 'open' : ''}" data-panel-id="meal" onclick="togglePanel('meal')"
+         role="button" aria-expanded="${!!mealOpen}" aria-controls="panel-meal" tabindex="0">
+      <div class="panel-title" style="color:#ff9100">\uD83C\uDF7D\uFE0F Yemekhane${hasMealData ? ' <span style="font-size:9px;color:#00e676">\u2022 ' + Object.keys(mealData).length + ' days</span>' : ''}</div>
+      <div class="panel-arrow">\u25bc</div>
+    </div>
+    <div class="panel-content ${mealOpen ? 'open' : ''}" id="panel-meal">
+      <div style="font-size:10px;color:var(--dim);margin-bottom:10px">
+        Istanbul \u00DC Yemekhane menu. Auto-fetch from SKS or paste manually.
+      </div>
+      <div class="data-controls" style="margin-bottom:10px">
+        <button class="data-btn" onclick="event.stopPropagation();fetchMeals()" style="color:#ff9100;border-color:#ff910033">
+          ${mealFetchStatus === 'fetching' ? 'Fetching\u2026' : '\uD83D\uDD04 Auto-fetch'}
+        </button>
+        <button class="data-btn" onclick="event.stopPropagation();toggleMealPaste()" style="color:#b44aff;border-color:#b44aff33">
+          \u270F\uFE0F Paste menu
+        </button>
+        ${hasMealData ? '<button class="data-btn" onclick="event.stopPropagation();clearMealData()" style="color:#e94560;border-color:#e9456033">\u2715 Clear</button>' : ''}
+      </div>`;
+
+      if (mealFetchStatus === 'ok') {
+        html += `<div class="meal-status ok">Fetched and parsed successfully.</div>`;
+      } else if (mealFetchStatus === 'error') {
+        html += `<div class="meal-status err">Auto-fetch failed (site blocks CORS). Paste the menu below.</div>`;
+      } else if (mealFetchStatus === 'fetching') {
+        html += `<div class="meal-status wait">Trying CORS proxies\u2026</div>`;
+      }
+
+      if (mealShowPaste) {
+        html += `<textarea class="meal-paste-area" id="meal-paste-input" placeholder="Paste the weekly menu here. Format:\n\n10 Mart 2026\nMercimek \u00C7orbas\u0131\n\u0130skender D\u00F6ner\nGarnit\u00FCrl\u00FC Pilav\nYo\u011Furt\n\n11 Mart 2026\nSebze \u00C7orbas\u0131\n..."></textarea>
+        <button class="data-btn" onclick="event.stopPropagation();savePastedMeals()" style="width:100%;color:#ff9100;border-color:#ff910044;margin-top:4px">Parse & Save</button>
+        <div style="font-size:9px;color:var(--dim);margin-top:6px;line-height:1.5">
+          Tip: Copy the menu from <a href="https://sks.istanbul.edu.tr/yemek-listesi" target="_blank" style="color:var(--accent)">sks.istanbul.edu.tr</a>
+          and paste here. Include dates so the parser knows which day each meal belongs to.
+          Supports: "10 Mart 2026", "10.03.2026", day names + dates.
+        </div>`;
+      }
+
+      // Show stored meal data preview
+      if (hasMealData) {
+        const mealDates = Object.keys(mealData).sort();
+        const previewDates = mealDates.slice(-5);
+        html += `<div style="margin-top:10px;font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Stored (${mealDates.length} days)</div>`;
+        previewDates.forEach(date => {
+          const m = mealData[date];
+          const items = [...(m.kahvalti || []), ...(m.ogle || []), ...(m.aksam || [])];
+          html += `<div style="font-size:10px;color:var(--text);margin-bottom:4px">
+            <span style="color:#ff9100;font-weight:600">${date}</span>
+            <span style="color:var(--dim)"> \u2014 ${items.slice(0,3).join(', ')}${items.length > 3 ? '\u2026' : ''}</span>
+          </div>`;
+        });
+      }
+
       html += `</div></div>`;
 
       // Data
