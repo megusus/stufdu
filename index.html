@@ -1158,6 +1158,176 @@
       background: #00d2ff15;
     }
 
+    /* View toggle */
+    .view-toggle {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+
+    .view-btn {
+      flex: 1;
+      font-family: inherit;
+      font-size: 11px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.5px;
+    }
+
+    .view-btn.active {
+      background: var(--text-bright);
+      color: var(--bg);
+      border-color: transparent;
+      font-weight: 600;
+    }
+
+    /* Week view */
+    .week-view {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .week-day-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .week-day-header {
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .week-day-header:hover {
+      background: var(--surface2);
+    }
+
+    .week-day-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+
+    .week-day-name.is-today {
+      color: var(--accent);
+    }
+
+    .week-day-meta {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .week-day-progress {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .week-day-progress .pct {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .week-day-tasks {
+      padding: 8px 10px;
+    }
+
+    .week-task {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      font-size: 12px;
+    }
+
+    .week-task:hover {
+      background: var(--surface2);
+    }
+
+    .week-task.done {
+      opacity: 0.35;
+      text-decoration: line-through;
+    }
+
+    .week-task.skip {
+      opacity: 0.25;
+      text-decoration: line-through;
+      color: #e94560;
+    }
+
+    .week-task.progress {
+      color: #ffab00;
+    }
+
+    .week-task-check {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1.5px solid var(--faint);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+    }
+
+    .week-task.done .week-task-check {
+      border-color: var(--accent);
+      background: #00d2ff22;
+      color: var(--accent);
+    }
+
+    .week-task.skip .week-task-check {
+      border-color: #e94560;
+      background: #e9456022;
+      color: #e94560;
+    }
+
+    .week-task.progress .week-task-check {
+      border-color: #ffab00;
+      background: #ffab0022;
+      color: #ffab00;
+    }
+
+    .week-task-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .week-task-cat {
+      font-size: 8px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--dim);
+      flex-shrink: 0;
+    }
+
+    .week-section-label {
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--dim);
+      padding: 6px 6px 2px;
+    }
+
     @media (max-width: 768px) {
       .app {
         padding: 16px 14px 100px;
@@ -1423,6 +1593,7 @@
     let checked = {};       // { id: "done"|"skip"|"progress"|true }
     let taskNotes = {};     // { id: "note text" }
     let taskDeferred = {};  // { id: "DayName" }
+    let viewMode = 'day'; // 'day' or 'week'
     let openPanels = {};
     let openActions = null; // id of task with open action menu
     let openNoteInput = null;
@@ -1743,9 +1914,9 @@
         }
         const l = s.label.toLowerCase();
         if (l.includes('before') || l.includes('morning') || l.includes('core')) return 8;
-        if (l.includes('class') || l.includes('meeting')) return 9;
         if (l.includes('after') || l.includes('afternoon')) return 15;
         if (l.includes('evening')) return 18;
+        if (l.includes('class') || l.includes('meeting')) return 9;
         return 8 + i * 3;
       });
       let idx = 0;
@@ -2189,7 +2360,14 @@
       </div>
     </div>`;
 
-      // Tabs
+      // View toggle
+      html += `<div class="view-toggle">
+        <button class="view-btn ${viewMode === 'day' ? 'active' : ''}" onclick="setViewMode('day')">Day</button>
+        <button class="view-btn ${viewMode === 'week' ? 'active' : ''}" onclick="setViewMode('week')">Week</button>
+      </div>`;
+
+      // Tabs (day view only)
+      if (viewMode === 'day') {
       html += `<div class="tabs" role="tablist" aria-label="Days of the week">`;
       DAYS.forEach((d, i) => {
         const p = getDayProgress(d);
@@ -2199,7 +2377,70 @@
     </button>`;
       });
       html += `</div>`;
+      }
 
+      // ── Week view ──
+      if (viewMode === 'week') {
+        html += `<div class="week-view">`;
+        DAYS.forEach((wDayName, di) => {
+          const wDay = schedule[wDayName];
+          const wProg = getDayProgress(wDayName);
+          const wIsToday = di === todayIdx;
+          html += `<div class="week-day-block">
+            <div class="week-day-header" onclick="selectDay(${di})">
+              <div>
+                <span class="week-day-name ${wIsToday ? 'is-today' : ''}">${wDayName}${wIsToday ? ' \u2022 today' : ''}</span>
+                <span class="week-day-meta">${wDay.wake}${wDay.leave ? ' \u2192 ' + wDay.leave : ' \u2022 home'}</span>
+              </div>
+              <div class="week-day-progress"><span class="pct">${wProg.pct}%</span> ${wProg.done}/${wProg.total}</div>
+            </div>
+            <div class="week-day-tasks">`;
+          wDay.sections.forEach(section => {
+            html += `<div class="week-section-label">${section.label}</div>`;
+            section.items.forEach(item => {
+              const st = getStatus(item.id);
+              const isDeferred = taskDeferred[item.id] && taskDeferred[item.id] !== wDayName;
+              if (isDeferred) return;
+              let cls = 'week-task';
+              if (st === 'done') cls += ' done';
+              else if (st === 'skip') cls += ' skip';
+              else if (st === 'progress') cls += ' progress';
+              const checkIcon = st === 'done' ? '\u2713' : st === 'skip' ? '\u2716' : st === 'progress' ? '\u25B6' : '';
+              const catLabel = CAT_LABEL[item.cat] || '';
+              html += `<div class="${cls}" onclick="toggle('${item.id}')">
+                <div class="week-task-check">${checkIcon}</div>
+                <div class="week-task-text">${item.text}</div>
+                ${catLabel ? `<div class="week-task-cat">${catLabel}</div>` : ''}
+              </div>`;
+            });
+          });
+          // Deferred-in tasks
+          Object.entries(taskDeferred).forEach(([id, target]) => {
+            if (target !== wDayName) return;
+            for (const dName of DAYS) {
+              for (const sec of schedule[dName].sections) {
+                for (const item of sec.items) {
+                  if (item.id !== id) continue;
+                  const st = getStatus(item.id);
+                  let cls = 'week-task';
+                  if (st === 'done') cls += ' done';
+                  else if (st === 'skip') cls += ' skip';
+                  else if (st === 'progress') cls += ' progress';
+                  const checkIcon = st === 'done' ? '\u2713' : st === 'skip' ? '\u2716' : st === 'progress' ? '\u25B6' : '';
+                  html += `<div class="${cls}" onclick="toggle('${item.id}')" style="opacity:0.7">
+                    <div class="week-task-check">${checkIcon}</div>
+                    <div class="week-task-text">\u2192 ${item.text}</div>
+                  </div>`;
+                }
+              }
+            }
+          });
+          html += `</div></div>`;
+        });
+        html += `</div>`;
+      }
+
+      if (viewMode === 'day') {
       // Day header
       const leaveHtml = day.leave ? `<span>Leave <span class="val">${day.leave}</span></span>` : `<span class="home">Home day</span>`;
       const metaHtml = day.meta ? `<span class="flag">\u2691 ${day.meta}</span>` : '';
@@ -2319,6 +2560,7 @@
         html += `</div></div>`;
       });
       html += `</div>`;
+      } // end if (viewMode === 'day')
 
       // ── Panels ──
 
@@ -2516,7 +2758,9 @@
   </div>`;
 
       // Reset
-      html += `<div class="reset-wrap"><button class="reset-btn" onclick="resetDay()">Reset ${dayName}</button></div>`;
+      if (viewMode === 'day') {
+        html += `<div class="reset-wrap"><button class="reset-btn" onclick="resetDay()">Reset ${dayName}</button></div>`;
+      }
 
       document.getElementById('app').innerHTML = html;
       requestAnimationFrame(() => window.scrollTo(0, scrollY));
@@ -2524,8 +2768,14 @@
 
     function selectDay(i) {
       selectedDay = i;
+      viewMode = 'day';
       render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function setViewMode(mode) {
+      viewMode = mode;
+      render();
     }
 
     // ── Swipe (with vertical guard) ──
