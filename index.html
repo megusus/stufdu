@@ -472,12 +472,63 @@
 
     /* Task states */
     .item.skip {
-      opacity: 0.3;
+      opacity: 0.5;
     }
 
     .item.skip .item-text {
       text-decoration: line-through;
       color: #e94560 !important;
+    }
+
+    /* Skipped summary banner */
+    .skipped-banner {
+      background: #e9456012;
+      border: 1px solid #e9456030;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+    }
+
+    .skipped-banner-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: #e94560;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .skipped-banner-count {
+      background: #e9456033;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+
+    .skipped-banner-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .skipped-banner-item {
+      font-size: 11px;
+      color: #e9456099;
+      text-decoration: line-through;
+      padding: 2px 0;
+    }
+
+    .skipped-banner-item .sbi-cat {
+      font-size: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.7;
+      margin-left: 6px;
+      text-decoration: none;
+      display: inline-block;
     }
 
     .item.skip .item-check {
@@ -2631,6 +2682,23 @@
         ${leaveHtml} ${metaHtml}
       </div>
     </div>`;
+
+      // Skipped tasks banner
+      const skippedItems = [];
+      day.sections.forEach(s => s.items.forEach(item => {
+        if (taskDeferred[item.id] && taskDeferred[item.id] !== dayName) return;
+        if (getStatus(item.id) === 'skip') skippedItems.push(item);
+      }));
+      if (skippedItems.length > 0) {
+        html += `<div class="skipped-banner">
+          <div class="skipped-banner-header">\u23ed Skipped <span class="skipped-banner-count">${skippedItems.length}</span></div>
+          <div class="skipped-banner-list">`;
+        skippedItems.forEach(item => {
+          const catLabel = CAT_LABEL[item.cat] || '';
+          html += `<div class="skipped-banner-item">${item.text}${catLabel ? `<span class="sbi-cat">${catLabel}</span>` : ''}</div>`;
+        });
+        html += `</div></div>`;
+      }
 
       // Helper: render one task item (uses dayName from render scope)
       function renderItem(item, extraClass, fromDay) {
