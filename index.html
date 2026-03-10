@@ -808,21 +808,6 @@
       border: 1px solid #b44aff15;
     }
 
-    .note-input {
-      width: 100%;
-      font-family: inherit;
-      font-size: 10px;
-      background: var(--bg);
-      color: var(--text);
-      border: 1px solid #b44aff44;
-      border-radius: 6px;
-      padding: 6px 8px;
-      margin: 4px 12px 8px;
-      resize: none;
-      height: 32px;
-      outline: none;
-    }
-
     .note-input:focus {
       border-color: #b44aff;
     }
@@ -1517,6 +1502,439 @@
         font-size: 11px;
       }
     }
+
+    /* ── Quick-add FAB ── */
+    .fab {
+      position: fixed;
+      bottom: 24px;
+      right: 20px;
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      background: var(--accent);
+      color: #09090b;
+      border: none;
+      font-size: 26px;
+      font-weight: 700;
+      cursor: pointer;
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(0, 210, 255, 0.35);
+      transition: transform 0.2s, box-shadow 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .fab:active { transform: scale(0.9); }
+    .fab.open { transform: rotate(45deg); border-radius: 50%; }
+
+    .fab-panel {
+      position: fixed;
+      bottom: 86px;
+      right: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      z-index: 89;
+      width: min(320px, calc(100vw - 40px));
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      animation: fabSlideUp 0.25s ease-out;
+    }
+
+    @keyframes fabSlideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fab-panel input, .fab-panel select {
+      width: 100%;
+      font-family: inherit;
+      font-size: 12px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      outline: none;
+    }
+    .fab-panel input:focus, .fab-panel select:focus { border-color: var(--accent); }
+    .fab-panel select { padding: 8px 10px; }
+
+    .fab-panel-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .fab-add-btn {
+      width: 100%;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: #09090b;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .fab-add-btn:active { opacity: 0.7; }
+
+    /* ── Category filter bar ── */
+    .cat-filter-bar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .cat-filter-btn {
+      font-family: inherit;
+      font-size: 9px;
+      letter-spacing: 0.5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cat-filter-btn.active {
+      font-weight: 600;
+    }
+    .cat-filter-btn:active { transform: scale(0.95); }
+
+    /* ── Subject streaks ── */
+    .subject-streaks {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .subject-streak-card {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+    }
+    .subject-streak-label {
+      font-size: 9px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    .subject-streak-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 3px;
+    }
+    .subject-streak-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+    .subject-streak-val {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    /* ── Mark section done ── */
+    .section-done-btn {
+      font-family: inherit;
+      font-size: 9px;
+      letter-spacing: 0.5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .section-done-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .section-done-btn:active { transform: scale(0.95); }
+
+    /* ── Swipe threshold indicator ── */
+    .swipe-indicator {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 18px;
+      opacity: 0;
+      transition: opacity 0.1s, transform 0.1s;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .swipe-indicator-right { left: 14px; }
+    .swipe-indicator-left { right: 14px; }
+    .swipe-indicator.active {
+      opacity: 1;
+      animation: swipeReady 0.2s ease-out;
+    }
+
+    @keyframes swipeReady {
+      0% { transform: translateY(-50%) scale(0.5); }
+      50% { transform: translateY(-50%) scale(1.3); }
+      100% { transform: translateY(-50%) scale(1); }
+    }
+
+    /* ── Collapsible week view ── */
+    .week-day-tasks.collapsed { display: none; }
+    .week-day-collapse-arrow {
+      font-size: 10px;
+      color: var(--muted);
+      transition: transform 0.2s;
+      margin-left: 8px;
+    }
+    .week-day-collapse-arrow.open { transform: rotate(180deg); }
+
+    /* ── Day completion celebration ── */
+    @keyframes celebrationPop {
+      0% { transform: scale(0.3); opacity: 0; }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes confettiDrift {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(60px) rotate(720deg); opacity: 0; }
+    }
+
+    .day-complete-banner {
+      text-align: center;
+      padding: 16px;
+      background: linear-gradient(135deg, #00d2ff12, #00e67612);
+      border: 1px solid #00d2ff30;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      animation: celebrationPop 0.4s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+    .day-complete-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .day-complete-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .confetti-particle {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      animation: confettiDrift 1.5s ease-out forwards;
+      pointer-events: none;
+    }
+
+    /* ── Deferred highlight ── */
+    .item.deferred-in-highlight {
+      border-left: 3px solid var(--accent) !important;
+    }
+    .deferred-badge {
+      display: inline-block;
+      font-size: 8px;
+      letter-spacing: 0.5px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: #00d2ff18;
+      color: var(--accent);
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-left: 6px;
+      animation: celebrationPop 0.3s ease-out;
+    }
+
+    /* ── Note textarea (multiline) ── */
+    .note-input {
+      width: 100%;
+      font-family: inherit;
+      font-size: 11px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid #b44aff44;
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin: 6px 12px 8px;
+      resize: vertical;
+      min-height: 60px;
+      max-height: 150px;
+      outline: none;
+      line-height: 1.5;
+    }
+
+    /* ── Past week viewer ── */
+    .past-week-nav {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .past-week-btn {
+      font-family: inherit;
+      font-size: 10px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .past-week-btn.active {
+      background: var(--accent);
+      color: #09090b;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* ── Skip debt counter ── */
+    .skip-debt-banner {
+      background: #ff610012;
+      border: 1px solid #ff610030;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      animation: celebrationPop 0.3s ease-out;
+    }
+    .skip-debt-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: #ff6100;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .skip-debt-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: #ff6100aa;
+      padding: 2px 0;
+    }
+    .skip-debt-count {
+      font-weight: 600;
+      color: #ff6100;
+    }
+
+    /* ── Enhanced animations ── */
+    @keyframes ripple {
+      0% { transform: scale(0); opacity: 0.5; }
+      100% { transform: scale(4); opacity: 0; }
+    }
+
+    .ripple-effect {
+      position: absolute;
+      border-radius: 50%;
+      background: var(--accent);
+      width: 20px;
+      height: 20px;
+      pointer-events: none;
+      animation: ripple 0.5s ease-out forwards;
+    }
+
+    @keyframes slideInLeft {
+      from { transform: translateX(-20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes slideInRight {
+      from { transform: translateX(20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes bounceCheck {
+      0% { transform: scale(0); }
+      50% { transform: scale(1.4); }
+      70% { transform: scale(0.85); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes shakeX {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      75% { transform: translateX(4px); }
+    }
+
+    @keyframes glowPulse {
+      0%, 100% { box-shadow: 0 0 0px transparent; }
+      50% { box-shadow: 0 0 12px var(--accent); }
+    }
+
+    .item.just-completed .item-check {
+      animation: bounceCheck 0.4s ease-out;
+    }
+
+    .item.just-skipped {
+      animation: shakeX 0.3s ease-out;
+    }
+
+    .day-transition-left {
+      animation: slideInLeft 0.25s ease-out;
+    }
+    .day-transition-right {
+      animation: slideInRight 0.25s ease-out;
+    }
+
+    .section-group {
+      transition: opacity 0.3s;
+    }
+
+    .item-swipe-wrap {
+      transition: margin 0.2s;
+    }
+
+    /* Smooth task entrance stagger */
+    .item-stagger {
+      opacity: 0;
+      animation: taskPop 0.25s ease-out forwards;
+    }
+
+    /* ── Progress ring for day complete ── */
+    .progress-ring-wrap {
+      display: inline-block;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    .progress-ring-circle {
+      transition: stroke-dashoffset 0.6s ease;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    /* ── Haptic-style button press ── */
+    .haptic-press {
+      transition: transform 0.1s;
+    }
+    .haptic-press:active {
+      transform: scale(0.95);
+    }
+
+    /* ── Filter dimming ── */
+    .item-filtered-out {
+      opacity: 0.15 !important;
+      transform: scale(0.98);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .week-task.filtered-out {
+      opacity: 0.1 !important;
+    }
   </style>
 </head>
 
@@ -1727,6 +2145,11 @@
     // ── Theme ──
     let currentTheme = localStorage.getItem('sp26-theme') || 'dark';
     document.documentElement.setAttribute('data-theme', currentTheme);
+    // Fix: set meta tag on initial load
+    (function() {
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.content = currentTheme === 'light' ? '#faf6ed' : '#09090b';
+    })();
 
     function toggleTheme() {
       currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -1762,6 +2185,28 @@
     let openDeferPicker = null;
     let lastToggle = null;
     let toastTimer = null;
+    let fabOpen = false;
+    let activeFilter = null; // cat key or null
+    let weekViewCollapsed = {}; // { dayIdx: true }
+    let lastDayDirection = null; // 'left' or 'right' for transition
+    let justCompletedId = null;
+    let justSkippedId = null;
+    let celebrationShown = {}; // { dayName: true } per session
+    let pastWeekViewing = null; // null = current week, or 'sp26-wNN'
+
+    // ── Haptics helper ──
+    function haptic(style) {
+      if (!navigator.vibrate) return;
+      switch(style) {
+        case 'light': navigator.vibrate(10); break;
+        case 'medium': navigator.vibrate(20); break;
+        case 'heavy': navigator.vibrate([15, 30, 15]); break;
+        case 'success': navigator.vibrate([10, 50, 20]); break;
+        case 'error': navigator.vibrate([30, 20, 30, 20, 30]); break;
+        case 'select': navigator.vibrate(5); break;
+        default: navigator.vibrate(15);
+      }
+    }
 
     // ── Sync state ──
     let firebaseReady = false;
@@ -1938,32 +2383,53 @@
 
     // ── Toggle (tap checkbox = toggle done) ──
     function toggle(id) {
-      if (isTaskLocked(id)) { showToast('Day is locked'); return; }
+      if (isTaskLocked(id)) { showToast('Day is locked'); haptic('error'); return; }
       const prev = checked[id];
       const wasDone = getStatus(id) === 'done';
       if (wasDone) {
         delete checked[id];
+        haptic('light');
       } else {
         checked[id] = 'done';
+        justCompletedId = id;
+        setTimeout(() => { justCompletedId = null; }, 500);
+        haptic('success');
       }
       lastToggle = { id, prevStatus: prev };
       saveState();
       render();
       showToast(wasDone ? 'Task unchecked' : 'Task completed');
+      // Check if day is now 100%
+      const dayName = getTaskDay(id);
+      if (dayName && !wasDone) {
+        const prog = getDayProgress(dayName);
+        if (prog.pct === 100 && !celebrationShown[dayName]) {
+          celebrationShown[dayName] = true;
+          haptic('heavy');
+        }
+      }
     }
 
     // ── Task actions ──
     function setTaskStatus(id, status) {
-      if (isTaskLocked(id)) { showToast('Day is locked'); return; }
+      if (isTaskLocked(id)) { showToast('Day is locked'); haptic('error'); return; }
       const prev = checked[id];
       if (getStatus(id) === status) {
         delete checked[id];
         lastToggle = { id, prevStatus: prev };
+        haptic('light');
         saveState(); render();
         showToast('Status cleared');
       } else {
         checked[id] = status;
         lastToggle = { id, prevStatus: prev };
+        if (status === 'skip') {
+          justSkippedId = id;
+          setTimeout(() => { justSkippedId = null; }, 400);
+          haptic('medium');
+        } else {
+          haptic('light');
+        }
         saveState(); render();
         const labels = { skip: 'Skipped', progress: 'In progress' };
         showToast(labels[status] || status);
@@ -1976,6 +2442,7 @@
       openActions = openActions === id ? null : id;
       openNoteInput = null;
       openDeferPicker = null;
+      haptic('select');
       render();
     }
 
@@ -1992,9 +2459,11 @@
       }
     }
 
-    function saveNote(id) {
+    function saveNote(id, fromBlur) {
       const inp = document.getElementById('note-input-' + id);
       if (!inp) return;
+      // Fix race condition: don't save from blur if we're closing via Enter
+      if (fromBlur && openNoteInput !== id) return;
       const text = inp.value.trim();
       if (text) {
         taskNotes[id] = text;
@@ -2014,10 +2483,11 @@
     }
 
     function deferTask(id, targetDay) {
-      if (isTaskLocked(id)) { showToast('Day is locked'); return; }
+      if (isTaskLocked(id)) { showToast('Day is locked'); haptic('error'); return; }
       taskDeferred[id] = targetDay;
       openActions = null;
       openDeferPicker = null;
+      haptic('medium');
       saveState(); render();
       showToast('Deferred to ' + targetDay);
     }
@@ -2031,6 +2501,121 @@
       openActions = null;
       saveState(); render();
       showToast('Cleared');
+    }
+
+    // ── Mark section done ──
+    function markSectionDone(dayName, sectionIdx) {
+      if (isDayLocked(dayName)) { showToast('Day is locked'); haptic('error'); return; }
+      const section = schedule[dayName].sections[sectionIdx];
+      if (!section) return;
+      let count = 0;
+      section.items.forEach(item => {
+        if (taskDeferred[item.id] && taskDeferred[item.id] !== dayName) return;
+        if (getStatus(item.id) !== 'done') {
+          checked[item.id] = 'done';
+          count++;
+        }
+      });
+      if (count > 0) {
+        haptic('success');
+        saveState(); render();
+        showToast(`${count} task${count > 1 ? 's' : ''} completed`);
+        const prog = getDayProgress(dayName);
+        if (prog.pct === 100 && !celebrationShown[dayName]) {
+          celebrationShown[dayName] = true;
+          haptic('heavy');
+        }
+      } else {
+        showToast('Section already complete');
+      }
+    }
+
+    // ── Quick-add (FAB) ──
+    function toggleFab() {
+      fabOpen = !fabOpen;
+      haptic('light');
+      render();
+      if (fabOpen) {
+        setTimeout(() => {
+          const inp = document.getElementById('fab-text');
+          if (inp) inp.focus();
+        }, 100);
+      }
+    }
+
+    function fabAddTask() {
+      const textInput = document.getElementById('fab-text');
+      const catInput = document.getElementById('fab-cat');
+      const sectionInput = document.getElementById('fab-section');
+      if (!textInput || !textInput.value.trim()) { showToast('Enter task text'); return; }
+      const dayName = DAYS[selectedDay];
+      const sIdx = parseInt(sectionInput ? sectionInput.value : '0') || 0;
+      addTaskToSection(dayName, sIdx, textInput.value.trim(), catInput ? catInput.value : 'homework');
+      haptic('success');
+      fabOpen = false;
+      render();
+    }
+
+    // ── Category filter ──
+    function toggleCatFilter(cat) {
+      activeFilter = activeFilter === cat ? null : cat;
+      haptic('select');
+      render();
+    }
+
+    // ── Subject streaks (weekly) ──
+    function getSubjectStreaks() {
+      const catCounts = {};
+      DAYS.forEach(dayName => {
+        schedule[dayName].sections.forEach(s => s.items.forEach(item => {
+          if (taskDeferred[item.id] && taskDeferred[item.id] !== dayName) return;
+          const cat = item.cat;
+          if (!cat || cat === 'routine' || cat === 'reflect') return;
+          if (!catCounts[cat]) catCounts[cat] = { total: 0, done: 0 };
+          catCounts[cat].total++;
+          const st = getStatus(item.id);
+          if (st === 'done') catCounts[cat].done++;
+        }));
+      });
+      return catCounts;
+    }
+
+    // ── Skip debt (across recent weeks) ──
+    function getSkipDebt() {
+      const debt = {};
+      // Check current week only for now
+      DAYS.forEach(dayName => {
+        schedule[dayName].sections.forEach(s => s.items.forEach(item => {
+          if (getStatus(item.id) === 'skip') {
+            const cat = item.cat;
+            if (!cat || cat === 'routine') return;
+            const label = CAT_LABEL[cat] || cat;
+            if (!debt[label]) debt[label] = 0;
+            debt[label]++;
+          }
+        }));
+      });
+      return debt;
+    }
+
+    // ── Past week viewer ──
+    function viewPastWeek(weekKey) {
+      pastWeekViewing = weekKey === getWeekKey() ? null : weekKey;
+      render();
+    }
+
+    function getPastWeekData(weekKey) {
+      try {
+        const raw = localStorage.getItem(weekKey);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) { return {}; }
+    }
+
+    // ── Week view collapse ──
+    function toggleWeekDayCollapse(dayIdx) {
+      weekViewCollapsed[dayIdx] = !weekViewCollapsed[dayIdx];
+      haptic('select');
+      render();
     }
 
     // ── Swipe gestures ──
@@ -2074,15 +2659,31 @@
         swipeState.inner.style.transition = 'none';
         swipeState.inner.style.transform = `translateX(${clamped}px)`;
 
+        // Show/hide swipe indicators
+        const indRight = swipeState.el.querySelector('.swipe-indicator-right');
+        const indLeft = swipeState.el.querySelector('.swipe-indicator-left');
+
         if (clamped > SWIPE_THRESHOLD) {
           swipeState.bgRight.classList.add('visible');
           swipeState.bgLeft.classList.remove('visible');
+          if (indRight && !indRight.classList.contains('active')) {
+            indRight.classList.add('active');
+            haptic('light');
+          }
+          if (indLeft) indLeft.classList.remove('active');
         } else if (clamped < -SWIPE_THRESHOLD) {
           swipeState.bgLeft.classList.add('visible');
           swipeState.bgRight.classList.remove('visible');
+          if (indLeft && !indLeft.classList.contains('active')) {
+            indLeft.classList.add('active');
+            haptic('light');
+          }
+          if (indRight) indRight.classList.remove('active');
         } else {
           swipeState.bgRight.classList.remove('visible');
           swipeState.bgLeft.classList.remove('visible');
+          if (indRight) indRight.classList.remove('active');
+          if (indLeft) indLeft.classList.remove('active');
         }
       }, { passive: true });
 
@@ -2100,8 +2701,10 @@
         inner.style.transform = 'translateX(0)';
 
         if (dx > SWIPE_THRESHOLD) {
+          haptic('success');
           toggle(swipeState.id);
         } else if (dx < -SWIPE_THRESHOLD) {
+          haptic('medium');
           setTaskStatus(swipeState.id, 'skip');
         }
 
@@ -2115,22 +2718,27 @@
 
     function handleLongPressStart(id, e) {
       longPressTriggered = false;
+      const target = e.target;
       longPressTimer = setTimeout(() => {
         longPressTriggered = true;
-        // Prevent the click from firing
-        e.target.closest('.item-body').onclick = function(ev) {
-          ev.stopPropagation();
-          ev.preventDefault();
-          // Restore original onclick after consuming it once
-          this.onclick = null;
-        };
         toggleActionMenu(id);
-        if (navigator.vibrate) navigator.vibrate(30);
+        haptic('medium');
       }, 400);
     }
 
     function handleLongPressEnd() {
       clearTimeout(longPressTimer);
+    }
+
+    // Fix: prevent click after long press
+    function handleItemClick(id, e) {
+      if (longPressTriggered) {
+        longPressTriggered = false;
+        e.stopPropagation();
+        e.preventDefault();
+        return;
+      }
+      toggle(id);
     }
 
     initSwipeListeners();
@@ -2696,15 +3304,19 @@
           const wDay = schedule[wDayName];
           const wProg = getDayProgress(wDayName);
           const wIsToday = di === todayIdx;
+          const wCollapsed = weekViewCollapsed[di];
           html += `<div class="week-day-block">
-            <div class="week-day-header" onclick="selectDay(${di})">
+            <div class="week-day-header" onclick="toggleWeekDayCollapse(${di})">
               <div>
                 <span class="week-day-name ${wIsToday ? 'is-today' : ''}">${wDayName}${wIsToday ? ' \u2022 today' : ''}</span>
                 <span class="week-day-meta">${wDay.wake}${wDay.leave ? ' \u2192 ' + wDay.leave : ' \u2022 home'}</span>
               </div>
-              <div class="week-day-progress"><span class="pct">${wProg.pct}%</span> ${wProg.done}/${wProg.total}</div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <div class="week-day-progress"><span class="pct">${wProg.pct}%</span> ${wProg.done}/${wProg.total}</div>
+                <span class="week-day-collapse-arrow ${wCollapsed ? '' : 'open'}">\u25bc</span>
+              </div>
             </div>
-            <div class="week-day-tasks">`;
+            <div class="week-day-tasks ${wCollapsed ? 'collapsed' : ''}">`;
           wDay.sections.forEach(section => {
             html += `<div class="week-section-label">${section.label}</div>`;
             section.items.forEach(item => {
@@ -2715,6 +3327,7 @@
               if (st === 'done') cls += ' done';
               else if (st === 'skip') cls += ' skip';
               else if (st === 'progress') cls += ' progress';
+              if (activeFilter && item.cat !== activeFilter) cls += ' filtered-out';
               const checkIcon = st === 'done' ? '\u2713' : st === 'skip' ? '\u2716' : st === 'progress' ? '\u25B6' : '';
               const catLabel = CAT_LABEL[item.cat] || '';
               html += `<div class="${cls}" onclick="toggle('${item.id}')">
@@ -2737,7 +3350,7 @@
                   else if (st === 'skip') cls += ' skip';
                   else if (st === 'progress') cls += ' progress';
                   const checkIcon = st === 'done' ? '\u2713' : st === 'skip' ? '\u2716' : st === 'progress' ? '\u25B6' : '';
-                  html += `<div class="${cls}" onclick="toggle('${item.id}')" style="opacity:0.7">
+                  html += `<div class="${cls}" onclick="toggle('${item.id}')" style="border-left:2px solid var(--accent)">
                     <div class="week-task-check">${checkIcon}</div>
                     <div class="week-task-text">\u2192 ${item.text}</div>
                   </div>`;
@@ -2745,7 +3358,11 @@
               }
             }
           });
-          html += `</div></div>`;
+          html += `</div>
+            <div style="padding:4px 10px 6px;text-align:center">
+              <button class="cat-filter-btn haptic-press" onclick="event.stopPropagation();selectDay(${di})" style="font-size:10px">Open day \u2192</button>
+            </div>
+          </div>`;
         });
         html += `</div>`;
       }
@@ -2795,6 +3412,9 @@
         else if (st === 'progress') cls += ' progress';
         if (isDeferred) cls += ' deferred-out';
         if (extraClass) cls += ' ' + extraClass;
+        if (justCompletedId === item.id) cls += ' just-completed';
+        if (justSkippedId === item.id) cls += ' just-skipped';
+        if (activeFilter && item.cat !== activeFilter) cls += ' item-filtered-out';
         const textColor = item.cat === "class" || item.cat === "fameeting" ? c.border : "var(--text)";
         const catLabel = CAT_LABEL[item.cat];
         const note = taskNotes[item.id];
@@ -2806,11 +3426,13 @@
         <div class="item-swipe-wrap" data-swipe-id="${item.id}">
           <div class="swipe-bg swipe-bg-right">\u2713 Done</div>
           <div class="swipe-bg swipe-bg-left">\u23ed Skip</div>
+          <div class="swipe-indicator swipe-indicator-right">\u2713</div>
+          <div class="swipe-indicator swipe-indicator-left">\u2716</div>
           <div class="item-swipe-inner">
         <div class="${cls}" role="checkbox" aria-checked="${st === 'done'}" tabindex="0"
              data-task-id="${item.id}" style="background:${c.bg};border:1px solid ${c.border}22">
           <div class="item-bar" style="background:${c.border}"></div>
-          <div class="item-body" onclick="toggle('${item.id}')"
+          <div class="item-body" onclick="handleItemClick('${item.id}',event)"
                ontouchstart="handleLongPressStart('${item.id}',event)"
                ontouchend="handleLongPressEnd()" ontouchmove="handleLongPressEnd()">
             <div class="item-check" aria-hidden="true"></div>
@@ -2835,13 +3457,12 @@
           </div>`;
         }
 
-        // Note input
+        // Note input (multiline textarea)
         if (hasNoteInput) {
-          h += `<input class="note-input" id="note-input-${item.id}" type="text"
-                 placeholder="Add a note\u2026" value="${(note || '').replace(/"/g, '&quot;')}"
+          h += `<textarea class="note-input" id="note-input-${item.id}"
+                 placeholder="Add a note\u2026"
                  onclick="event.stopPropagation()"
-                 onkeydown="if(event.key==='Enter')saveNote('${item.id}')"
-                 onblur="saveNote('${item.id}')">`;
+                 onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();saveNote('${item.id}')}">${escapeHtml(note || '')}</textarea>`;
         }
 
         // Defer picker
@@ -2875,28 +3496,93 @@
       });
 
       if (deferredIn.length > 0) {
-        html += `<div class="deferred-section"><div class="deferred-label">Deferred</div><div class="items">`;
+        html += `<div class="deferred-section"><div class="deferred-label">\u2192 Deferred In <span class="deferred-badge">${deferredIn.length} task${deferredIn.length > 1 ? 's' : ''}</span></div><div class="items">`;
         deferredIn.forEach(({ item, fromDay }) => {
-          html += renderItem(item, '', fromDay);
+          html += renderItem(item, 'deferred-in-highlight', fromDay);
         });
         html += `</div></div>`;
       }
 
+      // Day completion celebration
+      if (prog.pct === 100 && prog.total > 0) {
+        const confettiColors = ['#00d2ff', '#00e676', '#ffab00', '#b44aff', '#e94560', '#ff6d00'];
+        let confettiHtml = '';
+        for (let c = 0; c < 20; c++) {
+          const color = confettiColors[c % confettiColors.length];
+          const left = Math.random() * 100;
+          const delay = Math.random() * 0.8;
+          const size = 4 + Math.random() * 4;
+          confettiHtml += `<div class="confetti-particle" style="left:${left}%;top:${10 + Math.random()*30}%;background:${color};width:${size}px;height:${size}px;animation-delay:${delay}s"></div>`;
+        }
+        html += `<div class="day-complete-banner">
+          ${confettiHtml}
+          <div class="day-complete-text">\u2728 ${dayName} Complete!</div>
+          <div class="day-complete-sub">All ${prog.total} tasks done. You crushed it.</div>
+        </div>`;
+      }
+
+      // Skip debt warning
+      const skipDebt = getSkipDebt();
+      const debtEntries = Object.entries(skipDebt).filter(([,c]) => c >= 2);
+      if (debtEntries.length > 0) {
+        html += `<div class="skip-debt-banner">
+          <div class="skip-debt-header">\u26a0 Skip Debt</div>`;
+        debtEntries.forEach(([label, count]) => {
+          html += `<div class="skip-debt-item"><span>${label}</span><span class="skip-debt-count">${count} skipped</span></div>`;
+        });
+        html += `</div>`;
+      }
+
+      // Category filter bar
+      const usedCats = new Set();
+      day.sections.forEach(s => s.items.forEach(item => {
+        if (item.cat && item.cat !== 'routine' && item.cat !== 'reflect') usedCats.add(item.cat);
+      }));
+      if (usedCats.size > 1) {
+        html += `<div class="cat-filter-bar">
+          <button class="cat-filter-btn haptic-press ${!activeFilter ? 'active' : ''}" onclick="toggleCatFilter(null)"
+                  style="${!activeFilter ? 'background:var(--text-bright);color:var(--bg);border-color:transparent;font-weight:600' : ''}">All</button>`;
+        usedCats.forEach(cat => {
+          const c = CAT[cat];
+          const label = CAT_LABEL[cat] || cat;
+          const isActive = activeFilter === cat;
+          html += `<button class="cat-filter-btn haptic-press ${isActive ? 'active' : ''}" onclick="toggleCatFilter('${cat}')"
+                    style="${isActive ? `background:${c.border}22;color:${c.border};border-color:${c.border}` : `color:${c.border}`}">${label}</button>`;
+        });
+        html += `</div>`;
+      }
+
       // Sections
-      html += `<div class="sections ${dayLocked ? 'day-locked-overlay' : ''}" role="list" aria-label="Tasks for ${dayName}">`;
+      const transClass = lastDayDirection === 'left' ? 'day-transition-left' : lastDayDirection === 'right' ? 'day-transition-right' : '';
+      html += `<div class="sections ${dayLocked ? 'day-locked-overlay' : ''} ${transClass}" role="list" aria-label="Tasks for ${dayName}">`;
+      let taskCounter = 0;
       day.sections.forEach((section, sIdx) => {
         let sClass = 'section-group';
         if (isToday) {
           if (sIdx < currentSectionIdx) sClass += ' section-past';
           else if (sIdx === currentSectionIdx) sClass += ' section-current';
         }
-        html += `<div class="${sClass}"><div class="section-label">${section.label}</div><div class="items">`;
+        // Check if all section tasks are done
+        const sectionAllDone = section.items.every(item => {
+          if (taskDeferred[item.id] && taskDeferred[item.id] !== dayName) return true;
+          const st = getStatus(item.id);
+          return st === 'done' || st === 'skip';
+        });
+        html += `<div class="${sClass}"><div class="section-label">${section.label}`;
+        if (!dayLocked && !sectionAllDone) {
+          html += `<button class="section-done-btn haptic-press" onclick="event.stopPropagation();markSectionDone('${dayName}',${sIdx})">\u2713 All done</button>`;
+        } else if (sectionAllDone && section.items.length > 0) {
+          html += `<span style="font-size:9px;color:var(--accent);margin-left:6px;letter-spacing:0">\u2713</span>`;
+        }
+        html += `</div><div class="items">`;
         section.items.forEach(item => {
           html += renderItem(item);
+          taskCounter++;
         });
         html += `</div></div>`;
       });
       html += `</div>`;
+      lastDayDirection = null; // clear after rendering
       } // end if (viewMode === 'day')
 
       // ── Panels ──
@@ -2996,6 +3682,15 @@
     </div>
     <div class="panel-content ${stOpen ? 'open' : ''}" id="panel-streak">`;
       if (recentWeeks.length > 0) {
+        // Past week navigation
+        html += `<div class="past-week-nav">`;
+        recentWeeks.forEach(([key, pct]) => {
+          const isCurrent = key === getWeekKey();
+          const isViewing = pastWeekViewing === key || (!pastWeekViewing && isCurrent);
+          html += `<button class="past-week-btn ${isViewing ? 'active' : ''}" onclick="event.stopPropagation();viewPastWeek('${key}')">${key.replace('sp26-', '')} (${pct}%)</button>`;
+        });
+        html += `</div>`;
+
         html += `<div class="streak-chart" style="margin-bottom:20px">`;
         recentWeeks.forEach(([key, pct]) => {
           const isCurrent = key === getWeekKey();
@@ -3004,9 +3699,46 @@
       </div>`;
         });
         html += `</div>`;
+
+        // Past week data viewer
+        if (pastWeekViewing) {
+          const pastData = getPastWeekData(pastWeekViewing);
+          const pastEntries = Object.entries(pastData);
+          if (pastEntries.length > 0) {
+            html += `<div style="font-size:10px;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">${pastWeekViewing} Task States</div>`;
+            html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">`;
+            pastEntries.forEach(([id, status]) => {
+              const color = status === 'done' ? 'var(--accent)' : status === 'skip' ? '#e94560' : status === 'progress' ? '#ffab00' : 'var(--dim)';
+              html += `<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:${color}18;color:${color};border:1px solid ${color}30">${id}: ${status === true ? 'done' : status}</span>`;
+            });
+            html += `</div>`;
+          } else {
+            html += `<div style="font-size:11px;color:var(--dim)">No data found for this week.</div>`;
+          }
+        }
       } else {
         html += `<div class="streak-empty">Complete tasks to start tracking your streak.</div>`;
       }
+
+      // Subject streaks
+      const subjectStreaks = getSubjectStreaks();
+      const streakEntries = Object.entries(subjectStreaks);
+      if (streakEntries.length > 0) {
+        html += `<div style="font-size:10px;color:var(--dim);margin:14px 0 6px;text-transform:uppercase;letter-spacing:1px">Subject Progress</div>`;
+        html += `<div class="subject-streaks">`;
+        streakEntries.sort((a,b) => (b[1].done/b[1].total) - (a[1].done/a[1].total)).forEach(([cat, data]) => {
+          const c = CAT[cat];
+          const label = CAT_LABEL[cat] || cat;
+          const pct = data.total ? Math.round((data.done / data.total) * 100) : 0;
+          html += `<div class="subject-streak-card" style="border-color:${c ? c.border : 'var(--border)'}22">
+            <div class="subject-streak-label" style="color:${c ? c.border : 'var(--muted)'}">${label}</div>
+            <div class="subject-streak-bar"><div class="subject-streak-fill" style="width:${pct}%;background:${c ? c.border : 'var(--accent)'}"></div></div>
+            <div class="subject-streak-val">${data.done}/${data.total} \u00b7 ${pct}%</div>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
       html += `</div></div>`;
 
       // ── Sync panel ──
@@ -3100,12 +3832,45 @@
       }
 
       document.getElementById('app').innerHTML = html;
+
+      // FAB (outside app div - rendered separately)
+      let fabEl = document.getElementById('fab-container');
+      if (!fabEl) {
+        fabEl = document.createElement('div');
+        fabEl.id = 'fab-container';
+        document.body.appendChild(fabEl);
+      }
+      let fabHtml = `<button class="fab ${fabOpen ? 'open' : ''}" onclick="toggleFab()">+</button>`;
+      if (fabOpen && viewMode === 'day') {
+        const fabDay = schedule[DAYS[selectedDay]];
+        fabHtml += `<div class="fab-panel" onclick="event.stopPropagation()">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600">Quick add to ${DAYS[selectedDay]}</div>
+          <input id="fab-text" type="text" placeholder="Task text..." onkeydown="if(event.key==='Enter')fabAddTask()">
+          <div class="fab-panel-row">
+            <select id="fab-cat" style="flex:1">`;
+        Object.keys(CAT).forEach(k => {
+          fabHtml += `<option value="${k}">${CAT_LABEL[k] || k}</option>`;
+        });
+        fabHtml += `</select>
+            <select id="fab-section" style="flex:1">`;
+        fabDay.sections.forEach((s, i) => {
+          fabHtml += `<option value="${i}">${s.label}</option>`;
+        });
+        fabHtml += `</select>
+          </div>
+          <button class="fab-add-btn" onclick="fabAddTask()" style="margin-top:8px">Add Task</button>
+        </div>`;
+      }
+      fabEl.innerHTML = fabHtml;
+
       requestAnimationFrame(() => window.scrollTo(0, scrollY));
     }
 
     function selectDay(i) {
+      lastDayDirection = i > selectedDay ? 'right' : (i < selectedDay ? 'left' : null);
       selectedDay = i;
       viewMode = 'day';
+      haptic('select');
       render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -3170,20 +3935,28 @@
     }
 
     function buildTextToIdMap() {
-      // Maps normalized task text → task id for current schedule
+      // Maps normalized task text+day → task id for current schedule
+      // Uses day prefix to handle duplicate task texts across days
       const map = {};
+      const seen = {};
       DAYS.forEach(d => schedule[d].sections.forEach(s => s.items.forEach(item => {
         const key = item.text.trim().toLowerCase();
-        map[key] = item.id;
+        const uniqueKey = d + '::' + key;
+        map[uniqueKey] = item.id;
+        // Also store plain text key only if not a duplicate
+        if (!seen[key]) {
+          map[key] = item.id;
+          seen[key] = true;
+        }
       })));
       return map;
     }
 
-    function buildIdToTextMap(fingerprint) {
-      // For current schedule, maps id → normalized text
+    function buildIdToTextMap() {
+      // For current schedule, maps id → { text, day } for migration
       const map = {};
       DAYS.forEach(d => schedule[d].sections.forEach(s => s.items.forEach(item => {
-        map[item.id] = item.text.trim().toLowerCase();
+        map[item.id] = { text: item.text.trim().toLowerCase(), day: d };
       })));
       return map;
     }
@@ -3243,12 +4016,24 @@
         }
       }
 
-      // Then, try to migrate orphaned entries by matching text
+      // Then, try to migrate orphaned entries by matching text (with day disambiguation)
+      function findNewId(oldId) {
+        const entry = oldTextMap[oldId];
+        if (!entry) return null;
+        const text = typeof entry === 'string' ? entry : entry.text;
+        const day = typeof entry === 'object' ? entry.day : null;
+        // Try day-specific match first (handles duplicates)
+        if (day) {
+          const dayKey = day + '::' + text;
+          if (newTextToId[dayKey]) return newTextToId[dayKey];
+        }
+        // Fall back to plain text match
+        return newTextToId[text] || null;
+      }
+
       for (const [oldId, val] of Object.entries(checked)) {
-        if (currentIds.has(oldId)) continue; // already handled
-        const oldText = oldTextMap[oldId];
-        if (!oldText) continue;
-        const newId = newTextToId[oldText];
+        if (currentIds.has(oldId)) continue;
+        const newId = findNewId(oldId);
         if (newId && !newChecked[newId]) {
           newChecked[newId] = val;
           migrated++;
@@ -3256,9 +4041,7 @@
       }
       for (const [oldId, val] of Object.entries(taskNotes)) {
         if (currentIds.has(oldId)) continue;
-        const oldText = oldTextMap[oldId];
-        if (!oldText) continue;
-        const newId = newTextToId[oldText];
+        const newId = findNewId(oldId);
         if (newId && !newNotes[newId]) {
           newNotes[newId] = val;
           migrated++;
@@ -3266,9 +4049,7 @@
       }
       for (const [oldId, val] of Object.entries(taskDeferred)) {
         if (currentIds.has(oldId)) continue;
-        const oldText = oldTextMap[oldId];
-        if (!oldText) continue;
-        const newId = newTextToId[oldText];
+        const newId = findNewId(oldId);
         if (newId && !newDeferred[newId]) {
           newDeferred[newId] = val;
           migrated++;
