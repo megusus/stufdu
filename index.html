@@ -3161,8 +3161,139 @@
       });
     }
 
+    // ── Schedule migration ──
+    // Preserves progress when schedule task IDs change across updates
+    function getScheduleFingerprint() {
+      const ids = [];
+      DAYS.forEach(d => schedule[d].sections.forEach(s => s.items.forEach(item => ids.push(item.id))));
+      return ids.join(',');
+    }
+
+    function buildTextToIdMap() {
+      // Maps normalized task text → task id for current schedule
+      const map = {};
+      DAYS.forEach(d => schedule[d].sections.forEach(s => s.items.forEach(item => {
+        const key = item.text.trim().toLowerCase();
+        map[key] = item.id;
+      })));
+      return map;
+    }
+
+    function buildIdToTextMap(fingerprint) {
+      // For current schedule, maps id → normalized text
+      const map = {};
+      DAYS.forEach(d => schedule[d].sections.forEach(s => s.items.forEach(item => {
+        map[item.id] = item.text.trim().toLowerCase();
+      })));
+      return map;
+    }
+
+    function getCurrentIds() {
+      const ids = new Set();
+      DAYS.forEach(d => schedule[d].sections.forEach(s => s.items.forEach(item => ids.add(item.id))));
+      return ids;
+    }
+
+    function migrateProgress() {
+      const fpKey = getWeekKey() + '-schedule-fp';
+      const textMapKey = getWeekKey() + '-schedule-textmap';
+      const currentFp = getScheduleFingerprint();
+      const storedFp = localStorage.getItem(fpKey);
+
+      if (storedFp === currentFp) return; // no change
+
+      // First run — just store fingerprint and text map
+      if (!storedFp) {
+        localStorage.setItem(fpKey, currentFp);
+        localStorage.setItem(textMapKey, JSON.stringify(buildIdToTextMap()));
+        return;
+      }
+
+      // Schedule changed — attempt migration
+      let oldTextMap = {};
+      try {
+        const raw = localStorage.getItem(textMapKey);
+        if (raw) oldTextMap = JSON.parse(raw);
+      } catch (e) { /* ignore */ }
+
+      const newTextToId = buildTextToIdMap();
+      const currentIds = getCurrentIds();
+      let migrated = 0;
+
+      // Build reverse map: old id → old text
+      // Then find matching new id by text
+      const newChecked = {};
+      const newNotes = {};
+      const newDeferred = {};
+
+      // First, keep all entries that still have valid IDs
+      for (const [id, val] of Object.entries(checked)) {
+        if (currentIds.has(id)) {
+          newChecked[id] = val;
+        }
+      }
+      for (const [id, val] of Object.entries(taskNotes)) {
+        if (currentIds.has(id)) {
+          newNotes[id] = val;
+        }
+      }
+      for (const [id, val] of Object.entries(taskDeferred)) {
+        if (currentIds.has(id)) {
+          newDeferred[id] = val;
+        }
+      }
+
+      // Then, try to migrate orphaned entries by matching text
+      for (const [oldId, val] of Object.entries(checked)) {
+        if (currentIds.has(oldId)) continue; // already handled
+        const oldText = oldTextMap[oldId];
+        if (!oldText) continue;
+        const newId = newTextToId[oldText];
+        if (newId && !newChecked[newId]) {
+          newChecked[newId] = val;
+          migrated++;
+        }
+      }
+      for (const [oldId, val] of Object.entries(taskNotes)) {
+        if (currentIds.has(oldId)) continue;
+        const oldText = oldTextMap[oldId];
+        if (!oldText) continue;
+        const newId = newTextToId[oldText];
+        if (newId && !newNotes[newId]) {
+          newNotes[newId] = val;
+          migrated++;
+        }
+      }
+      for (const [oldId, val] of Object.entries(taskDeferred)) {
+        if (currentIds.has(oldId)) continue;
+        const oldText = oldTextMap[oldId];
+        if (!oldText) continue;
+        const newId = newTextToId[oldText];
+        if (newId && !newDeferred[newId]) {
+          newDeferred[newId] = val;
+          migrated++;
+        }
+      }
+
+      checked = newChecked;
+      taskNotes = newNotes;
+      taskDeferred = newDeferred;
+
+      // Save new fingerprint and text map
+      localStorage.setItem(fpKey, currentFp);
+      localStorage.setItem(textMapKey, JSON.stringify(buildIdToTextMap()));
+      saveState();
+
+      if (migrated > 0) {
+        setTimeout(() => showToast(`Schedule updated \u2014 migrated ${migrated} item(s)`), 500);
+      } else if (Object.keys(checked).length > 0 || Object.keys(taskNotes).length > 0) {
+        setTimeout(() => showToast('Schedule updated \u2014 progress preserved'), 500);
+      }
+    }
+
     // ── Init ──
     loadState();
+    migrateProgress();
     render();
 
     // Auto-connect sync if previously configured
