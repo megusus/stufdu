@@ -591,6 +591,39 @@
       display: none;
     }
 
+    /* Lock button */
+    .lock-btn {
+      background: none;
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+
+    .lock-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .lock-btn.locked {
+      background: #ffab0018;
+      border-color: #ffab0044;
+      color: #ffab00;
+    }
+
+    .day-locked-overlay {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .day-locked-overlay .item-swipe-wrap {
+      pointer-events: none;
+    }
+
     /* Swipe reveal layers */
     .item-swipe-wrap {
       position: relative;
@@ -1721,6 +1754,7 @@
     let checked = {};       // { id: "done"|"skip"|"progress"|true }
     let taskNotes = {};     // { id: "note text" }
     let taskDeferred = {};  // { id: "DayName" }
+    let lockedDays = {};    // { "Monday": true, ... }
     let viewMode = 'day'; // 'day' or 'week'
     let openPanels = {};
     let openActions = null; // id of task with open action menu
@@ -1802,6 +1836,10 @@
         const raw = localStorage.getItem(getWeekKey() + '-defer');
         if (raw) taskDeferred = JSON.parse(raw);
       } catch (e) { console.warn('Failed to load deferred tasks:', e.message); taskDeferred = {}; }
+      try {
+        const raw = localStorage.getItem(getWeekKey() + '-lock');
+        if (raw) lockedDays = JSON.parse(raw);
+      } catch (e) { console.warn('Failed to load locks:', e.message); lockedDays = {}; }
     }
 
     function saveState() {
@@ -1809,6 +1847,7 @@
         localStorage.setItem(getWeekKey(), JSON.stringify(checked));
         localStorage.setItem(getWeekKey() + '-notes', JSON.stringify(taskNotes));
         localStorage.setItem(getWeekKey() + '-defer', JSON.stringify(taskDeferred));
+        localStorage.setItem(getWeekKey() + '-lock', JSON.stringify(lockedDays));
         saveHistory();
         syncPush();
       } catch (e) { console.warn('Failed to save state:', e.message); }
@@ -1861,8 +1900,45 @@
       render();
     }
 
+    // ── Lock ──
+    function toggleLock(dayName) {
+      if (lockedDays[dayName]) {
+        delete lockedDays[dayName];
+        showToast(dayName + ' unlocked');
+      } else {
+        lockedDays[dayName] = true;
+        showToast(dayName + ' locked');
+      }
+      saveState();
+      render();
+    }
+
+    function isDayLocked(dayName) {
+      return !!lockedDays[dayName];
+    }
+
+    function getTaskDay(id) {
+      // Check deferred target first
+      if (taskDeferred[id]) return taskDeferred[id];
+      // Find original day
+      for (const dName of DAYS) {
+        for (const sec of schedule[dName].sections) {
+          for (const item of sec.items) {
+            if (item.id === id) return dName;
+          }
+        }
+      }
+      return null;
+    }
+
+    function isTaskLocked(id) {
+      const day = getTaskDay(id);
+      return day && isDayLocked(day);
+    }
+
     // ── Toggle (tap checkbox = toggle done) ──
     function toggle(id) {
+      if (isTaskLocked(id)) { showToast('Day is locked'); return; }
       const prev = checked[id];
       const wasDone = getStatus(id) === 'done';
       if (wasDone) {
@@ -1878,6 +1954,7 @@
 
     // ── Task actions ──
     function setTaskStatus(id, status) {
+      if (isTaskLocked(id)) { showToast('Day is locked'); return; }
       const prev = checked[id];
       if (getStatus(id) === status) {
         delete checked[id];
@@ -1937,6 +2014,7 @@
     }
 
     function deferTask(id, targetDay) {
+      if (isTaskLocked(id)) { showToast('Day is locked'); return; }
       taskDeferred[id] = targetDay;
       openActions = null;
       openDeferPicker = null;
@@ -1946,6 +2024,7 @@
 
     function clearTask(id, e) {
       if (e) e.stopPropagation();
+      if (isTaskLocked(id)) { showToast('Day is locked'); return; }
       delete checked[id];
       delete taskNotes[id];
       delete taskDeferred[id];
@@ -2095,6 +2174,7 @@
     }
 
     function resetDay() {
+      if (isDayLocked(DAYS[selectedDay])) { showToast('Day is locked'); return; }
       if (!confirm(`Reset all tasks for ${DAYS[selectedDay]}?`)) return;
       const dayName = DAYS[selectedDay];
       schedule[dayName].sections.forEach(s => s.items.forEach(item => {
@@ -2674,9 +2754,13 @@
       // Day header
       const leaveHtml = day.leave ? `<span>Leave <span class="val">${day.leave}</span></span>` : `<span class="home">Home day</span>`;
       const metaHtml = day.meta ? `<span class="flag">\u2691 ${day.meta}</span>` : '';
+      const dayLocked = isDayLocked(dayName);
       html += `
     <div class="day-header">
-      <div class="day-name">${dayName}${isToday ? ' <span style="font-size:12px;color:var(--accent);font-weight:400">today</span>' : ''}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="day-name">${dayName}${isToday ? ' <span style="font-size:12px;color:var(--accent);font-weight:400">today</span>' : ''}</div>
+        <button class="lock-btn ${dayLocked ? 'locked' : ''}" onclick="toggleLock('${dayName}')">${dayLocked ? '\uD83D\uDD12 Locked' : '\uD83D\uDD13 Lock'}</button>
+      </div>
       <div class="day-meta">
         <span>Wake <span class="val">${day.wake}</span></span>
         ${leaveHtml} ${metaHtml}
@@ -2799,7 +2883,7 @@
       }
 
       // Sections
-      html += `<div class="sections" role="list" aria-label="Tasks for ${dayName}">`;
+      html += `<div class="sections ${dayLocked ? 'day-locked-overlay' : ''}" role="list" aria-label="Tasks for ${dayName}">`;
       day.sections.forEach((section, sIdx) => {
         let sClass = 'section-group';
         if (isToday) {
