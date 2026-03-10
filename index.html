@@ -540,6 +540,74 @@
       display: none;
     }
 
+    /* Swipe reveal layers */
+    .item-swipe-wrap {
+      position: relative;
+      overflow: hidden;
+      border-radius: 10px;
+      margin-bottom: 0;
+    }
+
+    .swipe-bg {
+      position: absolute;
+      top: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .swipe-bg-right {
+      left: 0; right: 50%;
+      background: linear-gradient(90deg, #00d2ff33, transparent);
+      color: var(--accent);
+      justify-content: flex-start;
+    }
+
+    .swipe-bg-left {
+      right: 0; left: 50%;
+      background: linear-gradient(-90deg, #e9456033, transparent);
+      color: #e94560;
+      justify-content: flex-end;
+    }
+
+    .swipe-bg.visible {
+      opacity: 1;
+    }
+
+    .item-swipe-inner {
+      position: relative;
+      z-index: 1;
+      transition: transform 0.15s ease-out;
+      touch-action: pan-y;
+    }
+
+    /* Task entrance animation */
+    @keyframes taskPop {
+      0% { transform: scale(0.97); opacity: 0.5; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .item-animate-in {
+      animation: taskPop 0.2s ease-out;
+    }
+
+    /* Completion celebration */
+    @keyframes taskComplete {
+      0% { transform: scale(1); }
+      30% { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+
+    .item.just-completed {
+      animation: taskComplete 0.3s ease-out;
+    }
+
     /* Action menu */
     .item-actions-btn {
       width: 24px;
@@ -1826,6 +1894,108 @@
       showToast('Cleared');
     }
 
+    // ── Swipe gestures ──
+    let swipeState = null;
+    const SWIPE_THRESHOLD = 80;
+
+    function initSwipeListeners() {
+      document.addEventListener('touchstart', function(e) {
+        const wrap = e.target.closest('.item-swipe-wrap');
+        if (!wrap) return;
+        const touch = e.touches[0];
+        swipeState = {
+          id: wrap.dataset.swipeId,
+          startX: touch.clientX,
+          startY: touch.clientY,
+          el: wrap,
+          inner: wrap.querySelector('.item-swipe-inner'),
+          bgRight: wrap.querySelector('.swipe-bg-right'),
+          bgLeft: wrap.querySelector('.swipe-bg-left'),
+          locked: false,
+          swiping: false,
+        };
+      }, { passive: true });
+
+      document.addEventListener('touchmove', function(e) {
+        if (!swipeState) return;
+        const touch = e.touches[0];
+        const dx = touch.clientX - swipeState.startX;
+        const dy = touch.clientY - swipeState.startY;
+
+        // If vertical scroll is dominant, cancel swipe
+        if (!swipeState.locked && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+          swipeState = null;
+          return;
+        }
+        if (Math.abs(dx) > 10) swipeState.locked = true;
+        if (!swipeState.locked) return;
+
+        swipeState.swiping = true;
+        const clamped = Math.max(-150, Math.min(150, dx));
+        swipeState.inner.style.transition = 'none';
+        swipeState.inner.style.transform = `translateX(${clamped}px)`;
+
+        if (clamped > SWIPE_THRESHOLD) {
+          swipeState.bgRight.classList.add('visible');
+          swipeState.bgLeft.classList.remove('visible');
+        } else if (clamped < -SWIPE_THRESHOLD) {
+          swipeState.bgLeft.classList.add('visible');
+          swipeState.bgRight.classList.remove('visible');
+        } else {
+          swipeState.bgRight.classList.remove('visible');
+          swipeState.bgLeft.classList.remove('visible');
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', function(e) {
+        if (!swipeState || !swipeState.swiping) {
+          swipeState = null;
+          return;
+        }
+        const inner = swipeState.inner;
+        const transform = inner.style.transform;
+        const match = transform.match(/translateX\(([-.0-9]+)px\)/);
+        const dx = match ? parseFloat(match[1]) : 0;
+
+        inner.style.transition = 'transform 0.2s ease-out';
+        inner.style.transform = 'translateX(0)';
+
+        if (dx > SWIPE_THRESHOLD) {
+          toggle(swipeState.id);
+        } else if (dx < -SWIPE_THRESHOLD) {
+          setTaskStatus(swipeState.id, 'skip');
+        }
+
+        swipeState = null;
+      }, { passive: true });
+    }
+
+    // ── Long press ──
+    let longPressTimer = null;
+    let longPressTriggered = false;
+
+    function handleLongPressStart(id, e) {
+      longPressTriggered = false;
+      longPressTimer = setTimeout(() => {
+        longPressTriggered = true;
+        // Prevent the click from firing
+        e.target.closest('.item-body').onclick = function(ev) {
+          ev.stopPropagation();
+          ev.preventDefault();
+          // Restore original onclick after consuming it once
+          this.onclick = null;
+        };
+        toggleActionMenu(id);
+        if (navigator.vibrate) navigator.vibrate(30);
+      }, 400);
+    }
+
+    function handleLongPressEnd() {
+      clearTimeout(longPressTimer);
+    }
+
+    initSwipeListeners();
+
     function updateProgressBars() {
       const dayName = DAYS[selectedDay];
       const prog = getDayProgress(dayName);
@@ -2472,10 +2642,16 @@
         const hasDeferPicker = openDeferPicker === item.id;
 
         let h = `
+        <div class="item-swipe-wrap" data-swipe-id="${item.id}">
+          <div class="swipe-bg swipe-bg-right">\u2713 Done</div>
+          <div class="swipe-bg swipe-bg-left">\u23ed Skip</div>
+          <div class="item-swipe-inner">
         <div class="${cls}" role="checkbox" aria-checked="${st === 'done'}" tabindex="0"
              data-task-id="${item.id}" style="background:${c.bg};border:1px solid ${c.border}22">
           <div class="item-bar" style="background:${c.border}"></div>
-          <div class="item-body" onclick="toggle('${item.id}')">
+          <div class="item-body" onclick="toggle('${item.id}')"
+               ontouchstart="handleLongPressStart('${item.id}',event)"
+               ontouchend="handleLongPressEnd()" ontouchmove="handleLongPressEnd()">
             <div class="item-check" aria-hidden="true"></div>
             <div class="item-info">
               <div class="item-text" style="color:${textColor}">${item.text}${note ? '<span class="note-icon">\ud83d\udcdd</span>' : ''}</div>
@@ -2518,7 +2694,7 @@
           h += `</div>`;
         }
 
-        h += `</div>`;
+        h += `</div></div></div>`; // close item + swipe-inner + swipe-wrap
         return h;
       }
 
