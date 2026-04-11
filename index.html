@@ -4196,6 +4196,50 @@
     </div>
   </div>
 
+  <script>
+    // Inline password gate fallback — runs even if init.js module fails to load
+    (function() {
+      var HASH = '0bf6f36b6a4dcc7ac1be22c6980c3001ac0ee05803689a8a1a275fc8d9e59582';
+      var PREFIX = 'sp26';
+      if (sessionStorage.getItem(PREFIX + '-auth') === '1') {
+        document.getElementById('lock-screen').style.display = 'none';
+        document.getElementById('app-wrapper').style.display = 'block';
+        return;
+      }
+      function h(p) {
+        return crypto.subtle.digest('SHA-256', new TextEncoder().encode(p)).then(function(b) {
+          return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,'0')}).join('');
+        });
+      }
+      function attempt() {
+        var inp = document.getElementById('lock-input');
+        if (!inp || !inp.value) return;
+        h(inp.value).then(function(hash) {
+          if (hash === HASH) {
+            document.getElementById('lock-screen').style.display = 'none';
+            document.getElementById('app-wrapper').style.display = 'block';
+            sessionStorage.setItem(PREFIX + '-auth', '1');
+          } else {
+            var err = document.getElementById('lock-error');
+            if (err) err.style.display = 'block';
+            inp.value = '';
+            inp.style.borderColor = '#e94560';
+            setTimeout(function() {
+              if (err) err.style.display = 'none';
+              inp.style.borderColor = '';
+              inp.focus();
+            }, 2000);
+          }
+        });
+      }
+      document.getElementById('lock-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') attempt();
+      });
+      var btn = document.getElementById('lock-submit');
+      if (btn) btn.addEventListener('click', attempt);
+    })();
+  </script>
+
   <div id="app-wrapper" style="display:none">
     <div class="offline-banner" id="offline-banner"><span class="offline-dot"></span> You are offline — changes saved locally</div>
     <div class="hub-layout">

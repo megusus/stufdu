@@ -18,9 +18,16 @@ function unlock() {
 }
 
 export function initPasswordGate(onUnlocked) {
-  // Check if already authenticated this session
+  // Already authenticated (inline script or previous session)?
   if (Storage.sessionGet('auth') === '1') {
     unlock();
+    if (onUnlocked) onUnlocked();
+    return;
+  }
+
+  const lockScreen = document.getElementById('lock-screen');
+  // If lock screen is already hidden, the inline script unlocked us
+  if (lockScreen && lockScreen.style.display === 'none') {
     if (onUnlocked) onUnlocked();
     return;
   }
@@ -47,7 +54,6 @@ export function initPasswordGate(onUnlocked) {
       }
     } catch (err) {
       console.error('[password] Hash error:', err);
-      // Fallback: if crypto.subtle unavailable, show a message
       const errEl = document.getElementById('lock-error');
       if (errEl) {
         errEl.textContent = 'Cannot verify password (requires HTTPS)';
@@ -56,11 +62,18 @@ export function initPasswordGate(onUnlocked) {
     }
   }
 
-  lockInput.addEventListener('keydown', (e) => {
+  // Replace the input to remove any inline-script listeners, then re-attach
+  const fresh = lockInput.cloneNode(true);
+  lockInput.parentNode.replaceChild(fresh, lockInput);
+  fresh.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') tryUnlock();
   });
+  fresh.focus();
 
-  // Also wire up submit button if present
   const lockBtn = document.getElementById('lock-submit');
-  if (lockBtn) lockBtn.addEventListener('click', tryUnlock);
+  if (lockBtn) {
+    const freshBtn = lockBtn.cloneNode(true);
+    lockBtn.parentNode.replaceChild(freshBtn, lockBtn);
+    freshBtn.addEventListener('click', tryUnlock);
+  }
 }
