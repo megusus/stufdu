@@ -2,32 +2,44 @@
 // ── App Initialization & Entry Point ──
 // ════════════════════════════════════════
 
-import { CONFIG, saveConfigOverrides } from './config.js';
+import { CONFIG } from './config.js';
 import { Storage } from './storage.js';
 import { CategoryRegistry } from './categories.js';
-import { DAYS, SHORT, schedule, addTaskToSection, removeTaskFromSchedule, renameSectionInSchedule, addSectionToDay, removeSectionFromDay, moveSectionInDay, moveTaskInSection, dayConfig, setDayActive, setDayAlias, saveDayConfig, saveScheduleToStorage, getScheduleFingerprint, buildTextToIdMap, buildIdToTextMap, getCurrentIds, findItemById } from './schedule.js';
-import { state, loadState, saveState, saveLinks, saveDeadlines, saveMeals, saveReadingList, loadHistory, loadScratchpad, saveScratchpad, getWeekKey, getWeekNum, getISOWeek, nowInTZ, getStatus, getDayProgress, getWeeklyProgress, invalidateProgressCache, STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED, todayIdx, READING_LIST_DEFAULT, escapeHtml, haptic, formatEst } from './state.js';
+import { DAYS, schedule, addTaskToSection, removeTaskFromSchedule, renameSectionInSchedule, addSectionToDay, removeSectionFromDay, moveSectionInDay, moveTaskInSection, updateDayMetadata, addDayToSchedule, removeDayFromSchedule, dayConfig, setDayActive, setDayAlias, saveDayConfig, saveScheduleToStorage, getDayLabel } from './schedule.js';
+import { state, loadState, saveState, saveLinks, saveDeadlines, saveMeals, saveReadingList, loadHistory, loadScratchpad, saveScratchpad, getWeekKey, getWeekNum, getISOWeek, nowInTZ, getStatus, getDayProgress, getWeeklyProgress, invalidateProgressCache, STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED, todayIdx, READING_LIST_DEFAULT, escapeHtml, formatEst, haptic } from './state.js';
 import { initPasswordGate } from './password.js';
 import { syncGoodreads, saveGoodreadsCSV, handleGoodreadsFile } from './reading.js';
 import { getSyncConfig, connectSync, disconnectSync, setupStoredSync, syncPush, updateSyncDot } from './sync.js';
 import { initTheme, toggleTheme, checkAutoTheme, currentTheme } from './ui/theme.js';
-import { startPomo, cancelPomo, togglePomoPause, restartPomo, resetPomoPosition, setFocusTimerMin, ensurePomoBar } from './ui/timer.js';
+import { startPomo, cancelPomo, togglePomoPause, restartPomo, resetPomoPosition, setFocusTimerMin, ensurePomoBar, setTimerContextMenu } from './ui/timer.js';
 import { toggle, setTaskStatus, toggleActionMenu, showNoteInput, saveNote, showDeferPicker, deferTask, clearTask, markSectionDone, addLink, showLinkInput, saveLink, removeLink, toggleFab, fabAddTask, toggleCatFilter, toggleFocusMode, togglePanel, selectDay, setViewMode, resetDay, viewPastWeek, toggleWeekDayCollapse, toggleFontSize, toggleShortcuts, toggleScratchpad, showToast, hideToast, undoToggle, showConfirm, showCtxMenu, showTaskCtxMenu, showTimerCtxMenu, showTabCtxMenu, closeCtxMenu, patchTaskDOM, updateProgressBars, toggleLock, setRenderFn } from './ui/toggle.js';
 import { setSearch, clearSearch } from './ui/search.js';
 import { initSwipeListeners, initPageSwipe, handleLongPressStart, handleLongPressEnd, handleItemClick } from './ui/swipe.js';
 import { render, renderImmediate, doRender } from './render/index.js';
 import { initDispatch } from './ui/dispatch.js';
 
+// Extracted modules
+import { fetchMeals, savePastedMeals, toggleMealPaste, clearMealData } from './meals.js';
+import { exportData, importData, exportCalendar, exportSchedule, importSchedule, resetDefaultSchedule, newSemester, shareProgress, addDeadline, removeDeadline, requestNotifPermission, scheduleNotifications, pruneOldData, checkStorageQuota, carryOverDeferrals, migrateProgress } from './data.js';
+import { applySettings, resetSettings } from './ui/settings.js';
+import { editCat, saveCatEdit, deleteCat, addCat, resetCatToDefaults } from './ui/categories-editor.js';
+import { detectOldPrefixKeys, offerMigration } from './migration.js';
+
 // ── Wire up render function references ──
 setRenderFn(render, doRender);
 
+// ── Wire timer context menu ──
+setTimerContextMenu(showTimerCtxMenu);
+
 // ── Event dispatcher: handles all data-action click attributes ──
-// Replaces ~80 window globals with a single document-level listener.
 initDispatch({
+  reloadApp:                 () => location.reload(),
   // Header
   toggleTheme:              () => toggleTheme(render),
   toggleFontSize:           () => toggleFontSize(),
   toggleShortcuts:          () => toggleShortcuts(),
+  setSearch:                (_data, _e, el) => setSearch(el.value, doRender),
+  selectInput:              (_data, _e, el) => el.select?.(),
   // Search / view
   clearSearch:              () => clearSearch(doRender),
   setViewMode:              ({ mode }) => setViewMode(mode),
@@ -35,6 +47,7 @@ initDispatch({
   resetDay:                 () => resetDay(),
   // Day/week navigation
   selectDay:                ({ i }) => selectDay(+i),
+  showTabCtxMenu:           ({ i }, e) => showTabCtxMenu(+i, e),
   toggleWeekDayCollapse:    ({ i }) => toggleWeekDayCollapse(+i),
   toggleLock:               ({ day }) => toggleLock(day),
   toggleCatFilter:          ({ cat }) => toggleCatFilter(cat || null),
@@ -42,6 +55,9 @@ initDispatch({
   toggle:                   ({ id }) => toggle(id),
   handleItemClick:          ({ id }, e) => handleItemClick(id, e, toggle),
   toggleActionMenu:         ({ id }, e) => toggleActionMenu(id, e),
+  showTaskCtxMenu:          ({ id }, e) => showTaskCtxMenu(id, e),
+  handleLongPressStart:     ({ id }, e) => handleLongPressStart(id, e, toggleActionMenu),
+  handleLongPressEnd:       () => handleLongPressEnd(),
   setTaskStatus:            ({ id, status }) => setTaskStatus(id, status),
   showNoteInput:            ({ id }, e) => showNoteInput(id, e),
   showDeferPicker:          ({ id }, e) => showDeferPicker(id, e),
@@ -60,9 +76,12 @@ initDispatch({
   resetPomoPosition:        () => resetPomoPosition(),
   // Timer duration
   setFocusTimerMinAndRender:({ min }) => { setFocusTimerMin(+min); doRender(); },
+  setFocusTimerMinFromInput:(_data, _e, el) => { setFocusTimerMin(+el.value); doRender(); },
+  stopPropagation:          (_data, e) => e.stopPropagation(),
   // Reading
   syncGoodreads:            () => syncGoodreads(render, showToast),
   saveGoodreadsCSV:         () => saveGoodreadsCSV(render, showToast),
+  handleGoodreadsFile:      () => handleGoodreadsFile(render, showToast),
   readingToggleCSV:         () => { state.readingShowCSV = !state.readingShowCSV; render(); },
   readingResetList:         () => { state.readingList = [...READING_LIST_DEFAULT]; saveReadingList(); state.readingSyncStatus = null; render(); },
   // Streak
@@ -133,7 +152,6 @@ initDispatch({
     const activeDaysLeft = DAYS.filter(d => d !== day && dayConfig[d]?.active !== false).length;
     if (current && activeDaysLeft < 1) { showToast('At least one day must be active'); return; }
     setDayActive(day, !current);
-    // If we're deactivating the currently selected day, jump to the first active day
     if (current && DAYS[state.selectedDay] === day) {
       const firstActive = DAYS.findIndex(d => dayConfig[d]?.active !== false);
       if (firstActive !== -1) state.selectedDay = firstActive;
@@ -154,512 +172,113 @@ initDispatch({
     render();
     showToast('Day label reset');
   },
+  saveDayMeta: ({ day }) => {
+    updateDayMetadata(day, {
+      wake:  document.getElementById(`editor-wake-${day}`)?.value ?? '',
+      leave: document.getElementById(`editor-leave-${day}`)?.value ?? '',
+      meta:  document.getElementById(`editor-meta-${day}`)?.value ?? '',
+    });
+    render();
+    showToast('Day details saved');
+  },
+  addDay: () => {
+    const input = document.getElementById('editor-new-day-name');
+    const newDay = addDayToSchedule(input?.value ?? '');
+    if (!newDay) { showToast('Enter a day name'); return; }
+    state.selectedDay = DAYS.indexOf(newDay);
+    state.showDayManager = true;
+    render();
+    showToast(`Day "${newDay}" added`);
+  },
+  removeDay: ({ day }) => {
+    if (DAYS.length <= 1) { showToast('At least one day is required'); return; }
+    showConfirm(`Delete "${day}" and its scheduled tasks? Progress for those task IDs will be cleared.`, () => {
+      const removedIds = [];
+      (schedule[day]?.sections || []).forEach(sec => (sec.items || []).forEach(item => removedIds.push(item.id)));
+      if (!removeDayFromSchedule(day)) return;
+      removedIds.forEach(id => {
+        delete state.checked[id];
+        delete state.taskNotes[id];
+        delete state.taskDeferred[id];
+        delete state.taskLinks[id];
+      });
+      if (state.selectedDay >= DAYS.length) state.selectedDay = DAYS.length - 1;
+      if (state.selectedDay < 0) state.selectedDay = 0;
+      saveState();
+      saveLinks();
+      render();
+      showToast('Day removed');
+    });
+  },
   // Schedule file
-  exportSchedule: () => exportSchedule(),
-  importSchedule: () => importSchedule(),
-  newSemester:    () => newSemester(),
+  exportSchedule: () => exportSchedule(showToast),
+  importSchedule: () => importSchedule(render, showToast),
+  resetDefaultSchedule: () => resetDefaultSchedule(render, showToast, showConfirm),
+  newSemester:    () => newSemester(render, showToast, showConfirm),
   // Meals
-  fetchMeals:               () => fetchMeals(),
-  toggleMealPaste:          () => toggleMealPaste(),
-  clearMealData:            () => clearMealData(),
-  savePastedMeals:          () => savePastedMeals(),
+  fetchMeals:               () => fetchMeals(render, showToast),
+  toggleMealPaste:          () => toggleMealPaste(render),
+  clearMealData:            () => clearMealData(render, showToast),
+  savePastedMeals:          () => savePastedMeals(render, showToast),
   // Data
   exportData:               () => exportData(),
-  importData:               () => importData(),
-  exportCalendar:           () => exportCalendar(),
-  shareProgress:            () => shareProgress(),
+  importData:               () => importData(render, showToast),
+  exportCalendar:           () => exportCalendar(showToast),
+  shareProgress:            () => shareProgress(showToast),
   // Deadlines
-  removeDeadline:           ({ i }) => removeDeadline(+i),
+  removeDeadline:           ({ i }) => removeDeadline(+i, render),
   showDeadlineForm:         () => { state.showDeadlineForm = true; render(); },
   addDeadline:              () => addDeadline(
     document.getElementById('dl-name')?.value ?? '',
     document.getElementById('dl-date')?.value ?? '',
-    document.getElementById('dl-cat')?.value ?? ''
+    document.getElementById('dl-cat')?.value ?? '',
+    render, showToast
   ),
   // Notifications
-  requestNotifPermission:   () => requestNotifPermission(),
+  requestNotifPermission:   () => requestNotifPermission(render, showToast),
   // Categories
-  editCat:                  ({ key }) => editCat(key),
-  saveCatEdit:              ({ key }) => saveCatEdit(key),
-  deleteCat:                ({ key }) => deleteCat(key),
-  addCat:                   () => addCat(),
+  editCat:                  ({ key }) => editCat(key, render),
+  saveCatEdit:              ({ key }) => saveCatEdit(key, render, showToast),
+  deleteCat:                ({ key }) => deleteCat(key, render, showToast),
+  addCat:                   () => addCat(render, showToast),
+  addCatOnEnter:            (_data, e) => { if (e.key === 'Enter') { e.preventDefault(); addCat(render, showToast); } },
   showCatAddFormOn:         () => { state.showCatAddForm = true;  render(); },
   showCatAddFormOff:        () => { state.showCatAddForm = false; render(); },
-  resetCatToDefaults:       () => resetCatToDefaults(),
+  resetCatToDefaults:       () => resetCatToDefaults(render, showToast),
   // Settings
-  applySettings:            () => applySettings(),
-  resetSettings:            () => resetSettings(),
+  applySettings:            () => applySettings(render, showToast),
+  resetSettings:            () => resetSettings(showToast),
   // FAB / scratchpad
   toggleFab:                () => toggleFab(),
   fabAddTask:               () => fabAddTask(),
+  fabAddTaskOnEnter:        (_data, e) => { if (e.key === 'Enter') { e.preventDefault(); fabAddTask(); } },
   toggleScratchpad:         () => toggleScratchpad(),
+  saveScratchpad:           (_data, _e, el) => { saveScratchpad(el.value); syncPush(); },
+  // Keyboard helpers
+  saveNoteOnEnter:          ({ id }, e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNote(id); } },
+  saveLinkOnEnterOrClose:   ({ id }, e) => {
+    if (e.key === 'Enter') { e.preventDefault(); saveLink(id); }
+    if (e.key === 'Escape') { state.openLinkInput = null; render(); }
+  },
+  clickOnEnterSpace:        (_data, e, el) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      el.click();
+    }
+  },
+  clickMappedActionOnEnterEscape: (data, e) => {
+    const action = e.key === 'Enter' ? data.enterAction : e.key === 'Escape' ? data.escapeAction : '';
+    if (!action) return;
+    e.preventDefault();
+    const target = Array.from(document.querySelectorAll(`[data-action="${action}"]`)).find(el =>
+      (!data.day || el.dataset.day === data.day) &&
+      (!data.i || el.dataset.i === data.i) &&
+      (!data.j || el.dataset.j === data.j)
+    );
+    target?.click();
+  },
+  undoToggle:               () => undoToggle(),
 });
-
-// ── Minimal window globals (non-click event handlers only) ──
-// oninput, onchange, onkeydown, oncontextmenu, ontouchstart/end can't use
-// the click dispatcher — keep only what those inline handlers actually need.
-Object.assign(window, {
-  // oninput
-  saveScratchpad:      (text) => { saveScratchpad(text); syncPush(); },
-  // onchange (timer minute input, goodreads file input)
-  setFocusTimerMin,
-  _doRender:           doRender,
-  handleGoodreadsFile: () => handleGoodreadsFile(render, showToast),
-  // onkeydown (Enter shortcuts in text inputs)
-  saveNote,
-  saveLink,
-  fabAddTask,
-  addCat,
-  // render (called from link-input Escape: openLinkInput=null;render())
-  render,
-  get openLinkInput() { return state.openLinkInput; },
-  set openLinkInput(v) { state.openLinkInput = v; },
-  // oncontextmenu
-  showTabCtxMenu,
-  showTaskCtxMenu,
-  // ontouchstart/end (swipe + long-press)
-  handleLongPressStart: (id, e) => handleLongPressStart(id, e, toggleActionMenu),
-  handleLongPressEnd,
-});
-
-// ════════════════════════════════════════
-// ── Meal Widget ──
-// ════════════════════════════════════════
-
-function parseMealString(str) {
-  if (!str || typeof str !== 'string') return [];
-  return str.split(/[\r\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
-}
-
-function parseSKSApiResponse(data) {
-  const newData = {};
-  if (!Array.isArray(data)) return newData;
-  for (const item of data) {
-    let dateKey = null;
-    if (item.created_at) dateKey = item.created_at.substring(0, 10);
-    if (!dateKey) continue;
-    newData[dateKey] = {
-      kahvalti: parseMealString(item.breakfast_tr || item.breakfast || ''),
-      ogle: parseMealString(item.lunch_tr || item.lunch || ''),
-      aksam: parseMealString(item.dinner_tr || item.dinner || ''),
-      vegan: parseMealString(item.vegan_tr || item.vegan || ''),
-    };
-  }
-  return newData;
-}
-
-function parseMealText(text) {
-  const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
-  const newData = {};
-  let currentDate = null;
-  let currentType = 'ogle';
-  const months = { 'ocak': 1, '\u015fubat': 2, 'subat': 2, 'mart': 3, 'nisan': 4, 'may\u0131s': 5, 'mayis': 5, 'haziran': 6, 'temmuz': 7, 'a\u011fustos': 8, 'agustos': 8, 'eyl\u00fcl': 9, 'eylul': 9, 'ekim': 10, 'kas\u0131m': 11, 'kasim': 11, 'aral\u0131k': 12, 'aralik': 12 };
-  for (const line of lines) {
-    const lower = line.toLowerCase();
-    const dateMatch2 = line.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
-    const dateMatch3 = line.match(/(\d{4})-(\d{2})-(\d{2})/);
-    const dateMatch1 = line.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
-    if (dateMatch3) { currentDate = dateMatch3[0]; if (!newData[currentDate]) newData[currentDate] = { kahvalti: [], ogle: [], aksam: [], vegan: [] }; continue; }
-    if (dateMatch2) { currentDate = `${dateMatch2[3]}-${dateMatch2[2].padStart(2, '0')}-${dateMatch2[1].padStart(2, '0')}`; if (!newData[currentDate]) newData[currentDate] = { kahvalti: [], ogle: [], aksam: [], vegan: [] }; continue; }
-    if (dateMatch1 && months[dateMatch1[2].toLowerCase()]) { const m = months[dateMatch1[2].toLowerCase()]; currentDate = `${dateMatch1[3]}-${String(m).padStart(2, '0')}-${dateMatch1[1].padStart(2, '0')}`; if (!newData[currentDate]) newData[currentDate] = { kahvalti: [], ogle: [], aksam: [], vegan: [] }; continue; }
-    if (lower.includes('kahvalt') || lower.includes('breakfast')) { currentType = 'kahvalti'; continue; }
-    if (lower.includes('\u00f6\u011fle') || lower.includes('ogle') || lower.includes('lunch')) { currentType = 'ogle'; continue; }
-    if (lower.includes('ak\u015fam') || lower.includes('aksam') || lower.includes('dinner')) { currentType = 'aksam'; continue; }
-    if (lower.includes('vegan')) { currentType = 'vegan'; continue; }
-    if (currentDate && newData[currentDate]) {
-      if (lower === 'tarih' || lower === 'g\u00fcn' || lower === 'gun' || lower === 'men\u00fc' || lower === 'menu') continue;
-      const clean = line.replace(/^\d+[\.)\]]\s*/, '').replace(/\t+/g, ' ').trim();
-      if (clean.length > 1 && clean.length < 100) newData[currentDate][currentType].push(clean);
-    }
-  }
-  return newData;
-}
-
-async function fetchMeals() {
-  state.mealFetchStatus = 'fetching';
-  render();
-  const now = nowInTZ();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const year = now.getFullYear();
-  try {
-    const url = `${CONFIG.mealApiUrl}?category=lunch&month=${month}&year=${year}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (res.ok) {
-      const json = await res.json();
-      const items = Array.isArray(json) ? json : (json.data || []);
-      const parsed = parseSKSApiResponse(items);
-      if (Object.keys(parsed).length > 0) {
-        Object.assign(state.mealData, parsed);
-        saveMeals();
-        state.mealFetchStatus = 'ok';
-        render();
-        showToast(`Loaded meals for ${Object.keys(parsed).length} days`);
-        return;
-      }
-    }
-  } catch (e) { console.warn('SKS API failed:', e.message); }
-  state.mealFetchStatus = 'error';
-  state.mealShowPaste = true;
-  render();
-}
-
-function savePastedMeals() {
-  const ta = document.getElementById('meal-paste-input');
-  if (!ta || !ta.value.trim()) { showToast('Paste meal data first'); return; }
-  const parsed = parseMealText(ta.value);
-  const count = Object.keys(parsed).length;
-  if (count === 0) { showToast('Could not parse any dates from text'); return; }
-  Object.assign(state.mealData, parsed);
-  saveMeals();
-  state.mealShowPaste = false;
-  haptic('success');
-  render();
-  showToast(`Loaded meals for ${count} day${count > 1 ? 's' : ''}`);
-}
-
-function toggleMealPaste() { state.mealShowPaste = !state.mealShowPaste; render(); }
-function clearMealData() { state.mealData = {}; Storage.remove('meals'); render(); showToast('Meal data cleared'); }
-
-// ════════════════════════════════════════
-// ── Deadlines ──
-// ════════════════════════════════════════
-
-function addDeadline(name, date, cat) {
-  if (!name || !date) return;
-  state.deadlines.push({ name: name.trim(), date, cat: cat || 'homework' });
-  state.deadlines.sort((a,b) => a.date.localeCompare(b.date));
-  saveDeadlines();
-  syncPush();
-  state.showDeadlineForm = false;
-  render();
-  showToast('Deadline added');
-}
-
-function removeDeadline(idx) {
-  state.deadlines.splice(idx, 1);
-  saveDeadlines();
-  syncPush();
-  render();
-}
-
-// ════════════════════════════════════════
-// ── Notifications ──
-// ════════════════════════════════════════
-
-function requestNotifPermission() {
-  if (!('Notification' in window)) { showToast('Notifications not supported'); return; }
-  Notification.requestPermission().then(p => {
-    state.notifEnabled = p === 'granted';
-    if (state.notifEnabled) { scheduleNotifications(); showToast('Notifications enabled'); }
-    else showToast('Notifications denied');
-    render();
-  });
-}
-
-function scheduleNotifications() {
-  state.notifTimers.forEach(t => clearTimeout(t));
-  state.notifTimers = [];
-  if (!state.notifEnabled) return;
-  const now = nowInTZ();
-  if (state.selectedDay !== todayIdx) return;
-  const dayName = DAYS[todayIdx];
-  const day = schedule[dayName];
-  if (day.leave) {
-    const [lh, lm] = day.leave.split(':').map(Number);
-    const leaveMs = new Date(now).setHours(lh, lm, 0, 0) - now.getTime() - 1800000;
-    if (leaveMs > 0) state.notifTimers.push(setTimeout(() => new Notification('Leave in 30 min', { body: `Head out at ${day.leave}`, icon: '\ud83d\udeb6' }), leaveMs));
-  }
-  day.sections.forEach(s => s.items.forEach(item => {
-    if (item.cat !== 'class' && item.cat !== 'fameeting') return;
-    const m = item.text.match(/(\d{1,2}):(\d{2})/);
-    if (!m) return;
-    const classMs = new Date(now).setHours(parseInt(m[1]), parseInt(m[2]), 0, 0) - now.getTime() - 900000;
-    if (classMs > 0) state.notifTimers.push(setTimeout(() => new Notification('Class in 15 min', { body: item.text.split('\u2014')[0].trim(), icon: '\ud83d\udcd8' }), classMs));
-  }));
-}
-
-// ════════════════════════════════════════
-// ── Export / Import / Calendar / Share ──
-// ════════════════════════════════════════
-
-function exportData() {
-  const data = { checked: state.checked, notes: state.taskNotes, deferred: state.taskDeferred, history: loadHistory(), weekKey: getWeekKey(), exported: new Date().toISOString() };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `study-plan-${getWeekKey()}.json`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function importData() {
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = '.json';
-  input.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (typeof data !== 'object' || data === null) { showToast('Invalid file format'); return; }
-        const validStates = [STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED];
-        if (data.checked && typeof data.checked === 'object') {
-          const clean = {};
-          for (const [k, v] of Object.entries(data.checked)) {
-            if (/^[a-z]+-\d+$/.test(k) && (v === true || validStates.includes(v))) clean[k] = v;
-          }
-          state.checked = clean;
-        }
-        if (data.notes && typeof data.notes === 'object') {
-          const clean = {};
-          for (const [k, v] of Object.entries(data.notes)) {
-            if (/^[a-z]+-\d+$/.test(k) && typeof v === 'string' && v.length < 1000) clean[k] = v;
-          }
-          state.taskNotes = clean;
-        }
-        if (data.deferred && typeof data.deferred === 'object') {
-          const clean = {};
-          for (const [k, v] of Object.entries(data.deferred)) {
-            if (/^[a-z]+-\d+$/.test(k) && DAYS.includes(v)) clean[k] = v;
-          }
-          state.taskDeferred = clean;
-        }
-        saveState();
-        if (data.history && typeof data.history === 'object') {
-          const cleanHist = {};
-          for (const [k, v] of Object.entries(data.history)) {
-            if (/^w\d+$/.test(k) && typeof v === 'number' && v >= 0 && v <= 100) cleanHist[k] = v;
-          }
-          Storage.set('history', cleanHist);
-        }
-        render();
-        showToast('Data imported');
-      } catch (err) { showToast('Invalid file'); }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-function exportCalendar() {
-  let ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//StudyPlan//EN\r\nCALSCALE:GREGORIAN\r\n';
-  const now = nowInTZ();
-  const dow = now.getDay() === 0 ? 6 : now.getDay() - 1;
-  const monday = new Date(now); monday.setDate(monday.getDate() - dow);
-  DAYS.forEach((dayName, di) => {
-    schedule[dayName].sections.forEach(s => s.items.forEach(item => {
-      if (item.cat !== 'class' && item.cat !== 'fameeting') return;
-      const timeMatch = item.text.match(/(\d{1,2}):(\d{2})\u2014(\d{1,2}):(\d{2})/);
-      if (!timeMatch) return;
-      const eventDate = new Date(monday); eventDate.setDate(eventDate.getDate() + di);
-      const ds = `${eventDate.getFullYear()}${String(eventDate.getMonth()+1).padStart(2,'0')}${String(eventDate.getDate()).padStart(2,'0')}`;
-      const dtStart = `${ds}T${String(timeMatch[1]).padStart(2,'0')}${timeMatch[2]}00`;
-      const dtEnd = `${ds}T${String(timeMatch[3]).padStart(2,'0')}${timeMatch[4]}00`;
-      ics += `BEGIN:VEVENT\r\nDTSTART;TZID=${CONFIG.timezone}:${dtStart}\r\nDTEND;TZID=${CONFIG.timezone}:${dtEnd}\r\n`;
-      ics += `SUMMARY:${item.text.split('\u2014')[0].trim()}\r\n`;
-      if (item.hint) ics += `LOCATION:${item.hint}\r\n`;
-      ics += `END:VEVENT\r\n`;
-    }));
-  });
-  ics += 'END:VCALENDAR\r\n';
-  const blob = new Blob([ics], { type: 'text/calendar' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'study-plan-classes.ics'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
-  showToast('Calendar exported');
-}
-
-function exportSchedule() {
-  const data = {
-    schedule,
-    dayConfig,
-    exported: new Date().toISOString(),
-    version: 1,
-  };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `schedule-${new Date().toISOString().slice(0, 10)}.json`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Schedule exported');
-}
-
-function importSchedule() {
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = '.json';
-  input.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (typeof data !== 'object' || data === null) { showToast('Invalid file'); return; }
-        // Import schedule structure
-        if (data.schedule && typeof data.schedule === 'object') {
-          for (const day of DAYS) {
-            if (data.schedule[day] && Array.isArray(data.schedule[day].sections)) {
-              schedule[day] = data.schedule[day];
-            }
-          }
-          saveScheduleToStorage();
-        }
-        // Import day config
-        if (data.dayConfig && typeof data.dayConfig === 'object') {
-          for (const day of DAYS) {
-            if (data.dayConfig[day]) {
-              if (typeof data.dayConfig[day].active === 'boolean') dayConfig[day].active = data.dayConfig[day].active;
-              if (typeof data.dayConfig[day].alias === 'string' || data.dayConfig[day].alias === null) {
-                dayConfig[day].alias = data.dayConfig[day].alias;
-              }
-            }
-          }
-          saveDayConfig();
-        }
-        render();
-        showToast('Schedule imported ✓');
-      } catch (err) { showToast('Invalid file'); }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-function newSemester() {
-  showConfirm(
-    'Start a new semester?\n\nThis clears all task progress, notes, deferred tasks, and links.\nYour schedule structure, categories, and settings are kept.',
-    () => {
-      state.checked = {};
-      state.taskNotes = {};
-      state.taskDeferred = {};
-      state.taskLinks = {};
-      saveState();
-      saveLinks();
-      showToast('🎓 New semester started — progress cleared');
-      render();
-    }
-  );
-}
-
-function shareProgress() {
-  const wp = getWeeklyProgress();
-  const dayProgs = DAYS.map(d => { const p = getDayProgress(d); return `${d.slice(0,3)}: ${p.pct}%`; });
-  const text = `\ud83d\udcd8 Study Plan \u2014 Week ${getWeekNum()}\n${wp.done}/${wp.total} tasks (${wp.pct}%)\n${dayProgs.join(' \u00b7 ')}\n\n#studyplan`;
-  if (navigator.share) {
-    navigator.share({ title: 'Study Plan Progress', text }).catch(() => {});
-  } else {
-    navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard')).catch(() => showToast('Share not supported'));
-  }
-}
-
-// ════════════════════════════════════════
-// ── Data Maintenance ──
-// ════════════════════════════════════════
-
-function pruneOldData() {
-  try {
-    const hist = loadHistory();
-    const keys = Object.keys(hist).sort();
-    if (keys.length > 20) {
-      const pruned = {};
-      keys.slice(-20).forEach(k => pruned[k] = hist[k]);
-      Storage.set('history', pruned);
-    }
-    const mealKeys = Object.keys(state.mealData).sort();
-    if (mealKeys.length > 30) {
-      const cutoff = mealKeys[mealKeys.length - 30];
-      for (const k of mealKeys) { if (k < cutoff) delete state.mealData[k]; }
-      saveMeals();
-    }
-  } catch (e) { /* non-critical */ }
-}
-
-function checkStorageQuota() {
-  if (Storage.checkQuota()) {
-    setTimeout(() => showToast('Storage nearly full \u2014 export your data'), 1000);
-  }
-}
-
-function carryOverDeferrals() {
-  try {
-    const currentWeek = getISOWeek(nowInTZ());
-    if (currentWeek <= 1) return;
-    const prevKey = 'w' + (currentWeek - 1);
-    const prevDefer = Storage.get(prevKey + '-defer', {});
-    const prevChecked = Storage.get(prevKey, {});
-    let carried = 0;
-    for (const [id, target] of Object.entries(prevDefer)) {
-      const st = prevChecked[id];
-      if (st === true || st === STATUS_DONE || st === STATUS_SKIP) continue;
-      if (!state.checked[id] && !state.taskDeferred[id]) {
-        state.taskDeferred[id] = DAYS.includes(target) ? target : 'Monday';
-        carried++;
-      }
-    }
-    if (carried > 0) {
-      saveState();
-      setTimeout(() => showToast(`${carried} undone task(s) carried from last week`), 800);
-    }
-  } catch (e) { /* non-critical */ }
-}
-
-function migrateProgress() {
-  const fpKey = getWeekKey() + '-schedule-fp';
-  const textMapKey = getWeekKey() + '-schedule-textmap';
-  const currentFp = getScheduleFingerprint();
-  const storedFp = Storage.getRaw(fpKey, '');
-  if (storedFp === currentFp) return;
-  if (!storedFp) {
-    Storage.setRaw(fpKey, currentFp);
-    Storage.set(textMapKey, buildIdToTextMap());
-    return;
-  }
-  let oldTextMap = Storage.get(textMapKey, {});
-  const newTextToId = buildTextToIdMap();
-  const currentIds = getCurrentIds();
-  let migrated = 0;
-  const newChecked = {}, newNotes = {}, newDeferred = {};
-  for (const [id, val] of Object.entries(state.checked)) { if (currentIds.has(id)) newChecked[id] = val; }
-  for (const [id, val] of Object.entries(state.taskNotes)) { if (currentIds.has(id)) newNotes[id] = val; }
-  for (const [id, val] of Object.entries(state.taskDeferred)) { if (currentIds.has(id)) newDeferred[id] = val; }
-
-  function findNewId(oldId) {
-    const entry = oldTextMap[oldId];
-    if (!entry) return null;
-    const text = typeof entry === 'string' ? entry : entry.text;
-    const day = typeof entry === 'object' ? entry.day : null;
-    if (day) { const dayKey = day + '::' + text; if (newTextToId[dayKey]) return newTextToId[dayKey]; }
-    return newTextToId[text] || null;
-  }
-
-  for (const [oldId, val] of Object.entries(state.checked)) {
-    if (currentIds.has(oldId)) continue;
-    const newId = findNewId(oldId);
-    if (newId && !newChecked[newId]) { newChecked[newId] = val; migrated++; }
-  }
-  for (const [oldId, val] of Object.entries(state.taskNotes)) {
-    if (currentIds.has(oldId)) continue;
-    const newId = findNewId(oldId);
-    if (newId && !newNotes[newId]) { newNotes[newId] = val; migrated++; }
-  }
-  for (const [oldId, val] of Object.entries(state.taskDeferred)) {
-    if (currentIds.has(oldId)) continue;
-    const newId = findNewId(oldId);
-    if (newId && !newDeferred[newId]) { newDeferred[newId] = val; migrated++; }
-  }
-
-  state.checked = newChecked;
-  state.taskNotes = newNotes;
-  state.taskDeferred = newDeferred;
-  Storage.setRaw(fpKey, currentFp);
-  Storage.set(textMapKey, buildIdToTextMap());
-  saveState();
-
-  if (migrated > 0) setTimeout(() => showToast(`Schedule updated \u2014 migrated ${migrated} item(s)`), 500);
-  else if (Object.keys(state.checked).length > 0) setTimeout(() => showToast('Schedule updated \u2014 progress preserved'), 500);
-}
 
 // ════════════════════════════════════════
 // ── Event Listeners ──
@@ -677,14 +296,25 @@ document.addEventListener('keydown', e => {
     const el = document.activeElement;
     if (el && el.dataset.taskId) { e.preventDefault(); toggle(el.dataset.taskId); return; }
     if (el && el.dataset.panelId) { e.preventDefault(); togglePanel(el.dataset.panelId); return; }
+    // Generic role-based activation
+    if (el && (el.getAttribute('role') === 'button' || el.getAttribute('role') === 'checkbox') && el.tagName !== 'BUTTON') {
+      e.preventDefault(); el.click(); return;
+    }
   }
   if (e.key === 'Escape') {
+    // Priority chain: context menu → shortcuts → search → scratchpad → FAB → open panels
+    const ctxMenu = document.querySelector('.ctx-menu');
+    if (ctxMenu) { closeCtxMenu(); return; }
     if (state.showShortcuts) { toggleShortcuts(); return; }
     if (state.searchQuery) { clearSearch(doRender); return; }
+    if (state.scratchpadOpen) { toggleScratchpad(); return; }
     if (state.fabOpen) { state.fabOpen = false; render(); return; }
+    // Close the first open panel
+    const openPanelKey = Object.keys(state.openPanels).find(k => state.openPanels[k]);
+    if (openPanelKey) { togglePanel(openPanelKey); return; }
   }
   if (isInput) return;
-  if (e.key === 'ArrowRight' && state.selectedDay < 6) selectDay(state.selectedDay + 1);
+  if (e.key === 'ArrowRight' && state.selectedDay < DAYS.length - 1) selectDay(state.selectedDay + 1);
   if (e.key === 'ArrowLeft' && state.selectedDay > 0) selectDay(state.selectedDay - 1);
   if (e.key === '?' || (e.shiftKey && e.key === '/')) { e.preventDefault(); toggleShortcuts(); }
   if (e.key === '/' && !e.shiftKey) { e.preventDefault(); const si = document.getElementById('search-input'); if (si) si.focus(); }
@@ -754,118 +384,28 @@ if ('serviceWorker' in navigator) {
 }
 
 // ════════════════════════════════════════
-// ── Settings ──
-// ════════════════════════════════════════
-
-function applySettings() {
-  const v = id => document.getElementById(id)?.value ?? '';
-  const num = (id, fallback) => { const n = parseInt(v(id), 10); return isNaN(n) ? fallback : n; };
-  saveConfigOverrides({
-    appTitle:          v('cfg-appTitle').trim()        || CONFIG.appTitle,
-    semester:          v('cfg-semester').trim()         || CONFIG.semester,
-    headerTag:         v('cfg-headerTag').trim()        || CONFIG.headerTag,
-    timezone:          v('cfg-timezone')                || CONFIG.timezone,
-    focusTimerDefault: num('cfg-focusTimerDefault',      CONFIG.focusTimerDefault),
-    toastDuration:     num('cfg-toastDuration',          CONFIG.toastDuration),
-    swipeThreshold:    num('cfg-swipeThreshold',         CONFIG.swipeThreshold),
-    mealApiUrl:        v('cfg-mealApiUrl').trim()        || CONFIG.mealApiUrl,
-    goodreadsRss:      v('cfg-goodreadsRss').trim()      || CONFIG.goodreadsRss,
-  });
-  showToast('Settings saved \u2713');
-  render();
-}
-
-function resetSettings() {
-  Storage.remove('config');
-  showToast('Settings reset \u2014 reload to restore defaults');
-}
-
-// ════════════════════════════════════════
-// ── Category Management ──
-// ════════════════════════════════════════
-
-function editCat(key) {
-  state.catEditKey = state.catEditKey === key ? null : key;
-  render();
-}
-
-function saveCatEdit(key) {
-  const v = id => document.getElementById(id)?.value ?? '';
-  const num = (id, fb) => { const n = parseInt(v(id), 10); return isNaN(n) ? fb : n; };
-  const cat = CategoryRegistry.get(key);
-  CategoryRegistry.register(key, {
-    label:      v(`cat-label-${key}`),
-    border:     v(`cat-border-${key}`) || cat.border,
-    bg:         v(`cat-bg-${key}`) || cat.bg,
-    defaultEst: num(`cat-est-${key}`, cat.defaultEst),
-  });
-  CategoryRegistry.save();
-  state.catEditKey = null;
-  showToast(`\u2713 Category \u201c${key}\u201d updated`);
-  render();
-}
-
-function deleteCat(key) {
-  let usedCount = 0;
-  for (const dayName of Object.keys(schedule)) {
-    for (const section of (schedule[dayName].sections || [])) {
-      for (const item of (section.items || [])) {
-        if (item.cat === key) usedCount++;
-      }
-    }
-  }
-  const msg = usedCount > 0
-    ? `\u201c${key}\u201d is used by ${usedCount} task(s). Remove anyway? Those tasks will fall back to the default style.`
-    : `Remove category \u201c${key}\u201d?`;
-  if (!confirm(msg)) return;
-  CategoryRegistry.remove(key);
-  CategoryRegistry.save();
-  state.catEditKey = null;
-  showToast(`Category \u201c${key}\u201d removed`);
-  render();
-}
-
-function addCat() {
-  const keyRaw = document.getElementById('cat-new-key')?.value ?? '';
-  const key = keyRaw.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-  if (!key) { showToast('Category key is required'); return; }
-  if (CategoryRegistry.has(key)) { showToast(`Key \u201c${key}\u201d already exists`); return; }
-  const v = id => document.getElementById(id)?.value ?? '';
-  const num = (id, fb) => { const n = parseInt(v(id), 10); return isNaN(n) ? fb : n; };
-  CategoryRegistry.register(key, {
-    label:      v('cat-new-label').trim(),
-    border:     v('cat-new-border') || '#888888',
-    bg:         v('cat-new-bg') || '#1a1a1a',
-    defaultEst: num('cat-new-est', 60),
-  });
-  CategoryRegistry.save();
-  state.showCatAddForm = false;
-  showToast(`\u2713 Category \u201c${key}\u201d added`);
-  render();
-}
-
-function resetCatToDefaults() {
-  if (!confirm('Reset all categories to defaults? Custom categories will be lost.')) return;
-  Storage.remove('categories');
-  CategoryRegistry.init();
-  state.catEditKey = null;
-  state.showCatAddForm = false;
-  showToast('Categories reset to defaults');
-  render();
-}
-
-// ════════════════════════════════════════
 // ── App Boot ──
 // ════════════════════════════════════════
 
 function boot() {
   initTheme(render);
   loadState();
-  migrateProgress();
-  carryOverDeferrals();
+  if (!DAYS[state.selectedDay]) state.selectedDay = 0;
+  if (dayConfig[DAYS[state.selectedDay]]?.active === false) {
+    const firstActive = DAYS.findIndex(d => dayConfig[d]?.active !== false);
+    state.selectedDay = firstActive >= 0 ? firstActive : 0;
+  }
+  migrateProgress(showToast);
+  carryOverDeferrals(showToast);
   pruneOldData();
-  checkStorageQuota();
+  checkStorageQuota(showToast);
   checkAutoTheme();
+
+  // Detect old prefix data and offer migration
+  const oldPrefix = detectOldPrefixKeys(CONFIG.storagePrefix);
+  if (oldPrefix) {
+    setTimeout(() => offerMigration(oldPrefix, CONFIG.storagePrefix, showToast, showConfirm, render), 2000);
+  }
 
   // Initialize swipe
   initSwipeListeners(toggle, setTaskStatus);

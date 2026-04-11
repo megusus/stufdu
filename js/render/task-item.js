@@ -2,120 +2,117 @@
 // ── Task Item Renderer ──
 // ════════════════════════════════════════
 
-import { CategoryRegistry } from '../categories.js';
-import { DAYS } from '../schedule.js';
-import {
-  state, getStatus, getEstimate, formatEst, escapeHtml,
-  STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED,
-} from '../state.js';
+/**
+ * Pure renderer: receives RenderContext + item data, returns HTML string.
+ * @param {import('./context.js').RenderContext} ctx
+ * @param {Object} item - task item {id, text, hint, cat, est?}
+ * @param {string} dayName
+ * @param {string} [extraClass]
+ * @param {string} [fromDay] - original day if deferred
+ */
+export function renderItem(ctx, item, dayName, extraClass, fromDay) {
+  const { state, escapeHtml, formatEst, getEstimate, getStatus, categories, days,
+          STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED } = ctx;
 
-export function renderItem(item, dayName, extraClass, fromDay) {
-  try {
-    return _renderItemInner(item, dayName, extraClass, fromDay);
-  } catch (err) {
-    console.error('[render] Task item failed:', err, item);
-    return `<div class="item" style="padding:8px 12px;color:#e94560;font-size:11px;border-left:2px solid #e94560">
-      \u26a0\ufe0f Failed to render: <em>${escapeHtml(item?.text ?? '?')}</em>
-      <span style="font-size:9px;color:var(--dim);margin-left:6px;font-family:monospace">${escapeHtml(String(err).slice(0, 80))}</span>
-    </div>`;
-  }
-}
-
-function _renderItemInner(item, dayName, extraClass, fromDay) {
-  const c = CategoryRegistry.getColor(item.cat);
   const st = getStatus(item.id);
-  const isDeferred = state.taskDeferred[item.id] && state.taskDeferred[item.id] !== dayName;
-  if (state.focusMode && (st === STATUS_DONE || st === STATUS_SKIP) && !isDeferred) return '';
-  if (state.searchQuery && !item.text.toLowerCase().includes(state.searchQuery) && !(item.hint && item.hint.toLowerCase().includes(state.searchQuery))) return '';
+  const c = categories.getColor(item.cat);
+  const label = categories.getLabel(item.cat);
+  const est = getEstimate(item);
 
   let cls = 'item';
   if (st === STATUS_DONE) cls += ' done';
   else if (st === STATUS_SKIP) cls += ' skip';
   else if (st === STATUS_PROGRESS) cls += ' progress';
   else if (st === STATUS_BLOCKED) cls += ' blocked';
-  if (isDeferred) cls += ' deferred-out';
-  if (extraClass) cls += ' ' + extraClass;
   if (state.justCompletedId === item.id) cls += ' just-completed';
   if (state.justSkippedId === item.id) cls += ' just-skipped';
-  if (state.activeFilter && item.cat !== state.activeFilter) cls += ' item-filtered-out';
+  if (extraClass) cls += ' ' + extraClass;
 
-  const textColor = item.cat === "class" || item.cat === "fameeting" ? c.border : "var(--text)";
-  const catLabel = CategoryRegistry.getLabel(item.cat);
+  const check = st === STATUS_DONE ? '\u2713' : st === STATUS_SKIP ? '\u2716' : st === STATUS_PROGRESS ? '\u25b6' : st === STATUS_BLOCKED ? '\u26d4' : '';
+  const checkCls = st ? `check ${st}` : 'check';
+  const deferBadge = state.taskDeferred[item.id] && state.taskDeferred[item.id] !== dayName
+    ? ` <span class="defer-badge">\u2192 ${escapeHtml(state.taskDeferred[item.id])}</span>` : '';
+  const fromBadge = fromDay ? ` <span class="defer-from">from ${escapeHtml(fromDay)}</span>` : '';
+
+  const statusText = st === STATUS_DONE ? 'completed' : st === STATUS_SKIP ? 'skipped' : st === STATUS_PROGRESS ? 'in progress' : st === STATUS_BLOCKED ? 'blocked' : 'not started';
+  const ariaChecked = st === STATUS_DONE ? 'true' : st === STATUS_PROGRESS ? 'mixed' : 'false';
+
+  let html = `<div class="${cls}" data-task-id="${item.id}" data-action="handleItemClick" data-id="${item.id}"
+    data-context-action="showTaskCtxMenu" data-touchstart-action="handleLongPressStart" data-touchend-action="handleLongPressEnd"
+    role="checkbox" aria-checked="${ariaChecked}" aria-label="${escapeHtml(item.text)} — ${statusText}"
+    style="border-left-color:${c.border}">`;
+
+  html += `<div class="${checkCls}" data-action="toggle" data-id="${item.id}">${check}</div>`;
+  html += `<div class="item-content">`;
+  html += `<div class="item-text">${escapeHtml(item.text)}${deferBadge}${fromBadge}</div>`;
+  if (item.hint) html += `<div class="item-hint">${escapeHtml(item.hint)}</div>`;
+  html += `<div class="item-meta">`;
+  if (label) html += `<span class="item-cat" style="background:${c.border}18;color:${c.border};border-color:${c.border}33">${escapeHtml(label)}</span>`;
+  if (est) html += `<span class="item-est">${formatEst(est)}</span>`;
+  html += `</div>`;
+
+  // Notes
   const note = state.taskNotes[item.id];
-  const hasActions = state.openActions === item.id;
-  const hasNoteInput = state.openNoteInput === item.id;
-  const hasDeferPicker = state.openDeferPicker === item.id;
+  if (note) html += `<div class="item-note">\ud83d\udcdd ${escapeHtml(note)}</div>`;
 
-  let h = `
-    <div class="item-swipe-wrap" data-swipe-id="${item.id}">
-      <div class="swipe-bg swipe-bg-right">\u2713 Done</div>
-      <div class="swipe-bg swipe-bg-left">\u23ed Skip</div>
-      <div class="swipe-indicator swipe-indicator-right">\u2713</div>
-      <div class="swipe-indicator swipe-indicator-left">\u2716</div>
-      <div class="item-swipe-inner">
-    <div class="${cls}" role="checkbox" aria-checked="${st === STATUS_DONE}" tabindex="0"
-         data-task-id="${item.id}" style="background:${c.bg};border:1px solid ${c.border}22"
-         oncontextmenu="showTaskCtxMenu('${item.id}',event)">
-      <div class="item-bar" style="background:${c.border}"></div>
-      <div class="item-body"
-           data-action="handleItemClick" data-id="${item.id}"
-           ontouchstart="handleLongPressStart('${item.id}',event)"
-           ontouchend="handleLongPressEnd()" ontouchmove="handleLongPressEnd()">
-        <div class="item-check" aria-hidden="true"></div>
-        <div class="item-info">
-          <div class="item-text" style="color:${textColor}">${escapeHtml(item.text)}${note ? '<span class="note-icon">\ud83d\udcdd</span>' : ''}</div>
-          ${item.hint ? `<div class="item-hint">${escapeHtml(item.hint)}</div>` : ''}
-          ${catLabel ? `<div class="item-cat" style="color:${c.border}">${catLabel}${st !== STATUS_DONE && st !== STATUS_SKIP && getEstimate(item) > 0 ? `<span class="est-badge">~${formatEst(getEstimate(item))}</span>` : ''}</div>` : (st !== STATUS_DONE && st !== STATUS_SKIP && getEstimate(item) > 0 ? `<div class="item-cat est-badge">~${formatEst(getEstimate(item))}</div>` : '')}
-          ${fromDay ? `<div class="deferred-from">\u2192 from ${fromDay}</div>` : ''}
-          ${note ? `<div class="item-note">${escapeHtml(note)}</div>` : ''}
-          ${state.taskLinks[item.id] && state.taskLinks[item.id].length ? `<div class="item-links">${state.taskLinks[item.id].map((url, li) => { let host; try { host = new URL(url).hostname.replace('www.',''); } catch(e) { host = url.slice(0,20); } return `<a class="item-link" href="${escapeHtml(url)}" target="_blank" onclick="event.stopPropagation()" title="${escapeHtml(url)}">\ud83d\udd17 ${host.slice(0,20)}</a>`; }).join('')}</div>` : ''}
-        </div>
-        <div class="item-actions-btn" data-action="toggleActionMenu" data-id="${item.id}">\u22ee</div>
-      </div>`;
+  // Links
+  const links = state.taskLinks[item.id];
+  if (links && links.length) {
+    html += '<div class="item-links">';
+    links.forEach((url, idx) => {
+      const domain = (() => { try { return new URL(url).hostname; } catch { return url; } })();
+      html += `<a class="item-link" href="${escapeHtml(url)}" target="_blank" rel="noopener" data-stop>\ud83d\udd17 ${escapeHtml(domain)}</a>`;
+      html += `<button class="item-link-remove" data-action="removeLink" data-id="${item.id}" data-idx="${idx}" data-stop title="Remove">\u00d7</button>`;
+    });
+    html += '</div>';
+  }
 
-  // Action bar
-  if (hasActions) {
-    h += `<div class="item-action-bar open">
-      <button class="action-btn act-skip"     data-action="setTaskStatus" data-id="${item.id}" data-status="skip">\u23ed Skip</button>
-      <button class="action-btn act-progress" data-action="setTaskStatus" data-id="${item.id}" data-status="progress">\ud83d\udfe0 Progress</button>
-      <button class="action-btn act-note"     data-action="showNoteInput" data-id="${item.id}">\ud83d\udcdd Note</button>
-      <button class="action-btn act-defer"    data-action="showDeferPicker" data-id="${item.id}">\u2192 Defer</button>
-      <button class="action-btn act-clear"    data-action="clearTask" data-id="${item.id}">\u2715 Clear</button>
-      <button class="action-btn" data-action="startPomo" data-id="${item.id}" style="color:#e94560;border-color:#e9456033">\u23f1 Focus</button>
-      <button class="action-btn" data-action="addLink"   data-id="${item.id}" style="color:var(--accent);border-color:#00d2ff33">\ud83d\udd17 Link</button>
+  html += '</div>'; // .item-content
+
+  // Action button
+  html += `<button class="item-actions-btn" data-action="toggleActionMenu" data-id="${item.id}" data-stop title="Actions">\u22ee</button>`;
+
+  html += '</div>'; // .item
+
+  // Action menu
+  if (state.openActions === item.id) {
+    html += `<div class="action-menu" data-stop>
+      <button class="action-btn skip" data-action="setTaskStatus" data-id="${item.id}" data-status="${STATUS_SKIP}">Skip</button>
+      <button class="action-btn progress" data-action="setTaskStatus" data-id="${item.id}" data-status="${STATUS_PROGRESS}">In Progress</button>
+      <button class="action-btn blocked" data-action="setTaskStatus" data-id="${item.id}" data-status="${STATUS_BLOCKED}">Blocked</button>
+      <button class="action-btn" data-action="showNoteInput" data-id="${item.id}">\ud83d\udcdd Note</button>
+      <button class="action-btn" data-action="addLink" data-id="${item.id}">\ud83d\udd17 Link</button>
+      <button class="action-btn" data-action="startPomo" data-id="${item.id}">\u23f1 Focus</button>
+      <button class="action-btn defer" data-action="showDeferPicker" data-id="${item.id}">\u2192 Defer</button>
+      <button class="action-btn danger" data-action="clearTask" data-id="${item.id}">\u2715 Clear</button>
     </div>`;
   }
 
-  // Note input (onkeydown needs saveNote on window — not a click, so stays inline)
-  if (hasNoteInput) {
-    h += `<textarea class="note-input" id="note-input-${item.id}"
-         placeholder="Add a note\u2026"
-         onclick="event.stopPropagation()"
-         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();saveNote('${item.id}')}">${escapeHtml(note || '')}</textarea>`;
+  // Note input
+  if (state.openNoteInput === item.id) {
+    html += `<div class="note-input-wrap" data-stop>
+      <input id="note-input-${item.id}" class="note-input" type="text" placeholder="Add a note\u2026"
+        value="${escapeHtml(note || '')}" data-key-action="saveNoteOnEnter" data-id="${item.id}">
+    </div>`;
   }
 
-  // Link input (onkeydown needs saveLink on window — not a click, so stays inline)
+  // Link input
   if (state.openLinkInput === item.id) {
-    h += `<div style="padding:4px 12px 8px;display:flex;gap:4px">
-      <input id="link-input-${item.id}" type="url" placeholder="https://\u2026"
-             style="flex:1;font-family:inherit;font-size:11px;background:var(--bg);color:var(--text);border:1px solid var(--accent);border-radius:6px;padding:6px 10px;outline:none"
-             onclick="event.stopPropagation()"
-             onkeydown="if(event.key==='Enter'){event.preventDefault();saveLink('${item.id}')};if(event.key==='Escape'){openLinkInput=null;render()}">
-      <button class="action-btn" data-action="saveLink" data-id="${item.id}" style="color:var(--accent);border-color:#00d2ff33">\ud83d\udd17 Add</button>
+    html += `<div class="note-input-wrap" data-stop>
+      <input id="link-input-${item.id}" class="note-input" type="url" placeholder="Paste a URL\u2026"
+        data-key-action="saveLinkOnEnterOrClose" data-id="${item.id}">
     </div>`;
   }
 
   // Defer picker
-  if (hasDeferPicker) {
-    h += `<div class="defer-picker open">`;
-    DAYS.forEach(d => {
-      if (d !== dayName) {
-        h += `<button class="defer-day-btn" data-action="deferTask" data-id="${item.id}" data-day="${d}">${d.slice(0, 3)}</button>`;
-      }
+  if (state.openDeferPicker === item.id) {
+    html += '<div class="defer-picker" data-stop>';
+    days.forEach(d => {
+      if (d === dayName) return;
+      html += `<button class="defer-day-btn" data-action="deferTask" data-id="${item.id}" data-day="${d}">${escapeHtml(d)}</button>`;
     });
-    h += `</div>`;
+    html += '</div>';
   }
 
-  h += `</div></div></div>`; // close item + swipe-inner + swipe-wrap
-  return h;
+  return html;
 }

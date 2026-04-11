@@ -13,6 +13,7 @@ import {
 import { findItemById } from '../schedule.js';
 import { Storage } from '../storage.js';
 import { syncPush } from '../sync.js';
+import { startPomo, cancelPomo, togglePomoPause, restartPomo, resetPomoPosition } from './timer.js';
 
 // Forward references set by init.js
 let _render = () => {};
@@ -26,7 +27,7 @@ export function setRenderFn(renderFn, doRenderFn) {
 // ── Toast / Undo ──
 export function showToast(msg) {
   const toast = document.getElementById('toast');
-  toast.innerHTML = `<span>${escapeHtml(msg)}</span><button class="toast-undo" onclick="undoToggle()">Undo</button>`;
+  toast.innerHTML = `<span>${escapeHtml(msg)}</span><button class="toast-undo" data-action="undoToggle">Undo</button>`;
   toast.classList.add('show');
   clearTimeout(state.toastTimer);
   state.toastTimer = setTimeout(hideToast, CONFIG.toastDuration);
@@ -237,7 +238,7 @@ export function clearTask(id, e) {
 // ── Mark section done ──
 export function markSectionDone(dayName, sectionIdx) {
   if (isDayLocked(dayName)) { showToast('Day is locked'); haptic('error'); return; }
-  const section = schedule[dayName].sections[sectionIdx];
+  const section = schedule[dayName]?.sections?.[sectionIdx];
   if (!section) return;
   let count = 0;
   section.items.forEach(item => {
@@ -357,6 +358,7 @@ export function togglePanel(id) {
 
 // ── Day selection ──
 export function selectDay(i) {
+  if (!DAYS[i]) return;
   state.lastDayDirection = i > state.selectedDay ? 'right' : (i < state.selectedDay ? 'left' : null);
   state.selectedDay = i;
   state.viewMode = 'day';
@@ -378,7 +380,7 @@ export function resetDay() {
   if (isDayLocked(DAYS[state.selectedDay])) { showToast('Day is locked'); return; }
   showConfirm(`Reset all tasks for ${DAYS[state.selectedDay]}?`, () => {
     const dayName = DAYS[state.selectedDay];
-    schedule[dayName].sections.forEach(s => s.items.forEach(item => {
+    (schedule[dayName]?.sections || []).forEach(s => (s.items || []).forEach(item => {
       delete state.checked[item.id];
       delete state.taskNotes[item.id];
       delete state.taskDeferred[item.id];
@@ -488,10 +490,11 @@ export function showTaskCtxMenu(taskId, e) {
   else items.push({ icon: '\u21a9', label: 'Uncheck', action: () => toggle(taskId) });
   if (st !== STATUS_SKIP) items.push({ icon: '\u23ed', label: 'Skip', cls: 'danger', action: () => setTaskStatus(taskId, STATUS_SKIP) });
   if (st !== STATUS_PROGRESS) items.push({ icon: '\u25b6', label: 'In progress', cls: 'warn', action: () => setTaskStatus(taskId, STATUS_PROGRESS) });
+  if (st !== STATUS_BLOCKED) items.push({ icon: '\u26d4', label: 'Blocked', cls: 'danger', action: () => setTaskStatus(taskId, STATUS_BLOCKED) });
   items.push('---');
   items.push({ icon: '\ud83d\udcdd', label: 'Add note', action: () => { state.openActions = taskId; showNoteInput(taskId); } });
   items.push({ icon: '\ud83d\udd17', label: 'Add link', action: () => addLink(taskId) });
-  items.push({ icon: '\u23f1', label: `Focus (${state.focusTimerMin}m)`, action: () => { if (window.startPomo) window.startPomo(taskId); } });
+  items.push({ icon: '\u23f1', label: `Focus (${state.focusTimerMin}m)`, action: () => startPomo(taskId, _render, showToast) });
   items.push({ icon: '\u2192', label: 'Defer \u2192', action: () => showDeferCtxMenu(taskId, e.clientX, e.clientY, dayName) });
   items.push('---');
   items.push({ icon: '\u2715', label: 'Clear all', cls: 'danger', action: () => clearTask(taskId) });
@@ -512,11 +515,11 @@ export function showTimerCtxMenu(e) {
   e.stopPropagation();
   if (!state.pomoState) return;
   showCtxMenu(e.clientX, e.clientY, [
-    { icon: state.pomoState.paused ? '\u25b6' : '\u23f8', label: state.pomoState.paused ? 'Resume' : 'Pause', action: () => { if (window.togglePomoPause) window.togglePomoPause(); } },
-    { icon: '\u21bb', label: 'Restart', action: () => { if (window.restartPomo) window.restartPomo(); } },
-    { icon: '\u2316', label: 'Re-center', action: () => { if (window.resetPomoPosition) window.resetPomoPosition(); } },
+    { icon: state.pomoState.paused ? '\u25b6' : '\u23f8', label: state.pomoState.paused ? 'Resume' : 'Pause', action: () => togglePomoPause(_render) },
+    { icon: '\u21bb', label: 'Restart', action: () => restartPomo(showToast) },
+    { icon: '\u2316', label: 'Re-center', action: () => resetPomoPosition() },
     '---',
-    { icon: '\u2715', label: 'Stop timer', cls: 'danger', action: () => { if (window.cancelPomo) window.cancelPomo(); } },
+    { icon: '\u2715', label: 'Stop timer', cls: 'danger', action: () => cancelPomo(_render, showToast) },
   ]);
 }
 
@@ -530,7 +533,7 @@ export function showTabCtxMenu(dayIdx, e) {
     { icon: '\ud83d\udcc4', label: `Open ${dayName}`, action: () => selectDay(dayIdx) },
     { icon: locked ? '\ud83d\udd13' : '\ud83d\udd12', label: locked ? 'Unlock day' : 'Lock day', action: () => toggleLock(dayName) },
     '---',
-    { icon: '\u2713', label: `Mark all done (${prog.total - prog.done} left)`, cls: 'accent', action: () => { schedule[dayName].sections.forEach((s, si) => markSectionDone(dayName, si)); } },
+    { icon: '\u2713', label: `Mark all done (${prog.total - prog.done} left)`, cls: 'accent', action: () => { (schedule[dayName]?.sections || []).forEach((s, si) => markSectionDone(dayName, si)); } },
     { icon: '\u21bb', label: 'Reset day', cls: 'danger', action: () => { state.selectedDay = dayIdx; resetDay(); } },
   ]);
 }
@@ -594,4 +597,3 @@ export function updateProgressBars() {
     if (bar) bar.style.width = p.pct + '%';
   });
 }
-

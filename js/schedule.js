@@ -198,13 +198,96 @@ export const DEFAULT_OVERVIEW = [
 export function buildOverviewData() {
   return DAYS.map((dayName, i) => {
     const day = schedule[dayName];
-    const sections = day.sections.map(s => s.label).join(' \u2192 ');
+    if (!day) return { day: SHORT[i] || dayName.slice(0, 3), tag: 'Empty', desc: 'No schedule', color: '#71717a' };
+    const sections = (day.sections || []).map(s => s.label).join(' \u2192 ') || 'No sections';
     const hasLeave = !!day.leave;
     const tag = day.meta || (hasLeave ? (day.sections.length > 2 ? 'Heavy' : 'Half day') : 'Home');
-    // Use default overview if available, otherwise generate
-    if (DEFAULT_OVERVIEW[i]) return DEFAULT_OVERVIEW[i];
-    return { day: SHORT[i], tag, desc: sections, color: '#00d2ff' };
+    const color = day.meta ? '#ff9100' : hasLeave ? '#ffab00' : '#00d2ff';
+    return { day: getShortLabel(dayName, i), tag, desc: sections, color };
   });
+}
+
+function replaceArrayContents(arr, next) {
+  arr.splice(0, arr.length, ...next);
+}
+
+function refreshDayListsFromSchedule() {
+  const days = Object.keys(schedule);
+  replaceArrayContents(DAYS, days);
+  replaceArrayContents(SHORT, days.map(d => d.slice(0, 3)));
+}
+
+function makeDefaultDay() {
+  return { wake: '08:00', leave: null, meta: null, sections: [{ label: 'Tasks', items: [] }] };
+}
+
+function normalizeDayName(name) {
+  return String(name || '').trim().replace(/[<>"'`]/g, '').replace(/\s+/g, ' ');
+}
+
+function normalizeDay(dayName, day) {
+  const base = makeDefaultDay();
+  if (!day || typeof day !== 'object') return base;
+  const sections = Array.isArray(day.sections) ? day.sections : base.sections;
+  return {
+    wake: typeof day.wake === 'string' && day.wake.trim() ? day.wake.trim() : base.wake,
+    leave: typeof day.leave === 'string' && day.leave.trim() ? day.leave.trim() : null,
+    meta: typeof day.meta === 'string' && day.meta.trim() ? day.meta.trim() : null,
+    sections: sections.map((section, sIdx) => ({
+      label: typeof section?.label === 'string' && section.label.trim() ? section.label.trim() : `Section ${sIdx + 1}`,
+      items: Array.isArray(section?.items) ? section.items.map((item, iIdx) => ({
+        id: typeof item?.id === 'string' && item.id.trim() ? item.id.trim() : `${getDayPrefix(dayName)}-${iIdx + 1}`,
+        text: typeof item?.text === 'string' ? item.text.trim() : '',
+        hint: typeof item?.hint === 'string' && item.hint.trim() ? item.hint.trim() : null,
+        cat: typeof item?.cat === 'string' && item.cat.trim() ? item.cat.trim() : 'homework',
+        ...(Number.isFinite(item?.est) ? { est: item.est } : {}),
+      })).filter(item => item.text) : [],
+    })).filter(section => section.label),
+  };
+}
+
+function normalizeSchedule(rawSchedule) {
+  const clean = {};
+  if (rawSchedule && typeof rawSchedule === 'object') {
+    for (const [rawName, day] of Object.entries(rawSchedule)) {
+      const dayName = normalizeDayName(rawName);
+      if (!dayName) continue;
+      clean[dayName] = normalizeDay(dayName, day);
+    }
+  }
+  return Object.keys(clean).length ? clean : structuredClone(DEFAULT_SCHEDULE);
+}
+
+function registerScheduleCategories() {
+  for (const day of DAYS) {
+    for (const sec of (schedule[day]?.sections || [])) {
+      for (const item of (sec.items || [])) {
+        if (item.cat && !CategoryRegistry.has(item.cat)) {
+          CategoryRegistry.register(item.cat, { bg: '#1a1a1a', border: '#888', label: item.cat.toUpperCase(), defaultEst: 60 });
+        }
+      }
+    }
+  }
+  CategoryRegistry.save();
+}
+
+function getDayPrefix(dayName) {
+  const existing = schedule[dayName]?.sections
+    ?.flatMap(s => s.items || [])
+    ?.map(item => String(item.id || '').match(/^([a-z]+)-\d+$/)?.[1])
+    ?.find(Boolean);
+  if (existing) return existing;
+  return normalizeDayName(dayName).toLowerCase().replace(/[^a-z0-9]+/g, '') || 'day';
+}
+
+export function replaceSchedule(nextSchedule, { persist = false } = {}) {
+  const clean = normalizeSchedule(nextSchedule);
+  for (const key of Object.keys(schedule)) delete schedule[key];
+  Object.assign(schedule, clean);
+  refreshDayListsFromSchedule();
+  ensureDayConfigForSchedule();
+  registerScheduleCategories();
+  if (persist) saveScheduleToStorage();
 }
 
 export function saveScheduleToStorage() {
@@ -217,31 +300,17 @@ export function loadCustomSchedule() {
   try {
     const custom = Storage.get('custom-schedule', null);
     if (!custom || typeof custom !== 'object') return;
-    for (const day of DAYS) {
-      if (custom[day] && custom[day].sections) {
-        schedule[day] = custom[day];
-      }
-    }
-    // Ensure any custom categories from schedule are registered
-    for (const day of DAYS) {
-      for (const sec of schedule[day].sections) {
-        for (const item of sec.items) {
-          if (item.cat && !CategoryRegistry.has(item.cat)) {
-            CategoryRegistry.register(item.cat, { bg: '#1a1a1a', border: '#888', label: item.cat.toUpperCase(), defaultEst: 60 });
-          }
-        }
-      }
-    }
+    replaceSchedule(custom);
   } catch (e) { console.warn('Failed to load custom schedule:', e.message); }
 }
 
 export function addTaskToSection(dayName, sectionIdx, text, cat, hint) {
-  const section = schedule[dayName].sections[sectionIdx];
+  const section = schedule[dayName]?.sections?.[sectionIdx];
   if (!section || !text.trim()) return;
   cat = (cat || 'homework').replace(/[^a-zA-Z0-9]/g, '');
-  const dayPrefix = dayName.slice(0, 3).toLowerCase();
+  const dayPrefix = getDayPrefix(dayName);
   let maxNum = 0;
-  schedule[dayName].sections.forEach(s => s.items.forEach(item => {
+  (schedule[dayName]?.sections || []).forEach(s => (s.items || []).forEach(item => {
     const m = item.id.match(new RegExp('^' + dayPrefix + '-(\\d+)$'));
     if (m) maxNum = Math.max(maxNum, parseInt(m[1]));
   }));
@@ -254,8 +323,52 @@ export function addTaskToSection(dayName, sectionIdx, text, cat, hint) {
   saveScheduleToStorage();
 }
 
+export function updateDayMetadata(dayName, { wake, leave, meta }) {
+  const day = schedule[dayName];
+  if (!day) return;
+  day.wake = (wake || '').trim() || '08:00';
+  day.leave = (leave || '').trim() || null;
+  day.meta = (meta || '').trim() || null;
+  saveScheduleToStorage();
+}
+
+export function addDayToSchedule(rawName) {
+  const base = normalizeDayName(rawName);
+  if (!base) return null;
+  let name = base;
+  let n = 2;
+  while (schedule[name]) name = `${base} ${n++}`;
+  schedule[name] = makeDefaultDay();
+  refreshDayListsFromSchedule();
+  ensureDayConfigForSchedule();
+  saveScheduleToStorage();
+  saveDayConfig();
+  return name;
+}
+
+export function removeDayFromSchedule(dayName) {
+  if (!schedule[dayName] || DAYS.length <= 1) return false;
+  delete schedule[dayName];
+  delete dayConfig[dayName];
+  refreshDayListsFromSchedule();
+  ensureDayConfigForSchedule();
+  saveScheduleToStorage();
+  saveDayConfig();
+  return true;
+}
+
+export function resetScheduleToDefault() {
+  for (const key of Object.keys(schedule)) delete schedule[key];
+  Object.assign(schedule, structuredClone(DEFAULT_SCHEDULE));
+  refreshDayListsFromSchedule();
+  for (const key of Object.keys(dayConfig)) delete dayConfig[key];
+  ensureDayConfigForSchedule();
+  Storage.remove('custom-schedule');
+  Storage.remove('day-config');
+}
+
 export function removeTaskFromSchedule(dayName, sectionIdx, itemIdx) {
-  const section = schedule[dayName].sections[sectionIdx];
+  const section = schedule[dayName]?.sections?.[sectionIdx];
   if (!section) return;
   const item = section.items[itemIdx];
   section.items.splice(itemIdx, 1);
@@ -308,6 +421,15 @@ export const dayConfig = Object.fromEntries(
   DAYS.map(d => [d, { active: true, alias: null }])
 );
 
+function ensureDayConfigForSchedule() {
+  for (const d of DAYS) {
+    if (!dayConfig[d]) dayConfig[d] = { active: true, alias: null };
+  }
+  for (const d of Object.keys(dayConfig)) {
+    if (!schedule[d]) delete dayConfig[d];
+  }
+}
+
 export function getDayLabel(dayName) {
   return dayConfig[dayName]?.alias || dayName;
 }
@@ -340,6 +462,7 @@ export function saveDayConfig() {
 
 export function loadDayConfig() {
   try {
+    ensureDayConfigForSchedule();
     const saved = Storage.get('day-config', null);
     if (!saved || typeof saved !== 'object') return;
     for (const d of DAYS) {
@@ -353,7 +476,7 @@ export function loadDayConfig() {
 
 export function findItemById(id) {
   for (const d of DAYS) {
-    for (const s of schedule[d].sections) {
+    for (const s of (schedule[d]?.sections || [])) {
       for (const item of s.items) {
         if (item.id === id) return item;
       }
@@ -364,14 +487,14 @@ export function findItemById(id) {
 
 export function getScheduleFingerprint() {
   const ids = [];
-  DAYS.forEach(d => schedule[d].sections.forEach(s => s.items.forEach(item => ids.push(item.id))));
+  DAYS.forEach(d => (schedule[d]?.sections || []).forEach(s => (s.items || []).forEach(item => ids.push(item.id))));
   return ids.join(',');
 }
 
 export function buildTextToIdMap() {
   const map = {};
   const seen = {};
-  DAYS.forEach(d => schedule[d].sections.forEach(s => s.items.forEach(item => {
+  DAYS.forEach(d => (schedule[d]?.sections || []).forEach(s => (s.items || []).forEach(item => {
     const key = item.text.trim().toLowerCase();
     const uniqueKey = d + '::' + key;
     map[uniqueKey] = item.id;
@@ -385,7 +508,7 @@ export function buildTextToIdMap() {
 
 export function buildIdToTextMap() {
   const map = {};
-  DAYS.forEach(d => schedule[d].sections.forEach(s => s.items.forEach(item => {
+  DAYS.forEach(d => (schedule[d]?.sections || []).forEach(s => (s.items || []).forEach(item => {
     map[item.id] = { text: item.text.trim().toLowerCase(), day: d };
   })));
   return map;
@@ -393,7 +516,7 @@ export function buildIdToTextMap() {
 
 export function getCurrentIds() {
   const ids = new Set();
-  DAYS.forEach(d => schedule[d].sections.forEach(s => s.items.forEach(item => ids.add(item.id))));
+  DAYS.forEach(d => (schedule[d]?.sections || []).forEach(s => (s.items || []).forEach(item => ids.add(item.id))));
   return ids;
 }
 

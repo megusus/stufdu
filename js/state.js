@@ -138,7 +138,9 @@ export function getStatus(id) {
 
 // ── Estimate helpers ──
 export function getEstimate(item) {
-  return item.est || CategoryRegistry.getEstimate(item.cat) || 60;
+  if (item.est !== undefined && item.est !== null) return item.est;
+  const defaultEst = CategoryRegistry.getEstimate(item.cat);
+  return defaultEst !== undefined && defaultEst !== null ? defaultEst : 60;
 }
 
 export function formatEst(min) {
@@ -295,8 +297,8 @@ export function getWeeklyPomoMinutes() {
 export function getTaskDay(id) {
   if (state.taskDeferred[id]) return state.taskDeferred[id];
   for (const dName of DAYS) {
-    for (const sec of schedule[dName].sections) {
-      for (const item of sec.items) {
+    for (const sec of (schedule[dName]?.sections || [])) {
+      for (const item of (sec.items || [])) {
         if (item.id === id) return dName;
       }
     }
@@ -358,7 +360,7 @@ export function getRelevantMealTypes() {
 export function getSubjectStreaks() {
   const catCounts = {};
   DAYS.forEach(dayName => {
-    schedule[dayName].sections.forEach(s => s.items.forEach(item => {
+    (schedule[dayName]?.sections || []).forEach(s => (s.items || []).forEach(item => {
       if (state.taskDeferred[item.id] && state.taskDeferred[item.id] !== dayName) return;
       const cat = item.cat;
       if (!cat || cat === 'routine' || cat === 'reflect') return;
@@ -375,7 +377,7 @@ export function getSubjectStreaks() {
 export function getSkipDebt() {
   const debt = {};
   DAYS.forEach(dayName => {
-    schedule[dayName].sections.forEach(s => s.items.forEach(item => {
+    (schedule[dayName]?.sections || []).forEach(s => (s.items || []).forEach(item => {
       if (getStatus(item.id) === STATUS_SKIP) {
         const cat = item.cat;
         if (!cat || cat === 'routine') return;
@@ -413,6 +415,7 @@ export function getCurrentSectionIndex(sections) {
 export function getCommuteInfo() {
   const dayName = DAYS[state.selectedDay];
   const day = schedule[dayName];
+  if (!day) return null;
   if (!day.leave) return null;
   const now = nowInTZ();
   if (state.selectedDay !== todayIdx) return { label: `Leave at ${day.leave}`, mins: null };

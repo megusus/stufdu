@@ -6,7 +6,9 @@ import { CONFIG } from '../config.js';
 import { state, haptic, STATUS_SKIP } from '../state.js';
 import { DAYS, dayConfig } from '../schedule.js';
 
-const SWIPE_THRESHOLD = CONFIG.swipeThreshold;
+function getSwipeThreshold() {
+  return Number(CONFIG.swipeThreshold) || 60;
+}
 
 // ── Task swipe (swipe right=done, swipe left=skip) ──
 let swipeState = null;
@@ -50,7 +52,8 @@ export function initSwipeListeners(toggle, setTaskStatus) {
     const indRight = swipeState.el.querySelector('.swipe-indicator-right');
     const indLeft = swipeState.el.querySelector('.swipe-indicator-left');
 
-    if (clamped > SWIPE_THRESHOLD) {
+    const threshold = getSwipeThreshold();
+    if (clamped > threshold) {
       swipeState.bgRight.classList.add('visible');
       swipeState.bgLeft.classList.remove('visible');
       if (indRight && !indRight.classList.contains('active')) {
@@ -58,7 +61,7 @@ export function initSwipeListeners(toggle, setTaskStatus) {
         haptic('light');
       }
       if (indLeft) indLeft.classList.remove('active');
-    } else if (clamped < -SWIPE_THRESHOLD) {
+    } else if (clamped < -threshold) {
       swipeState.bgLeft.classList.add('visible');
       swipeState.bgRight.classList.remove('visible');
       if (indLeft && !indLeft.classList.contains('active')) {
@@ -87,10 +90,11 @@ export function initSwipeListeners(toggle, setTaskStatus) {
     inner.style.transition = 'transform 0.2s ease-out';
     inner.style.transform = 'translateX(0)';
 
-    if (dx > SWIPE_THRESHOLD) {
+    const threshold = getSwipeThreshold();
+    if (dx > threshold) {
       haptic('success');
       toggle(swipeState.id);
-    } else if (dx < -SWIPE_THRESHOLD) {
+    } else if (dx < -threshold) {
       haptic('medium');
       setTaskStatus(swipeState.id, STATUS_SKIP);
     }
@@ -142,7 +146,7 @@ export function initPageSwipe(selectDay) {
     const diffX = e.changedTouches[0].screenX - touchStartX;
     const diffY = e.changedTouches[0].screenY - touchStartY;
     if (Math.abs(diffY) > Math.abs(diffX)) return;
-    if (Math.abs(diffX) > SWIPE_THRESHOLD) {
+    if (Math.abs(diffX) > getSwipeThreshold()) {
       // Skip inactive days when swiping
       if (diffX < 0) {
         let next = state.selectedDay + 1;

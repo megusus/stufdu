@@ -2,53 +2,36 @@
 // ── Meal Card Renderer ──
 // ════════════════════════════════════════
 
-import { state, escapeHtml, getDayMeals, getRelevantMealTypes, todayIdx } from '../state.js';
-import { getDayLabel } from '../schedule.js';
+/**
+ * Pure renderer: receives RenderContext, returns HTML string.
+ * @param {import('./context.js').RenderContext} ctx
+ */
+export function renderMealCard(ctx) {
+  const { state, dayName, escapeHtml, nowInTZ } = ctx;
+  if (!state.mealData || Object.keys(state.mealData).length === 0) return '';
 
-export function renderMealCard(dayName, selectedDay) {
-  try { return _renderMealCardInner(dayName, selectedDay); }
-  catch (err) { console.error('[render] Meal card failed:', err); return ''; }
-}
-function _renderMealCardInner(dayName, selectedDay) {
-  const isToday = selectedDay === todayIdx;
-  const dayMeals = getDayMeals(selectedDay);
-  if (!dayMeals || (!dayMeals.kahvalti.length && !dayMeals.ogle.length && !dayMeals.aksam.length && !(dayMeals.vegan && dayMeals.vegan.length))) {
-    return '';
-  }
+  const now = nowInTZ();
+  const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const todayMeal = state.mealData[dateKey];
+  if (!todayMeal) return '';
 
-  const mealTitle = isToday ? "Today's Menu" : `${getDayLabel(dayName)}'s Menu`;
-  const relevantTypes = isToday ? getRelevantMealTypes() : ['kahvalti', 'ogle', 'aksam'];
+  const hour = now.getHours();
+  let mealType = 'ogle';
+  let mealLabel = '\u00d6\u011fle';
+  if (hour < 10) { mealType = 'kahvalti'; mealLabel = 'Kahvalt\u0131'; }
+  else if (hour >= 17) { mealType = 'aksam'; mealLabel = 'Ak\u015fam'; }
+
+  const items = todayMeal[mealType] || [];
+  const veganItems = todayMeal.vegan || [];
+  if (items.length === 0 && veganItems.length === 0) return '';
+
   let html = `<div class="meal-card">
-    <div class="meal-card-header">
-      <div class="meal-card-title">\ud83c\udf7d\ufe0f ${mealTitle}</div>
-      <button class="meal-card-refresh" data-action="fetchMeals">Refresh</button>
-    </div>
-    <div class="meal-items">`;
+    <div class="meal-title">\ud83c\udf7d\ufe0f ${mealLabel} Men\u00fcs\u00fc</div>
+    <div class="meal-items">${items.map(i => escapeHtml(i)).join(' \u00b7 ')}</div>`;
+  if (veganItems.length > 0) {
+    html += `<div class="meal-items vegan">\ud83c\udf31 ${veganItems.map(i => escapeHtml(i)).join(' \u00b7 ')}</div>`;
+  }
+  html += '</div>';
 
-  if (dayMeals.kahvalti.length && relevantTypes.includes('kahvalti')) {
-    html += `<div class="meal-type-label">Kahvalt\u0131</div>`;
-    dayMeals.kahvalti.forEach(item => {
-      html += `<div class="meal-item"><div class="meal-item-dot"></div>${escapeHtml(item)}</div>`;
-    });
-  }
-  if (dayMeals.ogle.length && relevantTypes.includes('ogle')) {
-    html += `<div class="meal-type-label">\u00d6\u011fle</div>`;
-    dayMeals.ogle.forEach(item => {
-      html += `<div class="meal-item"><div class="meal-item-dot"></div>${escapeHtml(item)}</div>`;
-    });
-  }
-  if (dayMeals.aksam.length && relevantTypes.includes('aksam')) {
-    html += `<div class="meal-type-label">Ak\u015fam</div>`;
-    dayMeals.aksam.forEach(item => {
-      html += `<div class="meal-item"><div class="meal-item-dot"></div>${escapeHtml(item)}</div>`;
-    });
-  }
-  if (dayMeals.vegan && dayMeals.vegan.length) {
-    html += `<div class="meal-type-label" style="color:#4caf50">\ud83c\udf31 Vegan</div>`;
-    dayMeals.vegan.forEach(item => {
-      html += `<div class="meal-item"><div class="meal-item-dot" style="background:#4caf50"></div>${escapeHtml(item)}</div>`;
-    });
-  }
-  html += `</div></div>`;
   return html;
 }

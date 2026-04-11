@@ -8,6 +8,11 @@ import { findItemById } from '../schedule.js';
 
 let _pomoBarEl = null;
 let _pomoBarPos = null;
+let _timerCtxMenuFn = null;
+
+export function setTimerContextMenu(fn) {
+  _timerCtxMenuFn = fn;
+}
 
 export function setFocusTimerMin(min) {
   state.focusTimerMin = Math.max(1, Math.min(180, parseInt(min) || 25));
@@ -147,7 +152,7 @@ export function ensurePomoBar(render, showToast) {
     _pomoBarEl.id = 'pomo-bar';
     _pomoBarEl.style.animation = 'fabSlideUp 0.25s ease-out';
     _pomoBarEl.oncontextmenu = e => {
-      if (window.showTimerCtxMenu) window.showTimerCtxMenu(e);
+      if (_timerCtxMenuFn) _timerCtxMenuFn(e);
     };
     document.body.appendChild(_pomoBarEl);
     _initPomoDrag(_pomoBarEl);

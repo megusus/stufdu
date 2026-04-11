@@ -7,6 +7,10 @@ import { CONFIG } from './config.js';
 export const Storage = {
   _prefix: CONFIG.storagePrefix,
 
+  init(prefix = CONFIG.storagePrefix) {
+    this._prefix = prefix || '';
+  },
+
   _key(k) {
     return this._prefix ? this._prefix + '-' + k : k;
   },

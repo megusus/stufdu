@@ -278,7 +278,7 @@
   // ── escapeHtml (imported from state.js) ──
   suite('escapeHtml [module: state.js]', () => {
     test('escapes angle brackets', () =>
-      assertEqual(escapeHtml('<script>alert("xss")</script>'),
+      assertEqual(escapeHtml('<script>alert("xss")<\/script>'),
                   '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'));
     test('escapes ampersands', () =>
       assertEqual(escapeHtml('a & b'), 'a &amp; b'));
@@ -736,6 +736,252 @@
       const locks = { Monday: true };
       delete locks['Monday'];
       assert(!locks['Monday']);
+    });
+  });
+
+  // ── Storage prefix verification ──
+  suite('Storage prefix [module: storage.js]', () => {
+    test('init changes prefix', () => {
+      if (!Storage) return;
+      const origPrefix = Storage._prefix;
+      Storage.init('__testprefix__');
+      Storage.set('ptest', { v: 1 });
+      const raw = localStorage.getItem('__testprefix__-ptest');
+      assert(raw !== null, 'Key should use new prefix');
+      assertEqual(JSON.parse(raw).v, 1);
+      // Cleanup
+      localStorage.removeItem('__testprefix__-ptest');
+      Storage.init(origPrefix);
+    });
+
+    test('prefix isolation — different prefix cannot read other prefix keys', () => {
+      if (!Storage) return;
+      const origPrefix = Storage._prefix;
+      Storage.init('__pfxA__');
+      Storage.set('iso', { a: 1 });
+      Storage.init('__pfxB__');
+      assertEqual(Storage.get('iso', null), null, 'Different prefix should not see the key');
+      // Cleanup
+      localStorage.removeItem('__pfxA__-iso');
+      Storage.init(origPrefix);
+    });
+  });
+
+  // ── Category CRUD through registry ──
+  suite('CategoryRegistry CRUD [module: categories.js]', () => {
+    const TK = '__crud_test__';
+
+    test('register adds a new category', () => {
+      if (!CategoryRegistry) return;
+      CategoryRegistry.register(TK, { bg: '#000', border: '#f0f', label: 'CRD', defaultEst: 33 });
+      assert(CategoryRegistry.has(TK));
+      assertEqual(CategoryRegistry.getEstimate(TK), 33);
+    });
+
+    test('edit (re-register) updates values', () => {
+      if (!CategoryRegistry) return;
+      CategoryRegistry.register(TK, { bg: '#111', border: '#ff0', label: 'UPD', defaultEst: 55 });
+      assertEqual(CategoryRegistry.getLabel(TK), 'UPD');
+      assertEqual(CategoryRegistry.getEstimate(TK), 55);
+    });
+
+    test('remove then has returns false', () => {
+      if (!CategoryRegistry) return;
+      CategoryRegistry.remove(TK);
+      assert(!CategoryRegistry.has(TK));
+    });
+
+    test('keys() updates after add/remove', () => {
+      if (!CategoryRegistry) return;
+      CategoryRegistry.register(TK, { bg: '#000', border: '#000', label: 'T', defaultEst: 1 });
+      assert(CategoryRegistry.keys().includes(TK));
+      CategoryRegistry.remove(TK);
+      assert(!CategoryRegistry.keys().includes(TK));
+    });
+  });
+
+  // ── Schedule creation/reset ──
+  suite('Schedule operations [module: schedule.js]', () => {
+    let addDayToSchedule, removeDayFromSchedule, addSectionToDay, addTaskToSectionFn,
+        resetScheduleToDefault, schedule_ref;
+    try {
+      ({ addDayToSchedule, removeDayFromSchedule, addSectionToDay,
+         addTaskToSection: addTaskToSectionFn, resetScheduleToDefault,
+         schedule: schedule_ref } = await import('./js/schedule.js'));
+    } catch(e) {}
+
+    test('addDayToSchedule creates a new day', () => {
+      if (!addDayToSchedule) return;
+      const daysBefore = DAYS.length;
+      const name = addDayToSchedule('TestDay');
+      assert(name !== null, 'Should return new day name');
+      assert(DAYS.includes(name), 'DAYS should include new day');
+      assert(schedule_ref[name] !== undefined, 'Schedule should have new day');
+      // Cleanup
+      removeDayFromSchedule(name);
+    });
+
+    test('addSectionToDay adds a section', () => {
+      if (!addSectionToDay || !schedule_ref) return;
+      const day = DAYS[0];
+      const before = schedule_ref[day].sections.length;
+      addSectionToDay(day, 'Test Section');
+      assertEqual(schedule_ref[day].sections.length, before + 1);
+      // Remove it
+      schedule_ref[day].sections.pop();
+    });
+
+    test('resetScheduleToDefault restores 7 days', () => {
+      if (!resetScheduleToDefault) return;
+      resetScheduleToDefault();
+      assertEqual(DAYS.length, 7);
+      assertEqual(DAYS[0], 'Monday');
+    });
+  });
+
+  // ── Blocked status ──
+  suite('Blocked status [module: state.js]', () => {
+    test('getStatus returns blocked', () => {
+      withChecked({ 'mon-1': 'blocked' }, () =>
+        assertEqual(getStatus('mon-1'), 'blocked'));
+    });
+
+    test('blocked status does not count as done in local simulation', () => {
+      const sched = {
+        TestDay: { sections: [{ label: 'AM', items: [
+          { id: 'td-1', text: 'T1', cat: 'fa' },
+          { id: 'td-2', text: 'T2', cat: 'fa' },
+        ]}]}
+      };
+      const p = getDayProgress(sched, { 'td-1': 'blocked' }, {}, 'TestDay');
+      assertEqual(p.done, 0, 'Blocked should not count as done');
+      assertEqual(p.total, 2);
+    });
+  });
+
+  // ── Migration module ──
+  suite('Migration [module: migration.js]', () => {
+    let detectOldPrefixKeys, migrateStoragePrefix;
+    try {
+      ({ detectOldPrefixKeys, migrateStoragePrefix } = await import('./js/migration.js'));
+    } catch(e) {}
+
+    test('detectOldPrefixKeys returns null when no old keys', () => {
+      if (!detectOldPrefixKeys) return;
+      // Use a unique prefix that definitely has no keys
+      assertEqual(detectOldPrefixKeys('__nokeys_xyz__'), null);
+    });
+
+    test('migrateStoragePrefix copies static keys', () => {
+      if (!migrateStoragePrefix) return;
+      localStorage.setItem('__mig_old__-history', JSON.stringify({ w1: 50 }));
+      const count = migrateStoragePrefix('__mig_old__', '__mig_new__');
+      assert(count >= 1, 'Should copy at least one key');
+      const val = localStorage.getItem('__mig_new__-history');
+      assert(val !== null, 'New key should exist');
+      assertEqual(JSON.parse(val).w1, 50);
+      // Cleanup
+      localStorage.removeItem('__mig_old__-history');
+      localStorage.removeItem('__mig_new__-history');
+    });
+
+    test('migrateStoragePrefix copies week keys', () => {
+      if (!migrateStoragePrefix) return;
+      localStorage.setItem('__mig_old__-w15', JSON.stringify({ 'mon-1': 'done' }));
+      localStorage.setItem('__mig_old__-w15-notes', JSON.stringify({ 'mon-1': 'note' }));
+      const count = migrateStoragePrefix('__mig_old__', '__mig_new__');
+      assert(count >= 2);
+      assert(localStorage.getItem('__mig_new__-w15') !== null);
+      assert(localStorage.getItem('__mig_new__-w15-notes') !== null);
+      // Cleanup
+      ['__mig_old__-w15', '__mig_old__-w15-notes', '__mig_new__-w15', '__mig_new__-w15-notes'].forEach(k => localStorage.removeItem(k));
+    });
+
+    test('migrateStoragePrefix does not overwrite existing keys', () => {
+      if (!migrateStoragePrefix) return;
+      localStorage.setItem('__mig_old__-history', JSON.stringify({ w1: 50 }));
+      localStorage.setItem('__mig_new__-history', JSON.stringify({ w1: 99 }));
+      migrateStoragePrefix('__mig_old__', '__mig_new__');
+      assertEqual(JSON.parse(localStorage.getItem('__mig_new__-history')).w1, 99, 'Should not overwrite');
+      // Cleanup
+      localStorage.removeItem('__mig_old__-history');
+      localStorage.removeItem('__mig_new__-history');
+    });
+  });
+
+  // ── Meal parsers from real module ──
+  suite('Meal parsers [module: meals.js]', () => {
+    let realParseMealString, realParseMealText;
+    try {
+      ({ parseMealString: realParseMealString, parseMealText: realParseMealText } = await import('./js/meals.js'));
+    } catch(e) {}
+
+    test('parseMealString from module matches local', () => {
+      if (!realParseMealString) return;
+      assertDeepEqual(realParseMealString('Soup, Rice, Salad'), ['Soup', 'Rice', 'Salad']);
+    });
+
+    test('parseMealText from module parses ISO dates', () => {
+      if (!realParseMealText) return;
+      const r = realParseMealText('2026-03-10\nMercimek Çorbası\nPilav');
+      assert(r['2026-03-10'] !== undefined);
+      assertEqual(r['2026-03-10'].ogle.length, 2);
+    });
+
+    test('parseMealText from module handles vegan section', () => {
+      if (!realParseMealText) return;
+      const r = realParseMealText('2026-03-10\nVegan\nTofu Burger');
+      assertEqual(r['2026-03-10'].vegan.length, 1);
+    });
+  });
+
+  // ── Service Worker ASSETS verification ──
+  suite('Service Worker ASSETS [sw.js]', () => {
+    let swText = null;
+    try {
+      const res = await fetch('./sw.js');
+      swText = await res.text();
+    } catch(e) {}
+
+    test('sw.js is fetchable', () => {
+      assert(swText !== null && swText.length > 0);
+    });
+
+    test('ASSETS includes all core modules', () => {
+      if (!swText) return;
+      const required = [
+        './js/init.js', './js/config.js', './js/storage.js', './js/categories.js',
+        './js/schedule.js', './js/state.js', './js/meals.js', './js/data.js',
+        './js/migration.js', './js/render/index.js', './js/render/context.js',
+        './js/ui/dispatch.js', './js/ui/timer.js', './js/ui/toggle.js',
+        './js/ui/settings.js', './js/ui/categories-editor.js',
+      ];
+      required.forEach(path => {
+        assert(swText.includes(`'${path}'`), `Missing from ASSETS: ${path}`);
+      });
+    });
+
+    test('tests.html is NOT in ASSETS', () => {
+      if (!swText) return;
+      assert(!swText.includes("'./tests.html'"), 'tests.html should not be cached by SW');
+    });
+  });
+
+  // ── Firebase Sync (stub) ──
+  suite('Firebase Sync [stub — manual verification required]', () => {
+    test('SKIP: connect with stored config → manual test', () => {
+      // Requires a real Firebase project. Verify:
+      // 1. Paste config in Sync panel → Connect → "connected" dot appears
+      // 2. Make changes → verify they appear at users/{uid}/study/ in RTDB
+    });
+    test('SKIP: push/pull round-trip → manual test', () => {
+      // 1. Toggle a task on device A
+      // 2. Verify same task state appears on device B within seconds
+    });
+    test('SKIP: disconnect clears sync config → manual test', () => {
+      // 1. Click "Disconnect Sync"
+      // 2. Verify sync-config removed from localStorage
+      // 3. Reload → no auto-connect attempt
     });
   });
 
