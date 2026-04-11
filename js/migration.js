@@ -10,9 +10,9 @@ import { Storage } from './storage.js';
 // Keys that are stored with the prefix but without a week number
 const STATIC_KEYS = [
   'history', 'links', 'deadlines', 'meals', 'reading-list',
-  'custom-schedule', 'day-config', 'categories', 'config',
+  'custom-schedule', 'day-config', 'categories', 'config', 'inbox', 'habits', 'habit-log', 'daily-plans', 'time-log', 'grades', 'lecture-notes', 'recurring-tasks', 'task-blocked-by', 'goals', 'completion-times',
   'theme', 'fontscale', 'scratch',
-  'sync-config', 'reading-last-sync',
+  'sync-config', 'reading-sync-ts',
 ];
 
 // Pattern for week-based keys: w{N}, w{N}-notes, w{N}-defer, w{N}-lock

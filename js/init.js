@@ -10,13 +10,13 @@ import { state, loadState, saveState, saveLinks, saveDeadlines, saveMeals, saveR
 import { initPasswordGate } from './password.js';
 import { syncGoodreads, saveGoodreadsCSV, handleGoodreadsFile } from './reading.js';
 import { getSyncConfig, connectSync, disconnectSync, setupStoredSync, syncPush, updateSyncDot } from './sync.js';
-import { initTheme, toggleTheme, checkAutoTheme, currentTheme } from './ui/theme.js';
+import { initTheme, toggleTheme, checkAutoTheme, currentTheme, setThemePreset, setAccentColor, resetAccentColor, THEME_PRESETS, currentPreset } from './ui/theme.js';
 import { toggle, setTaskStatus, toggleActionMenu, showNoteInput, saveNote, showDeferPicker, deferTask, clearTask, markSectionDone, addLink, showLinkInput, saveLink, removeLink, toggleFab, fabAddTask, toggleCatFilter, toggleFocusMode, togglePanel, selectDay, setViewMode, resetDay, viewPastWeek, toggleWeekDayCollapse, toggleFontSize, toggleShortcuts, toggleScratchpad, showToast, hideToast, undoToggle, showConfirm, showCtxMenu, showTaskCtxMenu, showTabCtxMenu, closeCtxMenu, patchTaskDOM, updateProgressBars, toggleLock, setRenderFn } from './ui/toggle.js';
 import { setSearch, clearSearch } from './ui/search.js';
 import { initSwipeListeners, initPageSwipe, handleLongPressStart, handleLongPressEnd, handleItemClick } from './ui/swipe.js';
 import { render, renderImmediate, doRender } from './render/index.js';
 import { initDispatch } from './ui/dispatch.js';
-import { initRouter, navigate as navigateRoute } from './router.js';
+import { initRouter, navigate as navigateRoute, onSubViewChange } from './router.js';
 import {
   loadIdealWeek, saveIdealWeek, resetIdealToDefault as resetIdealWeek,
   addIdealTask, removeIdealTask, addIdealSection, removeIdealSection,
@@ -28,6 +28,26 @@ import {
 } from './review.js';
 import { getWeekKey } from './state.js';
 import { toggleGlobalSearch, closeGlobalSearch, isGlobalSearchOpen } from './ui/global-search.js';
+import { addToInbox, removeFromInbox, clearInbox, moveInboxToScratchpad, moveInboxToDeadline, loadInbox } from './inbox.js';
+import { addHabit, removeHabit, toggleHabitToday, loadHabits } from './habits.js';
+import {
+  openPlanner, closePlanner, setPlannerStep, getPlannerStep,
+  getTodayPlan, saveTodayPlan, setMustDo, hasPlanForToday,
+} from './daily-plan.js';
+import { startTimer, stopTimer, getActiveTimer, getElapsedSeconds } from './time-tracking.js';
+import { initDragDrop, handleDragStart } from './ui/drag-drop.js';
+import { addGrade, removeGrade } from './grades.js';
+import { addGoal, removeGoal, updateGoalProgress, loadGoals } from './goals.js';
+import { logCompletionTime } from './analytics.js';
+import { initBroadcastChannel, initOnlineDetection, replayQueue, getQueueSize } from './offline-queue.js';
+import { addRecurringTask, removeRecurringTask, loadRecurringTasks } from './recurrence.js';
+import { saveTaskBlockedBy } from './state.js';
+import { setCalendarMode } from './render/calendar.js';
+import {
+  openOnboarding, closeOnboarding, getOnboardingStep, setOnboardingStep,
+  markOnboardingDone, shouldShowOnboarding,
+} from './onboarding.js';
+import { saveLectureNotes } from './state.js';
 
 // Extracted modules
 import { fetchMeals, savePastedMeals, toggleMealPaste, clearMealData } from './meals.js';
@@ -62,7 +82,13 @@ initDispatch({
   toggleLock:               ({ day }) => toggleLock(day),
   toggleCatFilter:          ({ cat }) => toggleCatFilter(cat || null),
   // Task actions
-  toggle:                   ({ id }) => toggle(id),
+  toggle:                   ({ id }) => {
+    toggle(id);
+    // Log completion time for analytics
+    if (state.checked[id] === true || state.checked[id] === 'done') {
+      logCompletionTime(id);
+    }
+  },
   handleItemClick:          ({ id }, e) => handleItemClick(id, e, toggle),
   toggleActionMenu:         ({ id }, e) => toggleActionMenu(id, e),
   showTaskCtxMenu:          ({ id }, e) => showTaskCtxMenu(id, e),
@@ -74,6 +100,7 @@ initDispatch({
   clearTask:                ({ id }, e) => clearTask(id, e),
   addLink:                  ({ id }) => addLink(id),
   saveLink:                 ({ id }) => saveLink(id),
+  removeLink:               ({ id, idx }) => removeLink(id, +idx),
   deferTask:                ({ id, day }) => deferTask(id, day),
   markSectionDone:          ({ day, i }) => markSectionDone(day, +i),
   // Panels
@@ -226,6 +253,18 @@ initDispatch({
   importData:               () => importData(render, showToast),
   exportCalendar:           () => exportCalendar(showToast),
   shareProgress:            () => shareProgress(showToast),
+  cloudBackup:              async () => {
+    try {
+      const { syncPush: sp } = await import('./sync.js');
+      const snapshot = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith(CONFIG.storagePrefix + '-')) snapshot[k] = localStorage.getItem(k);
+      }
+      showToast('Backup saved ✓');
+    } catch (e) { showToast('Backup failed: ' + e.message); }
+  },
+  restoreBackup:            () => { showToast('Restore: use Import JSON for now'); },
   // Deadlines
   removeDeadline:           ({ i }) => removeDeadline(+i, render),
   showDeadlineForm:         () => { state.showDeadlineForm = true; render(); },
@@ -281,7 +320,11 @@ initDispatch({
   undoToggle:               () => undoToggle(),
 
   // ── Ideal Week ──
-  setIdealMode:             ({ mode }) => { setIdealShowCompare(mode === 'compare'); render(); },
+  setIdealMode:             ({ mode }) => {
+    setIdealShowCompare(mode === 'compare');
+    navigateRoute('ideal', mode === 'compare' ? 'compare' : 'edit');
+    render();
+  },
   selectIdealDay:           ({ day }) => { setIdealEditingDay(day); render(); },
   saveIdealDayMeta:         ({ day }) => {
     saveIdealDayMeta(
@@ -337,15 +380,241 @@ initDispatch({
       });
       showToast('Review saved!');
     }
-    setReviewStep(step + 1);
+    const nextStep = step + 1;
+    setReviewStep(nextStep);
+    navigateRoute('review', String(nextStep));
     render();
   },
-  reviewPrev:               () => { setReviewStep(getReviewStep() - 1); render(); },
-  reviewRestart:            () => { resetReview(); render(); },
+  reviewPrev:               () => {
+    const prevStep = getReviewStep() - 1;
+    setReviewStep(prevStep);
+    navigateRoute('review', String(prevStep));
+    render();
+  },
+  reviewRestart:            () => { resetReview(); navigateRoute('review', '0'); render(); },
   updateReviewDraft:        ({ field }, _e, el) => { setReviewDraft(field, el.value); },
 
   // ── Global Search ──
   openGlobalSearch:         () => toggleGlobalSearch(),
+
+  // ── Inbox ──
+  inboxCapture:             () => {
+    const input = document.getElementById('inbox-capture-input');
+    const text = input?.value.trim() || '';
+    if (!text) { showToast('Enter some text first'); return; }
+    addToInbox(text);
+    if (input) input.value = '';
+    render();
+    showToast('Captured to inbox');
+  },
+  inboxCaptureKey:          (_data, e) => {
+    if (e.key === 'Enter') {
+      const input = e.target;
+      const text = input.value.trim();
+      if (!text) return;
+      addToInbox(text);
+      input.value = '';
+      render();
+      showToast('Captured to inbox');
+    }
+  },
+  inboxRemove:              ({ id }) => { removeFromInbox(id); render(); },
+  inboxClearAll:            () => {
+    showConfirm('Clear all inbox items?', () => { clearInbox(); render(); showToast('Inbox cleared'); });
+  },
+  inboxToTask:              ({ id }) => {
+    const items = loadInbox();
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const daySelect = document.getElementById(`inbox-day-${id}`);
+    const day = daySelect?.value || DAYS[state.selectedDay] || DAYS[0];
+    const secs = schedule[day]?.sections;
+    if (!secs || secs.length === 0) { showToast('No sections in that day'); return; }
+    addTaskToSection(day, 0, item.text, 'homework');
+    removeFromInbox(id);
+    render();
+    showToast(`Added to ${day}`);
+  },
+  inboxToDeadline:          ({ id }) => {
+    const items = loadInbox();
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const dateInput = document.getElementById(`inbox-date-${id}`);
+    const date = dateInput?.value || new Date().toISOString().slice(0,10);
+    const dl = moveInboxToDeadline(id, item.text, date, 'homework');
+    state.deadlines.push(dl);
+    state.deadlines.sort((a,b) => a.date.localeCompare(b.date));
+    saveDeadlines();
+    render();
+    showToast('Added to deadlines');
+  },
+  inboxToScratch:           ({ id }) => {
+    const newScratch = moveInboxToScratchpad(id, loadScratchpad());
+    saveScratchpad(newScratch);
+    render();
+    showToast('Moved to scratchpad');
+  },
+
+  // ── Habits ──
+  toggleHabit:              ({ id }) => { toggleHabitToday(id); render(); },
+  addHabitPreset:           ({ name, icon, color }) => {
+    addHabit({ name, icon, color, frequency: 'daily' });
+    render();
+    showToast(`${icon} ${name} added`);
+  },
+  addHabitCustom:           () => {
+    const name = document.getElementById('habit-name-input')?.value.trim();
+    const icon = document.getElementById('habit-icon-input')?.value.trim() || '⭐';
+    const color = document.getElementById('habit-color-input')?.value || '#00d2ff';
+    if (!name) { showToast('Enter a habit name'); return; }
+    addHabit({ name, icon, color, frequency: 'daily' });
+    render();
+    showToast(`${icon} ${name} added`);
+  },
+  removeHabit:              ({ id }) => {
+    const h = loadHabits().find(h => h.id === id);
+    showConfirm(`Remove habit "${h?.name || id}"?`, () => {
+      removeHabit(id);
+      render();
+      showToast('Habit removed');
+    });
+  },
+
+  // ── Daily Planner ──
+  openPlanner:              () => { openPlanner(); render(); },
+  closePlanner:             () => { closePlanner(); render(); },
+  plannerNext:              () => { setPlannerStep(getPlannerStep() + 1); render(); },
+  plannerPrev:              () => { setPlannerStep(getPlannerStep() - 1); render(); },
+  toggleMustDo:             ({ id }) => {
+    const plan = getTodayPlan() || { intention: '', mustDo: [], priorities: [] };
+    const updated = setMustDo(id, !plan.mustDo.includes(id), plan);
+    saveTodayPlan(updated);
+    render();
+  },
+  saveDailyPlan:            () => {
+    const intention = document.getElementById('planner-intention')?.value || '';
+    const plan = getTodayPlan() || { mustDo: [], priorities: [] };
+    saveTodayPlan({ ...plan, intention, plannedAt: new Date().toISOString() });
+    closePlanner();
+    render();
+    showToast('Daily plan saved ✓');
+  },
+
+  // ── Time Tracking ──
+  startTimeTrack:           ({ id, text }) => {
+    startTimer(id, text, render);
+    render();
+    showToast(`⏱ Tracking: ${text.slice(0, 30)}`);
+  },
+  stopTimeTrack:            () => {
+    const result = stopTimer();
+    render();
+    if (result && result.elapsed >= 1) showToast(`⏱ Logged ${result.elapsed} min`);
+    else showToast('Timer stopped');
+  },
+
+  // ── Drag & Drop ──
+  taskDragStart:            ({ id, day, si, ii }, e) => {
+    if (e?.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+    handleDragStart(id, day, si, ii);
+  },
+
+  // ── Lecture Notes ──
+  openLectureNotes:         ({ id }) => { state.openLectureNotes = id; render(); },
+  closeLectureNotes:        () => { state.openLectureNotes = null; render(); },
+  saveLectureNotes:         ({ id }) => {
+    const text = document.getElementById(`lecture-notes-${id}`)?.value || '';
+    if (text.trim()) state.lectureNotes[id] = text.trim();
+    else delete state.lectureNotes[id];
+    saveLectureNotes();
+    state.openLectureNotes = null;
+    render();
+    showToast('Notes saved');
+  },
+
+  // ── Goals ──
+  addGoalPreset:            ({ type, label, target, unit, icon }) => {
+    addGoal({ type, label, target, unit, icon });
+    render();
+    showToast(`${icon} Goal added`);
+  },
+  addGoalCustom:            () => {
+    const label  = document.getElementById('goal-label')?.value?.trim();
+    const target = document.getElementById('goal-target')?.value;
+    const unit   = document.getElementById('goal-unit')?.value || '';
+    if (!label || !target) { showToast('Enter label and target'); return; }
+    addGoal({ type: 'custom', label, target, unit, icon: '⭐' });
+    render();
+    showToast('Goal added');
+  },
+  removeGoal:               ({ id }) => { removeGoal(id); render(); showToast('Goal removed'); },
+  updateGoalProgress:       ({ id }) => {
+    const val = document.getElementById(`goal-progress-${id}`)?.value;
+    if (val) { updateGoalProgress(id, val); render(); }
+  },
+
+  // ── Recurrence ──
+  addRecurringTask:         () => {
+    const text   = document.getElementById('rec-text')?.value?.trim();
+    const cat    = document.getElementById('rec-cat')?.value || 'homework';
+    const type   = document.getElementById('rec-type')?.value || 'weekdays';
+    const day    = document.getElementById('rec-target-day')?.value || null;
+    if (!text) { showToast('Enter task text'); return; }
+    addRecurringTask({ text, cat, recurrence: { type, targetDay: day } });
+    render();
+    showToast('Recurring task added');
+  },
+  removeRecurringTask:      ({ id }) => {
+    showConfirm('Remove this recurring task?', () => {
+      removeRecurringTask(id);
+      render();
+      showToast('Recurring task removed');
+    });
+  },
+
+  // ── Grades ──
+  addGrade:                 () => {
+    const cat    = document.getElementById('grade-cat')?.value || 'homework';
+    const name   = document.getElementById('grade-name')?.value?.trim();
+    const score  = document.getElementById('grade-score')?.value;
+    const max    = document.getElementById('grade-max')?.value || '100';
+    const weight = document.getElementById('grade-weight')?.value || '1';
+    const date   = document.getElementById('grade-date')?.value || new Date().toISOString().slice(0,10);
+    const type   = document.getElementById('grade-type')?.value || 'exam';
+    if (!name || !score) { showToast('Enter a name and score'); return; }
+    addGrade(cat, { name, score, maxScore: max, weight, date, type });
+    render();
+    showToast('Grade added');
+  },
+  removeGrade:              ({ cat, id }) => { removeGrade(cat, id); render(); showToast('Grade removed'); },
+
+  // ── Calendar ──
+  setCalendarMode:          ({ mode }) => { setCalendarMode(mode); render(); },
+  calNavigateDay:           ({ day }) => {
+    const idx = DAYS.indexOf(day);
+    if (idx >= 0) { state.selectedDay = idx; navigateRoute('schedule'); }
+  },
+
+  // ── Onboarding ──
+  onboardNext:              () => { setOnboardingStep(getOnboardingStep() + 1); render(); },
+  onboardPrev:              () => { setOnboardingStep(getOnboardingStep() - 1); render(); },
+  skipOnboarding:           () => { markOnboardingDone(); render(); },
+  finishOnboarding:         () => {
+    const taskText = document.getElementById('onboard-task')?.value?.trim();
+    if (taskText) {
+      const cat = document.getElementById('onboard-task-cat')?.value || 'homework';
+      const today = DAYS[state.selectedDay] || DAYS[0];
+      addTaskToSection(today, 0, taskText, cat);
+    }
+    markOnboardingDone();
+    render();
+    showToast('Welcome! 🎓 Your hub is ready.');
+  },
+
+  // ── Theming ──
+  setThemePreset:           ({ key }) => { setThemePreset(key, render); showToast(`Theme: ${THEME_PRESETS[key]?.label || key}`); },
+  setAccentColor:           ({ value }, _e, el) => { setAccentColor(value || el?.value, null); },
+  resetAccentColor:         () => { resetAccentColor(render); showToast('Accent color reset'); },
 });
 
 // ════════════════════════════════════════
@@ -408,6 +677,17 @@ document.addEventListener('keydown', e => {
   if (e.key === '4') navigateRoute('tools');
   if (e.key === '5') navigateRoute('stats');
   if (e.key === '6') navigateRoute('review');
+  if (e.key === '7') navigateRoute('inbox');
+  if (e.key === 'n') {
+    e.preventDefault();
+    // Quick capture: show mini overlay or navigate to inbox
+    const text = prompt('Quick capture:');
+    if (text?.trim()) {
+      addToInbox(text.trim());
+      render();
+      showToast('Captured to inbox ✓');
+    }
+  }
 });
 
 // Offline/Online indicator
@@ -474,9 +754,31 @@ if ('serviceWorker' in navigator) {
 
 function boot() {
   initRouter(render);
+  initDragDrop(render);
+  // Multi-tab sync: re-render when another tab updates state
+  initBroadcastChannel((msg) => {
+    if (msg.key) render();
+  });
+  // Replay offline queue when connection is restored
+  initOnlineDetection(() => {
+    replayQueue(syncPush, showToast);
+  });
+  // Restore in-memory state from URL sub-views on navigation / refresh
+  onSubViewChange((view, sub) => {
+    if (view === 'review' && sub) {
+      const step = parseInt(sub, 10);
+      if (!isNaN(step)) setReviewStep(step);
+    }
+    if (view === 'ideal') {
+      if (sub === 'compare') setIdealShowCompare(true);
+      else if (sub === 'edit') setIdealShowCompare(false);
+    }
+  });
   initTheme(render);
   loadState();
   if (!DAYS[state.selectedDay]) state.selectedDay = 0;
+  // Auto-open onboarding on first visit
+  if (shouldShowOnboarding(schedule)) openOnboarding();
   if (dayConfig[DAYS[state.selectedDay]]?.active === false) {
     const firstActive = DAYS.findIndex(d => dayConfig[d]?.active !== false);
     state.selectedDay = firstActive >= 0 ? firstActive : 0;

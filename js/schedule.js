@@ -424,6 +424,16 @@ export function moveTaskInSection(dayName, sectionIdx, itemIdx, direction) {
   saveScheduleToStorage();
 }
 
+export function moveTaskBetweenSections(fromDay, fromSectionIdx, fromItemIdx, toDay, toSectionIdx) {
+  const fromSec = schedule[fromDay]?.sections[fromSectionIdx];
+  const toSec = schedule[toDay]?.sections[toSectionIdx];
+  if (!fromSec || !toSec) return;
+  const [item] = fromSec.items.splice(fromItemIdx, 1);
+  if (!item) return;
+  toSec.items.push(item);
+  saveScheduleToStorage();
+}
+
 // ── Day configuration (active/alias) ──
 export const dayConfig = Object.fromEntries(
   DAYS.map(d => [d, { active: true, alias: null }])

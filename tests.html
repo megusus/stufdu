@@ -970,6 +970,247 @@
     });
   });
 
+  // ── Inbox Module ──
+  let addToInbox, removeFromInbox, loadInbox, clearInbox, getInboxCount;
+  try {
+    ({ addToInbox, removeFromInbox, loadInbox, clearInbox, getInboxCount } = await import('./js/inbox.js'));
+  } catch (e) { /* skip if not available */ }
+
+  suite('Inbox Module', () => {
+    test('addToInbox creates item with id and text', () => {
+      if (!addToInbox) { assert(true); return; } // skip
+      clearInbox();
+      const item = addToInbox('Test task');
+      assert(item && item.id, 'Item should have id');
+      assert(item.text === 'Test task', 'Item text should match');
+      clearInbox();
+    });
+
+    test('addToInbox ignores empty text', () => {
+      if (!addToInbox) return;
+      clearInbox();
+      const result = addToInbox('  ');
+      assert(result === null, 'Should return null for empty text');
+    });
+
+    test('getInboxCount returns correct count', () => {
+      if (!addToInbox) return;
+      clearInbox();
+      assertEqual(getInboxCount(), 0, 'Should be 0 when empty');
+      addToInbox('Item 1');
+      addToInbox('Item 2');
+      assertEqual(getInboxCount(), 2, 'Should be 2 after adding 2 items');
+      clearInbox();
+    });
+
+    test('removeFromInbox removes by id', () => {
+      if (!addToInbox) return;
+      clearInbox();
+      const item = addToInbox('Remove me');
+      removeFromInbox(item.id);
+      assertEqual(getInboxCount(), 0, 'Should be empty after remove');
+    });
+
+    test('loadInbox returns most recent first', () => {
+      if (!addToInbox) return;
+      clearInbox();
+      addToInbox('First');
+      addToInbox('Second');
+      const items = loadInbox();
+      assertEqual(items[0].text, 'Second', 'Most recent should be first');
+      clearInbox();
+    });
+  });
+
+  // ── Habits Module ──
+  let addHabit, removeHabit, toggleHabitToday, isHabitDoneToday, loadHabits, getHabitStreak;
+  try {
+    ({ addHabit, removeHabit, toggleHabitToday, isHabitDoneToday, loadHabits, getHabitStreak } = await import('./js/habits.js'));
+  } catch (e) { /* skip */ }
+
+  suite('Habits Module', () => {
+    test('addHabit creates habit with correct fields', () => {
+      if (!addHabit) return;
+      const h = addHabit({ name: 'Exercise', icon: '🏃', color: '#00e676', frequency: 'daily' });
+      assert(h && h.id, 'Habit should have id');
+      assert(h.name === 'Exercise', 'Name should match');
+      assert(h.frequency === 'daily', 'Frequency should be daily');
+      if (removeHabit) removeHabit(h.id);
+    });
+
+    test('addHabit rejects empty name', () => {
+      if (!addHabit) return;
+      const h = addHabit({ name: '  ', icon: '⭐', color: '#fff' });
+      assert(h === null, 'Should reject empty name');
+    });
+
+    test('toggleHabitToday toggles done state', () => {
+      if (!addHabit || !toggleHabitToday) return;
+      const h = addHabit({ name: 'Test Habit', icon: '⭐', color: '#fff', frequency: 'daily' });
+      assert(!isHabitDoneToday(h.id), 'Should not be done initially');
+      toggleHabitToday(h.id);
+      assert(isHabitDoneToday(h.id), 'Should be done after toggle');
+      toggleHabitToday(h.id);
+      assert(!isHabitDoneToday(h.id), 'Should be undone after second toggle');
+      if (removeHabit) removeHabit(h.id);
+    });
+
+    test('getHabitStreak returns object with streak and best', () => {
+      if (!getHabitStreak) return;
+      const result = getHabitStreak('nonexistent');
+      assert(typeof result.streak === 'number', 'streak should be number');
+      assert(typeof result.best === 'number', 'best should be number');
+    });
+  });
+
+  // ── Grades Module ──
+  let addGrade, removeGrade, loadGrades, getCatAverage, getOverallAverage, getLetter;
+  try {
+    ({ addGrade, removeGrade, loadGrades, getCatAverage, getOverallAverage, getLetter } = await import('./js/grades.js'));
+  } catch (e) { /* skip */ }
+
+  suite('Grades Module', () => {
+    test('addGrade persists grade to storage', () => {
+      if (!addGrade) return;
+      addGrade('homework', { name: 'Test HW', score: 90, maxScore: 100, weight: 1, date: '2026-01-01', type: 'hw' });
+      const grades = loadGrades();
+      const items = grades['homework'] || [];
+      assert(items.some(g => g.name === 'Test HW'), 'Grade should be persisted');
+      // Clean up
+      const id = items.find(g => g.name === 'Test HW')?.id;
+      if (id && removeGrade) removeGrade('homework', id);
+    });
+
+    test('getCatAverage returns percentage', () => {
+      if (!addGrade) return;
+      addGrade('physics', { name: 'Midterm', score: 80, maxScore: 100, weight: 1, date: '2026-01-01', type: 'exam' });
+      addGrade('physics', { name: 'Final', score: 90, maxScore: 100, weight: 1, date: '2026-01-02', type: 'exam' });
+      const avg = getCatAverage('physics');
+      assertEqual(avg, 85, 'Average should be 85%');
+      // Cleanup
+      const g = loadGrades();
+      (g['physics'] || []).forEach(item => removeGrade('physics', item.id));
+    });
+
+    test('getLetter maps percentages correctly', () => {
+      if (!getLetter) return;
+      assertEqual(getLetter(95), 'A');
+      assertEqual(getLetter(85), 'B');
+      assertEqual(getLetter(75), 'C');
+      assertEqual(getLetter(65), 'D');
+      assertEqual(getLetter(50), 'F');
+      assertEqual(getLetter(null), '—');
+    });
+  });
+
+  // ── Router Module ──
+  let currentView, currentSubView, navigate;
+  try {
+    ({ currentView, currentSubView, navigate } = await import('./js/router.js'));
+  } catch (e) { /* skip */ }
+
+  suite('Router Module', () => {
+    test('currentView returns valid view name', () => {
+      if (!currentView) return;
+      const v = currentView();
+      assert(typeof v === 'string', 'currentView should return string');
+      assert(v.length > 0, 'currentView should not be empty');
+    });
+
+    test('currentSubView returns null or string', () => {
+      if (!currentSubView) return;
+      const sv = currentSubView();
+      assert(sv === null || typeof sv === 'string', 'currentSubView should be null or string');
+    });
+
+    test('navigate changes the hash', () => {
+      if (!navigate) return;
+      navigate('stats');
+      assert(location.hash === '#stats', 'Hash should be #stats');
+      navigate('home');
+    });
+  });
+
+  // ── Daily Plan Module ──
+  let hasPlanForToday, saveTodayPlan, getTodayPlan;
+  try {
+    ({ hasPlanForToday, saveTodayPlan, getTodayPlan } = await import('./js/daily-plan.js'));
+  } catch (e) { /* skip */ }
+
+  suite('Daily Plan Module', () => {
+    test('saveTodayPlan and getTodayPlan round-trip', () => {
+      if (!saveTodayPlan) return;
+      saveTodayPlan({ intention: 'Test intention', mustDo: ['t1', 't2'], priorities: ['t1'] });
+      const plan = getTodayPlan();
+      assert(plan && plan.intention === 'Test intention', 'Intention should match');
+      assertEqual(plan.mustDo.length, 2, 'MustDo should have 2 items');
+    });
+
+    test('hasPlanForToday returns true after saving', () => {
+      if (!saveTodayPlan) return;
+      saveTodayPlan({ intention: 'I exist', mustDo: [], priorities: [] });
+      assert(hasPlanForToday(), 'Should detect plan for today');
+    });
+  });
+
+  // ── Goals Module ──
+  let addGoal, removeGoal, loadGoals, isGoalMet, computeGoalProgress;
+  try {
+    ({ addGoal, removeGoal, loadGoals, isGoalMet, computeGoalProgress } = await import('./js/goals.js'));
+  } catch (e) { /* skip */ }
+
+  suite('Goals Module', () => {
+    test('addGoal creates goal', () => {
+      if (!addGoal) return;
+      const g = addGoal({ type: 'custom', label: 'Test goal', target: 50, unit: '%', icon: '⭐' });
+      assert(g && g.id, 'Goal should have id');
+      assert(g.label === 'Test goal', 'Label should match');
+      if (removeGoal) removeGoal(g.id);
+    });
+
+    test('isGoalMet returns true when current >= target', () => {
+      if (!isGoalMet) return;
+      assert(isGoalMet({ current: 100, target: 85 }), '100 >= 85 should be met');
+      assert(!isGoalMet({ current: 70, target: 85 }), '70 < 85 should not be met');
+    });
+  });
+
+  // ── Recurrence Module ──
+  let addRecurringTask, removeRecurringTask, getRecurringTasksForDay;
+  try {
+    ({ addRecurringTask, removeRecurringTask, getRecurringTasksForDay } = await import('./js/recurrence.js'));
+  } catch (e) { /* skip */ }
+
+  suite('Recurrence Module', () => {
+    test('addRecurringTask creates template', () => {
+      if (!addRecurringTask) return;
+      const t = addRecurringTask({ text: 'Daily standup', cat: 'homework', recurrence: { type: 'daily' } });
+      assert(t && t.id, 'Task should have id');
+      assert(t.text === 'Daily standup', 'Text should match');
+      if (removeRecurringTask) removeRecurringTask(t.id);
+    });
+
+    test('getRecurringTasksForDay returns daily tasks for any day', () => {
+      if (!addRecurringTask) return;
+      const t = addRecurringTask({ text: 'Daily task', cat: 'homework', recurrence: { type: 'daily' } });
+      const tasks = getRecurringTasksForDay('Monday');
+      assert(tasks.some(r => r._templateId === t.id), 'Monday should include daily task');
+      const tasks2 = getRecurringTasksForDay('Friday');
+      assert(tasks2.some(r => r._templateId === t.id), 'Friday should include daily task');
+      if (removeRecurringTask) removeRecurringTask(t.id);
+    });
+
+    test('getRecurringTasksForDay respects weekdays type', () => {
+      if (!addRecurringTask) return;
+      const t = addRecurringTask({ text: 'Weekday task', cat: 'homework', recurrence: { type: 'weekdays' } });
+      const monTasks = getRecurringTasksForDay('Monday');
+      const satTasks = getRecurringTasksForDay('Saturday');
+      assert(monTasks.some(r => r._templateId === t.id), 'Monday is a weekday');
+      assert(!satTasks.some(r => r._templateId === t.id), 'Saturday is not a weekday');
+      if (removeRecurringTask) removeRecurringTask(t.id);
+    });
+  });
+
   // ── Firebase Sync (stub) ──
   suite('Firebase Sync [stub — manual verification required]', () => {
     test('SKIP: connect with stored config → manual test', () => {

@@ -20,6 +20,7 @@ export function initDispatch(handlers) {
   document.addEventListener('touchstart', _handleTouchStart, { passive: true });
   document.addEventListener('touchend', _handleTouchEnd, { passive: true });
   document.addEventListener('touchmove', _handleTouchMove, { passive: true });
+  document.addEventListener('dragstart', _handleDragStart, false);
 }
 
 function _handleClick(e) {
@@ -91,6 +92,15 @@ function _handleTouchEnd(e) {
 
 function _handleTouchMove(e) {
   _handleTouchAction(e, 'touchmoveAction', 'touchmove');
+}
+
+function _handleDragStart(e) {
+  if (!_handlers) return;
+  const el = e.target.closest('[data-dragstart-action]');
+  if (!el) return;
+  const fn = _handlers[el.dataset.dragstartAction];
+  if (!fn) { console.warn('[dispatch] unknown dragstart action:', el.dataset.dragstartAction); return; }
+  fn(el.dataset, e, el);
 }
 
 function _handleTouchAction(e, datasetKey, label) {

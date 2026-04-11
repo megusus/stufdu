@@ -116,7 +116,7 @@ export function getIdealGap(checked, taskDeferred) {
       (actualDay.sections || []).forEach(sec => (sec.items || []).forEach(item => {
         if (taskDeferred[item.id] && taskDeferred[item.id] !== day) return;
         const v = checked[item.id];
-        if (v === true || v === 'done' || v === 'skip') actualDone++;
+        if (v === true || v === 'done') actualDone++;
       }));
     }
 

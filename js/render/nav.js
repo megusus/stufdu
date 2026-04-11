@@ -3,6 +3,7 @@
 // ════════════════════════════════════════
 
 import { currentView } from '../router.js';
+import { getInboxCount } from '../inbox.js';
 
 const NAV_ITEMS = [
   { id: 'home',     icon: '⌂',  label: 'Home'      },
@@ -11,6 +12,11 @@ const NAV_ITEMS = [
   { id: 'tools',    icon: '⚙',  label: 'Tools'      },
   { id: 'stats',    icon: '◈',  label: 'Stats'      },
   { id: 'review',   icon: '📋', label: 'Review'     },
+  { id: 'inbox',    icon: '📥', label: 'Inbox'      },
+  { id: 'habits',   icon: '🏃', label: 'Habits'     },
+  { id: 'grades',   icon: '📊', label: 'Grades'     },
+  { id: 'matrix',   icon: '🔲', label: 'Matrix'     },
+  { id: 'calendar', icon: '📅', label: 'Calendar'   },
 ];
 
 /**
@@ -31,9 +37,11 @@ export function renderNav(ctx) {
       </div>
     </div>
     <nav class="sidebar-nav">`;
+    const inboxCount = getInboxCount();
     NAV_ITEMS.forEach(({ id, icon, label }) => {
+      const badge = id === 'inbox' && inboxCount > 0 ? `<span class="nav-badge">${inboxCount}</span>` : '';
       h += `<a class="sidebar-link${active === id ? ' active' : ''}" href="#${id}">
-        <span class="sidebar-link-icon">${icon}</span>
+        <span class="sidebar-link-icon">${icon}${badge}</span>
         <span class="sidebar-link-label">${label}</span>
       </a>`;
     });
@@ -50,8 +58,9 @@ export function renderNav(ctx) {
   if (btabsEl) {
     let h = '';
     NAV_ITEMS.forEach(({ id, icon, label }) => {
+      const badge = id === 'inbox' && inboxCount > 0 ? `<span class="nav-badge btab-badge">${inboxCount}</span>` : '';
       h += `<a class="btab${active === id ? ' active' : ''}" href="#${id}">
-        <span class="btab-icon">${icon}</span>
+        <span class="btab-icon" style="position:relative">${icon}${badge}</span>
         <span class="btab-label">${label}</span>
       </a>`;
     });

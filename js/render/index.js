@@ -23,6 +23,35 @@ import { renderIdealView } from './ideal.js';
 import { renderToolsView } from './tools-view.js';
 import { renderStatsView } from './stats-view.js';
 import { renderReviewView } from './review.js';
+import { renderInboxView } from './inbox.js';
+import { renderHabitsView } from './habits.js';
+import { renderGradesView } from './grades.js';
+import { renderMatrixView } from './matrix.js';
+import { renderCalendarView } from './calendar.js';
+import { renderOnboardingOverlay } from './onboarding.js';
+import { renderPlannerOverlay } from './daily-plan.js';
+import { getActiveTimer, getElapsedSeconds } from '../time-tracking.js';
+
+function _updateTimerBar() {
+  const timer = getActiveTimer();
+  let el = document.getElementById('time-tracker-bar');
+  if (!timer) {
+    if (el) el.remove();
+    return;
+  }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'time-tracker-bar';
+    el.className = 'time-tracker-bar';
+    document.body.appendChild(el);
+  }
+  const secs = getElapsedSeconds();
+  const m = Math.floor(secs / 60), s = secs % 60;
+  el.innerHTML = `<span class="tt-icon">⏱</span>
+    <span class="tt-time">${m}:${String(s).padStart(2,'0')}</span>
+    <span class="tt-task">${timer.taskText.slice(0,30)}</span>
+    <button class="tt-stop" data-action="stopTimeTrack">■ Stop</button>`;
+}
 
 // ── Render batching ──
 let _renderQueued = false;
@@ -98,6 +127,16 @@ function _doRenderInner() {
     html = renderStatsView(ctx);
   } else if (view === 'review') {
     html = renderReviewView(ctx);
+  } else if (view === 'inbox') {
+    html = renderInboxView(ctx);
+  } else if (view === 'habits') {
+    html = renderHabitsView(ctx);
+  } else if (view === 'grades') {
+    html = renderGradesView(ctx);
+  } else if (view === 'matrix') {
+    html = renderMatrixView(ctx);
+  } else if (view === 'calendar') {
+    html = renderCalendarView(ctx);
   } else {
     html = renderHome(ctx);
   }
@@ -111,6 +150,29 @@ function _doRenderInner() {
 
   // Scratchpad
   renderScratchpad(ctx);
+
+  // Daily Planner overlay
+  const existingPlanner = document.getElementById('planner-overlay');
+  if (existingPlanner) existingPlanner.remove();
+  const plannerHtml = renderPlannerOverlay(ctx);
+  if (plannerHtml) {
+    const el = document.createElement('div');
+    el.innerHTML = plannerHtml;
+    document.body.appendChild(el.firstElementChild);
+  }
+
+  // Time tracker bar
+  _updateTimerBar();
+
+  // Onboarding overlay
+  const existingOnboard = document.getElementById('onboarding-overlay');
+  if (existingOnboard) existingOnboard.remove();
+  const onboardHtml = renderOnboardingOverlay(ctx);
+  if (onboardHtml) {
+    const el = document.createElement('div');
+    el.innerHTML = onboardHtml;
+    document.body.appendChild(el.firstElementChild);
+  }
 
   // Restore focus
   if (_focusId) {

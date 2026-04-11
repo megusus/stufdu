@@ -5,6 +5,12 @@
 import { loadScratchpad } from '../state.js';
 import { getIdealGap } from '../ideal.js';
 import { hasReviewForCurrentWeek } from '../review.js';
+import { getInboxCount } from '../inbox.js';
+import { renderHabitsHomeCard, getTodayHabitSummary } from './habits.js';
+import { loadHabits } from '../habits.js';
+import { hasPlanForToday, getTodayPlan } from '../daily-plan.js';
+import { getTodayTotalMinutes, getActiveTimer } from '../time-tracking.js';
+import { getOverallAverage, getLetter, getGradeColor } from '../grades.js';
 
 export function renderHome(ctx) {
   try { return _renderHomeInner(ctx); }
@@ -193,7 +199,75 @@ function _renderHomeInner(ctx) {
   }
   html += `</div>`;
 
-  // ── 9. Weekly Review ──
+  // ── 9. Grades ──
+  const overallGrade = getOverallAverage();
+  if (overallGrade !== null) {
+    const gradeColor = getGradeColor(overallGrade);
+    html += `<div class="home-card" data-action="navigate" data-view="grades">
+      <div class="home-card-label">📊 Grades</div>
+      <div class="home-card-big" style="color:${gradeColor}">${overallGrade}% · ${getLetter(overallGrade)}</div>
+      <div class="home-card-hint">View breakdown →</div>
+    </div>`;
+  }
+
+  // ── 10. Time Tracked Today ──
+  const trackedMins = getTodayTotalMinutes();
+  const activeTimer = getActiveTimer();
+  html += `<div class="home-card" data-stop>
+    <div class="home-card-label">⏱ Time Tracked</div>`;
+  if (activeTimer) {
+    html += `<div class="home-card-big" style="color:var(--accent)">Running</div>
+      <div class="home-card-sub">${escapeHtml(activeTimer.taskText.slice(0,28))}</div>
+      <button class="data-btn" data-action="stopTimeTrack" style="margin-top:6px;width:100%;color:#e94560;border-color:#e9456033">■ Stop</button>`;
+  } else if (trackedMins > 0) {
+    const h = Math.floor(trackedMins / 60), m = trackedMins % 60;
+    html += `<div class="home-card-big">${h > 0 ? `${h}h ` : ''}${m > 0 ? `${m}m` : ''} today</div>
+      <div class="home-card-hint">Track via task actions →</div>`;
+  } else {
+    html += `<div class="home-card-empty">Nothing tracked yet</div>
+      <div class="home-card-hint">⏱ Track from task menu →</div>`;
+  }
+  html += `</div>`;
+
+  // ── 10. Daily Plan ──
+  const planned = hasPlanForToday();
+  const todayPlan = getTodayPlan();
+  html += `<div class="home-card" data-action="openPlanner" data-stop style="cursor:pointer">
+    <div class="home-card-label">📅 Daily Plan</div>`;
+  if (planned && todayPlan?.intention) {
+    html += `<div class="home-card-big" style="font-size:11px;color:var(--accent);line-height:1.4">"${escapeHtml(todayPlan.intention.slice(0,60))}"</div>`;
+    if (todayPlan.mustDo?.length) {
+      html += `<div class="home-card-hint">★ ${todayPlan.mustDo.length} must-do task${todayPlan.mustDo.length !== 1 ? 's' : ''}</div>`;
+    }
+  } else if (planned) {
+    html += `<div class="home-card-big" style="color:#00e676;font-size:11px">Plan set ✓</div>
+      <div class="home-card-hint">Tap to update →</div>`;
+  } else {
+    html += `<div class="home-card-empty">Not planned yet</div>
+      <div class="home-card-hint">Set today's intention →</div>`;
+  }
+  html += `</div>`;
+
+  // ── 10. Habits ──
+  const habitsCardHtml = renderHabitsHomeCard(escapeHtml);
+  if (habitsCardHtml) {
+    html += `<div class="home-card" data-action="navigate" data-view="habits">${habitsCardHtml}</div>`;
+  }
+
+  // ── 10. Inbox ──
+  const inboxCount = getInboxCount();
+  html += `<div class="home-card" data-action="navigate" data-view="inbox">
+    <div class="home-card-label">📥 Inbox</div>`;
+  if (inboxCount > 0) {
+    html += `<div class="home-card-big" style="color:#ffab00">${inboxCount} item${inboxCount !== 1 ? 's' : ''} to triage</div>
+      <div class="home-card-hint">Triage now →</div>`;
+  } else {
+    html += `<div class="home-card-big" style="color:#00e676;font-size:11px">All clear ✓</div>
+      <div class="home-card-hint">Press N to capture →</div>`;
+  }
+  html += `</div>`;
+
+  // ── 10. Weekly Review ──
   const hasReview = hasReviewForCurrentWeek();
   html += `<div class="home-card" data-action="navigate" data-view="review">
     <div class="home-card-label">📋 Weekly Review</div>`;

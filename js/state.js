@@ -53,6 +53,9 @@ export const state = {
   openPanels: {},
   openActions: null,
   openNoteInput: null,
+  openLectureNotes: null,
+  lectureNotes: {},   // { taskId: "multi-line notes" }
+  taskBlockedBy: {},  // { taskId: [taskId, ...] }
   openDeferPicker: null,
   openLinkInput: null,
   lastToggle: null,
@@ -204,6 +207,8 @@ export function loadState() {
   state.taskDeferred = Storage.get(getWeekKey() + '-defer', {});
   state.lockedDays = Storage.get(getWeekKey() + '-lock', {});
   state.taskLinks = Storage.get('links', {});
+  state.lectureNotes = Storage.get('lecture-notes', {});
+  state.taskBlockedBy = Storage.get('task-blocked-by', {});
   state.deadlines = Storage.get('deadlines', []);
   state.mealData = Storage.get('meals', {});
   state.fontScale = Storage.getRaw('fontscale', 'normal') || 'normal';
@@ -227,6 +232,24 @@ export function saveState() {
 
 export function saveLinks() {
   Storage.set('links', state.taskLinks);
+}
+
+export function saveLectureNotes() {
+  Storage.set('lecture-notes', state.lectureNotes);
+}
+
+export function saveTaskBlockedBy() {
+  Storage.set('task-blocked-by', state.taskBlockedBy);
+}
+
+/** Auto-check blocked status: a task is blocked if any of its blockedBy tasks are not done */
+export function isActuallyBlocked(taskId) {
+  const blockers = state.taskBlockedBy[taskId];
+  if (!blockers || blockers.length === 0) return false;
+  return blockers.some(bid => {
+    const s = state.checked[bid];
+    return !s || (s !== 'done' && s !== true);
+  });
 }
 
 export function saveDeadlines() {

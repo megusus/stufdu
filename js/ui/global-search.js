@@ -6,6 +6,7 @@ import { state, escapeHtml, loadScratchpad, getStatus, STATUS_DONE, STATUS_SKIP 
 import { DAYS, schedule, getDayLabel } from '../schedule.js';
 import { CategoryRegistry } from '../categories.js';
 import { navigate } from '../router.js';
+import { loadInbox } from '../inbox.js';
 
 let _open = false;
 let _query = '';
@@ -106,6 +107,34 @@ function _search(query) {
     });
   }
 
+  // Search lecture notes
+  Object.entries(state.lectureNotes || {}).forEach(([taskId, notes]) => {
+    if (notes.toLowerCase().includes(q)) {
+      results.push({
+        type: 'lecture-note',
+        icon: '📝',
+        text: notes.slice(0, 60),
+        sub: 'Lecture note',
+        color: '#cf7aff',
+        action: () => navigate('schedule'),
+      });
+    }
+  });
+
+  // Search inbox
+  loadInbox().forEach(item => {
+    if (item.text.toLowerCase().includes(q)) {
+      results.push({
+        type: 'inbox',
+        icon: '📥',
+        text: item.text,
+        sub: 'In inbox · not yet triaged',
+        color: '#ffab00',
+        action: () => navigate('inbox'),
+      });
+    }
+  });
+
   // Search views
   const views = [
     { name: 'Home Dashboard', route: 'home' },
@@ -114,6 +143,7 @@ function _search(query) {
     { name: 'Tools', route: 'tools' },
     { name: 'Stats', route: 'stats' },
     { name: 'Weekly Review', route: 'review' },
+    { name: 'Inbox', route: 'inbox' },
   ];
   views.forEach(v => {
     if (v.name.toLowerCase().includes(q)) {

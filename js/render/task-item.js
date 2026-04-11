@@ -10,7 +10,7 @@
  * @param {string} [extraClass]
  * @param {string} [fromDay] - original day if deferred
  */
-export function renderItem(ctx, item, dayName, extraClass, fromDay) {
+export function renderItem(ctx, item, dayName, extraClass, fromDay, dragAttrs) {
   const { state, escapeHtml, formatEst, getEstimate, getStatus, categories, days,
           STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED } = ctx;
 
@@ -40,12 +40,22 @@ export function renderItem(ctx, item, dayName, extraClass, fromDay) {
   let html = `<div class="${cls}" data-task-id="${item.id}" data-action="handleItemClick" data-id="${item.id}"
     data-context-action="showTaskCtxMenu" data-touchstart-action="handleLongPressStart" data-touchend-action="handleLongPressEnd"
     role="checkbox" aria-checked="${ariaChecked}" aria-label="${escapeHtml(item.text)} — ${statusText}"
-    style="border-left-color:${c.border}">`;
+    style="border-left-color:${c.border}" ${dragAttrs || ''}>`;
 
   html += `<div class="${checkCls}" data-action="toggle" data-id="${item.id}">${check}</div>`;
   html += `<div class="item-content">`;
   html += `<div class="item-text">${escapeHtml(item.text)}${deferBadge}${fromBadge}</div>`;
   if (item.hint) html += `<div class="item-hint">${escapeHtml(item.hint)}</div>`;
+  // Blocked-by badge
+  const blockers = state.taskBlockedBy?.[item.id];
+  if (blockers?.length && st !== STATUS_DONE) {
+    const allClear = blockers.every(bid => {
+      const bs = state.checked[bid]; return bs === true || bs === 'done';
+    });
+    if (!allClear) {
+      html += `<div class="item-blocked-label">⛔ blocked by ${blockers.length} task${blockers.length !== 1 ? 's' : ''}</div>`;
+    }
+  }
   html += `<div class="item-meta">`;
   if (label) html += `<span class="item-cat" style="background:${c.border}18;color:${c.border};border-color:${c.border}33">${escapeHtml(label)}</span>`;
   if (est) html += `<span class="item-est">${formatEst(est)}</span>`;
@@ -82,6 +92,8 @@ export function renderItem(ctx, item, dayName, extraClass, fromDay) {
       <button class="action-btn blocked" data-action="setTaskStatus" data-id="${item.id}" data-status="${STATUS_BLOCKED}">Blocked</button>
       <button class="action-btn" data-action="showNoteInput" data-id="${item.id}">\ud83d\udcdd Note</button>
       <button class="action-btn" data-action="addLink" data-id="${item.id}">\ud83d\udd17 Link</button>
+      <button class="action-btn" data-action="openLectureNotes" data-id="${item.id}">\ud83d\udcdd Lecture Notes</button>
+      <button class="action-btn" data-action="startTimeTrack" data-id="${item.id}" data-text="${item.text.replace(/"/g,'&quot;').slice(0,60)}">\u23f1 Track</button>
       <button class="action-btn defer" data-action="showDeferPicker" data-id="${item.id}">\u2192 Defer</button>
       <button class="action-btn danger" data-action="clearTask" data-id="${item.id}">\u2715 Clear</button>
     </div>`;
@@ -92,6 +104,27 @@ export function renderItem(ctx, item, dayName, extraClass, fromDay) {
     html += `<div class="note-input-wrap" data-stop>
       <input id="note-input-${item.id}" class="note-input" type="text" placeholder="Add a note\u2026"
         value="${escapeHtml(note || '')}" data-key-action="saveNoteOnEnter" data-id="${item.id}">
+    </div>`;
+  }
+
+  // Lecture notes
+  const lectureNote = state.lectureNotes?.[item.id];
+  if (lectureNote) {
+    html += `<div class="lecture-note-preview" data-action="openLectureNotes" data-id="${item.id}" data-stop>
+      📝 <span class="lecture-note-preview-text">${escapeHtml(lectureNote.slice(0,80))}${lectureNote.length > 80 ? '…' : ''}</span>
+    </div>`;
+  }
+  if (state.openLectureNotes === item.id) {
+    html += `<div class="lecture-notes-editor" data-stop>
+      <textarea id="lecture-notes-${item.id}" class="lecture-notes-textarea"
+        placeholder="Lecture notes, key points, formulas..."
+        data-stop>${escapeHtml(lectureNote || '')}</textarea>
+      <div class="lecture-notes-actions">
+        <button class="data-btn" data-action="saveLectureNotes" data-id="${item.id}"
+          style="color:var(--accent);border-color:#00d2ff44">Save</button>
+        <button class="data-btn" data-action="closeLectureNotes"
+          style="color:var(--dim)">Close</button>
+      </div>
     </div>`;
   }
 

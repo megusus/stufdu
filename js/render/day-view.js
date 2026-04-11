@@ -99,11 +99,12 @@ function _renderDayViewInner(ctx, currentSectionIdx) {
     html += `<button class="section-done-btn" data-action="markSectionDone" data-day="${escapeHtml(dayName)}" data-i="${sIdx}" title="Mark all done">\u2713 All done</button>`;
     html += '</div>';
 
-    items.forEach(item => {
-      html += renderItem(ctx, item, dayName);
+    html += `<div class="drop-zone" data-drop-zone data-drop-day="${escapeHtml(dayName)}" data-drop-section="${sIdx}">`;
+    items.forEach((item, itemIdx) => {
+      const dragAttrs = `draggable="true" data-dragstart-action="taskDragStart" data-drag-id="${item.id}" data-drag-day="${escapeHtml(dayName)}" data-drag-si="${sIdx}" data-drag-ii="${itemIdx}"`;
+      html += renderItem(ctx, item, dayName, '', '', dragAttrs);
     });
-
-    html += '</div>';
+    html += `</div></div>`;
   });
 
   // Deferred-in tasks

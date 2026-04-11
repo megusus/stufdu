@@ -6,6 +6,8 @@
  * Pure renderer: receives RenderContext, returns HTML string.
  * @param {import('./context.js').RenderContext} ctx
  */
+import { THEME_PRESETS, currentPreset } from '../ui/theme.js';
+
 const _panelErr = (ctx, err) =>
   `<div style="padding:10px 12px;margin:4px 0;font-size:11px;color:#e94560;background:#1a0808;border:1px solid #e9456033;border-radius:8px">
     ⚠️ <strong>Panels</strong> failed to render &mdash;
@@ -411,6 +413,8 @@ function _renderPanelsInner(ctx, group = 'all', defaultOpen = false) {
       <button class="data-btn" data-action="importData">Import JSON</button>
       <button class="data-btn" data-action="exportCalendar" style="color:#b44aff;border-color:#b44aff33">\ud83d\udcc5 .ics</button>
       <button class="data-btn" data-action="shareProgress" style="color:#00e676;border-color:#00e67633">\ud83d\udce4 Share</button>
+      <button class="data-btn" data-action="cloudBackup" style="color:#00d2ff;border-color:#00d2ff33">☁ Backup to Cloud</button>
+      <button class="data-btn" data-action="restoreBackup" style="color:#ffab00;border-color:#ffab0033">⬇ Restore Backup</button>
     </div>`;
   }, 'tools');
 
@@ -535,6 +539,29 @@ function _renderPanelsInner(ctx, group = 'all', defaultOpen = false) {
         <div class="settings-row"><label>Timezone</label><select class="settings-input" id="cfg-timezone">${TIMEZONES.map(tz => `<option value="${tz}"${config.timezone === tz ? ' selected' : ''}>${tz}</option>`).join('')}</select></div>
       </div>
       <div class="settings-section">
+        <div class="settings-section-label">Appearance</div>
+        <div class="settings-row" style="align-items:flex-start;flex-direction:column;gap:6px">
+          <label>Theme Preset</label>
+          <div class="theme-preset-grid">
+            ${Object.entries(THEME_PRESETS).map(([key, preset]) =>
+              `<button class="theme-preset-btn ${currentPreset === key ? 'active' : ''}"
+                data-action="setThemePreset" data-key="${key}">${escapeHtml(preset.label)}</button>`
+            ).join('')}
+          </div>
+        </div>
+        <div class="settings-row" style="align-items:flex-start;flex-direction:column;gap:6px">
+          <label>Accent Color</label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            ${['#00d2ff','#00e676','#ff6d00','#ff4081','#7c4dff','#ffab00','#cf7aff','#e94560'].map(c =>
+              `<button class="accent-swatch" data-action="setAccentColor" data-value="${c}"
+                style="background:${c}" title="${c}"></button>`
+            ).join('')}
+            <input type="color" id="accent-color-picker" value="#00d2ff"
+              data-change-action="setAccentColor"
+              style="width:32px;height:32px;border:1px solid var(--border2);border-radius:6px;cursor:pointer;padding:2px;background:none">
+            <button class="data-btn" data-action="resetAccentColor" style="font-size:10px;color:var(--dim)">Reset</button>
+          </div>
+        </div>
         <div class="settings-section-label">UI Defaults</div>
         <div class="settings-row"><label>Toast Duration (ms)</label><input class="settings-input" type="number" id="cfg-toastDuration" min="500" max="10000" value="${config.toastDuration}"></div>
         <div class="settings-row"><label>Swipe Threshold (px)</label><input class="settings-input" type="number" id="cfg-swipeThreshold" min="20" max="200" value="${config.swipeThreshold}"></div>

@@ -425,6 +425,8 @@ export function toggleShortcuts() {
       <div class="shortcut-row"><span class="shortcut-desc">Tools</span><span class="shortcut-key">4</span></div>
       <div class="shortcut-row"><span class="shortcut-desc">Stats</span><span class="shortcut-key">5</span></div>
       <div class="shortcut-row"><span class="shortcut-desc">Weekly Review</span><span class="shortcut-key">6</span></div>
+      <div class="shortcut-row"><span class="shortcut-desc">Inbox</span><span class="shortcut-key">7</span></div>
+      <div class="shortcut-row"><span class="shortcut-desc">Quick Capture</span><span class="shortcut-key">N</span></div>
       <div class="shortcut-row"><span class="shortcut-desc">Global Search</span><span class="shortcut-key">⌘K</span></div>
       <div class="shortcut-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span class="shortcut-desc">Next day</span><span class="shortcut-key">\u2192</span></div>
       <div class="shortcut-row"><span class="shortcut-desc">Previous day</span><span class="shortcut-key">\u2190</span></div>
