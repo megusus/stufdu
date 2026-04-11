@@ -421,7 +421,12 @@ export function toggleShortcuts() {
     overlay.id = 'shortcuts-modal';
     overlay.innerHTML = `<div class="shortcuts-box">
       <div class="shortcuts-title">Keyboard Shortcuts</div>
-      <div class="shortcut-row"><span class="shortcut-desc">Next day</span><span class="shortcut-key">\u2192</span></div>
+      <div class="shortcut-row"><span class="shortcut-desc">Home dashboard</span><span class="shortcut-key">1</span></div>
+      <div class="shortcut-row"><span class="shortcut-desc">Schedule</span><span class="shortcut-key">2</span></div>
+      <div class="shortcut-row"><span class="shortcut-desc">Ideal Week</span><span class="shortcut-key">3</span></div>
+      <div class="shortcut-row"><span class="shortcut-desc">Tools</span><span class="shortcut-key">4</span></div>
+      <div class="shortcut-row"><span class="shortcut-desc">Stats</span><span class="shortcut-key">5</span></div>
+      <div class="shortcut-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span class="shortcut-desc">Next day</span><span class="shortcut-key">\u2192</span></div>
       <div class="shortcut-row"><span class="shortcut-desc">Previous day</span><span class="shortcut-key">\u2190</span></div>
       <div class="shortcut-row"><span class="shortcut-desc">Toggle task</span><span class="shortcut-key">Enter</span></div>
       <div class="shortcut-row"><span class="shortcut-desc">Search tasks</span><span class="shortcut-key">/</span></div>

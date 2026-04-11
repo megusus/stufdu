@@ -2,6 +2,8 @@
 // ── Header Controls Renderer ──
 // ════════════════════════════════════════
 
+import { getIdealGap } from '../ideal.js';
+
 /**
  * Pure renderer: receives RenderContext, returns HTML string.
  * @param {import('./context.js').RenderContext} ctx
@@ -51,16 +53,26 @@ export function renderHeaderControls(ctx) {
     <button class="view-btn focus ${state.focusMode ? 'active' : ''}" data-action="toggleFocusMode">\ud83d\udc53 Focus</button>
   </div>`;
 
+  // Compute ideal gap for all days (for tab indicators)
+  let idealGap = {};
+  try { idealGap = getIdealGap(state.checked, state.taskDeferred); } catch(e) {}
+
   html += '<div class="tabs">';
   days.forEach((d, i) => {
     if (dayConfig[d]?.active === false) return;
     const p = getDayProgress(d);
     const sel = i === state.selectedDay;
     const today = i === todayIdx;
+    const gap = idealGap[d];
+    let gapDot = '';
+    if (gap && gap.idealTotal > 0) {
+      const dotColor = gap.pct >= 80 ? '#00e676' : gap.pct >= 50 ? '#ffab00' : '#e94560';
+      gapDot = `<span class="tab-ideal-dot" style="background:${dotColor}" title="Ideal: ${gap.pct}%"></span>`;
+    }
     html += `<button class="tab ${sel ? 'active' : ''} ${today ? 'today' : ''}"
       data-action="selectDay" data-i="${i}" data-context-action="showTabCtxMenu"
       role="tab" aria-selected="${sel}">
-      ${escapeHtml(getShortLabel(d, i))}
+      ${escapeHtml(getShortLabel(d, i))}${gapDot}
       <div class="tab-progress" style="width:${p.pct}%"></div>
     </button>`;
   });

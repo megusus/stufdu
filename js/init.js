@@ -5,7 +5,7 @@
 import { CONFIG } from './config.js';
 import { Storage } from './storage.js';
 import { CategoryRegistry } from './categories.js';
-import { DAYS, schedule, addTaskToSection, removeTaskFromSchedule, renameSectionInSchedule, addSectionToDay, removeSectionFromDay, moveSectionInDay, moveTaskInSection, updateDayMetadata, addDayToSchedule, removeDayFromSchedule, dayConfig, setDayActive, setDayAlias, saveDayConfig, saveScheduleToStorage, getDayLabel } from './schedule.js';
+import { DAYS, schedule, addTaskToSection, removeTaskFromSchedule, renameSectionInSchedule, addSectionToDay, removeSectionFromDay, moveSectionInDay, moveTaskInSection, updateDayMetadata, addDayToSchedule, removeDayFromSchedule, dayConfig, setDayActive, setDayAlias, saveDayConfig, saveScheduleToStorage, getDayLabel, loadCustomSchedule } from './schedule.js';
 import { state, loadState, saveState, saveLinks, saveDeadlines, saveMeals, saveReadingList, loadHistory, loadScratchpad, saveScratchpad, getWeekKey, getWeekNum, getISOWeek, nowInTZ, getStatus, getDayProgress, getWeeklyProgress, invalidateProgressCache, STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED, todayIdx, READING_LIST_DEFAULT, escapeHtml, formatEst, haptic } from './state.js';
 import { initPasswordGate } from './password.js';
 import { syncGoodreads, saveGoodreadsCSV, handleGoodreadsFile } from './reading.js';
@@ -17,6 +17,12 @@ import { setSearch, clearSearch } from './ui/search.js';
 import { initSwipeListeners, initPageSwipe, handleLongPressStart, handleLongPressEnd, handleItemClick } from './ui/swipe.js';
 import { render, renderImmediate, doRender } from './render/index.js';
 import { initDispatch } from './ui/dispatch.js';
+import { initRouter, navigate as navigateRoute } from './router.js';
+import {
+  loadIdealWeek, saveIdealWeek, resetIdealToDefault as resetIdealWeek,
+  addIdealTask, removeIdealTask, addIdealSection, removeIdealSection,
+  saveIdealDayMeta, setIdealShowCompare, setIdealEditingDay,
+} from './ideal.js';
 
 // Extracted modules
 import { fetchMeals, savePastedMeals, toggleMealPaste, clearMealData } from './meals.js';
@@ -34,6 +40,8 @@ setTimerContextMenu(showTimerCtxMenu);
 // ── Event dispatcher: handles all data-action click attributes ──
 initDispatch({
   reloadApp:                 () => location.reload(),
+  // Navigation
+  navigate:                  ({ view }) => navigateRoute(view),
   // Header
   toggleTheme:              () => toggleTheme(render),
   toggleFontSize:           () => toggleFontSize(),
@@ -278,6 +286,50 @@ initDispatch({
     target?.click();
   },
   undoToggle:               () => undoToggle(),
+
+  // ── Ideal Week ──
+  setIdealMode:             ({ mode }) => { setIdealShowCompare(mode === 'compare'); render(); },
+  selectIdealDay:           ({ day }) => { setIdealEditingDay(day); render(); },
+  saveIdealDayMeta:         ({ day }) => {
+    saveIdealDayMeta(
+      day,
+      document.getElementById(`ideal-wake-${day}`)?.value ?? '',
+      document.getElementById(`ideal-leave-${day}`)?.value ?? '',
+      document.getElementById(`ideal-meta-${day}`)?.value ?? '',
+    );
+    render(); showToast('Day details saved');
+  },
+  addIdealTask:             ({ day, i }) => {
+    const text = document.getElementById(`ideal-text-${i}`)?.value ?? '';
+    const cat  = document.getElementById(`ideal-cat-${i}`)?.value ?? '';
+    if (addIdealTask(day, +i, text, cat)) { render(); showToast('Task added'); }
+    else showToast('Enter task text');
+  },
+  removeIdealTask:          ({ day, i, j }) => { removeIdealTask(day, +i, +j); render(); showToast('Task removed'); },
+  addIdealSection:          ({ day }) => {
+    const label = prompt('Section name:');
+    if (label?.trim()) { addIdealSection(day, label.trim()); render(); showToast('Section added'); }
+  },
+  removeIdealSection:       ({ day, i }) => {
+    showConfirm('Delete this section?', () => { removeIdealSection(day, +i); render(); showToast('Section removed'); });
+  },
+  importIdealAsSchedule:    () => {
+    showConfirm('Replace your active schedule with the Ideal Week? This will overwrite all current tasks.', () => {
+      // Save ideal week as custom-schedule, then reload it into memory
+      Storage.set('custom-schedule', loadIdealWeek());
+      loadCustomSchedule();
+      saveScheduleToStorage();
+      render(); showToast('Ideal week imported as schedule');
+    });
+  },
+  resetIdealToDefault:      () => {
+    showConfirm('Reset Ideal Week to the default template?', () => {
+      resetIdealWeek(); render(); showToast('Ideal week reset');
+    });
+  },
+
+  // ── Home quick-timer ──
+  startPomoFromHome:        ({ min }) => { setFocusTimerMin(+min); startPomo(null, render, showToast); },
 });
 
 // ════════════════════════════════════════
@@ -323,6 +375,12 @@ document.addEventListener('keydown', e => {
   if (e.key === 'd' || e.key === 'D') setViewMode('day');
   if (e.key === '+' || e.key === '=') { if (state.fontScale !== 'large') toggleFontSize(); }
   if (e.key === '-') { if (state.fontScale !== 'normal') toggleFontSize(); }
+  // View shortcuts (1-5)
+  if (e.key === '1') navigateRoute('home');
+  if (e.key === '2') navigateRoute('schedule');
+  if (e.key === '3') navigateRoute('ideal');
+  if (e.key === '4') navigateRoute('tools');
+  if (e.key === '5') navigateRoute('stats');
 });
 
 // Offline/Online indicator
@@ -388,6 +446,7 @@ if ('serviceWorker' in navigator) {
 // ════════════════════════════════════════
 
 function boot() {
+  initRouter(render);
   initTheme(render);
   loadState();
   if (!DAYS[state.selectedDay]) state.selectedDay = 0;

@@ -68,6 +68,20 @@ function _renderDayViewInner(ctx, currentSectionIdx) {
   // Search
   const query = (state.searchQuery || '').trim().toLowerCase();
 
+  // Empty state — no tasks in any section
+  const totalItems = day.sections.reduce((sum, s) => sum + s.items.length, 0);
+  if (totalItems === 0 && !query) {
+    html += `<div class="day-empty-state">
+      <div class="day-empty-icon">📋</div>
+      <div class="day-empty-title">No tasks yet</div>
+      <div class="day-empty-sub">Add tasks using the + button below,<br>or import from your Ideal Week.</div>
+      <div class="day-empty-actions">
+        <button class="data-btn" data-action="toggleFab" style="color:var(--accent);border-color:#00d2ff44">+ Add task</button>
+        <a class="data-btn" href="#ideal" style="text-decoration:none;color:#cf7aff;border-color:#cf7aff33">✦ Ideal Week</a>
+      </div>
+    </div>`;
+  }
+
   // Sections
   day.sections.forEach((section, sIdx) => {
     const items = section.items.filter(item => {

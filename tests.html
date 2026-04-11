@@ -801,14 +801,15 @@
   });
 
   // ── Schedule creation/reset ──
+  let addDayToSchedule, removeDayFromSchedule, addSectionToDay, addTaskToSectionFn,
+      resetScheduleToDefault, schedule_ref;
+  try {
+    ({ addDayToSchedule, removeDayFromSchedule, addSectionToDay,
+       addTaskToSection: addTaskToSectionFn, resetScheduleToDefault,
+       schedule: schedule_ref } = await import('./js/schedule.js'));
+  } catch(e) {}
+
   suite('Schedule operations [module: schedule.js]', () => {
-    let addDayToSchedule, removeDayFromSchedule, addSectionToDay, addTaskToSectionFn,
-        resetScheduleToDefault, schedule_ref;
-    try {
-      ({ addDayToSchedule, removeDayFromSchedule, addSectionToDay,
-         addTaskToSection: addTaskToSectionFn, resetScheduleToDefault,
-         schedule: schedule_ref } = await import('./js/schedule.js'));
-    } catch(e) {}
 
     test('addDayToSchedule creates a new day', () => {
       if (!addDayToSchedule) return;
@@ -860,11 +861,12 @@
   });
 
   // ── Migration module ──
+  let detectOldPrefixKeys, migrateStoragePrefix;
+  try {
+    ({ detectOldPrefixKeys, migrateStoragePrefix } = await import('./js/migration.js'));
+  } catch(e) {}
+
   suite('Migration [module: migration.js]', () => {
-    let detectOldPrefixKeys, migrateStoragePrefix;
-    try {
-      ({ detectOldPrefixKeys, migrateStoragePrefix } = await import('./js/migration.js'));
-    } catch(e) {}
 
     test('detectOldPrefixKeys returns null when no old keys', () => {
       if (!detectOldPrefixKeys) return;
@@ -910,11 +912,12 @@
   });
 
   // ── Meal parsers from real module ──
+  let realParseMealString, realParseMealText;
+  try {
+    ({ parseMealString: realParseMealString, parseMealText: realParseMealText } = await import('./js/meals.js'));
+  } catch(e) {}
+
   suite('Meal parsers [module: meals.js]', () => {
-    let realParseMealString, realParseMealText;
-    try {
-      ({ parseMealString: realParseMealString, parseMealText: realParseMealText } = await import('./js/meals.js'));
-    } catch(e) {}
 
     test('parseMealString from module matches local', () => {
       if (!realParseMealString) return;
@@ -936,12 +939,13 @@
   });
 
   // ── Service Worker ASSETS verification ──
+  let swText = null;
+  try {
+    const res = await fetch('./sw.js');
+    swText = await res.text();
+  } catch(e) {}
+
   suite('Service Worker ASSETS [sw.js]', () => {
-    let swText = null;
-    try {
-      const res = await fetch('./sw.js');
-      swText = await res.text();
-    } catch(e) {}
 
     test('sw.js is fetchable', () => {
       assert(swText !== null && swText.length > 0);

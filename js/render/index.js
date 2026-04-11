@@ -12,11 +12,17 @@ import { buildRenderContext } from './context.js';
 import { renderHeaderControls } from './header.js';
 import { renderWeekView as renderWeekViewModule } from './week-view.js';
 import { renderDayView as renderDayViewModule } from './day-view.js';
-import { renderPanels as renderPanelsModule } from './panels.js';
+import { renderSchedulePanels } from './panels.js';
 import { renderFAB } from './fab.js';
 import { renderScratchpad } from './scratchpad.js';
 import { ensurePomoBar } from '../ui/timer.js';
 import { showToast } from '../ui/toggle.js';
+import { currentView } from '../router.js';
+import { renderNav } from './nav.js';
+import { renderHome } from './home.js';
+import { renderIdealView } from './ideal.js';
+import { renderToolsView } from './tools-view.js';
+import { renderStatsView } from './stats-view.js';
 
 // ── Render batching ──
 let _renderQueued = false;
@@ -39,7 +45,7 @@ export function doRender() {
     if (appEl) {
       appEl.innerHTML = `
         <div style="padding:40px 24px;max-width:480px;margin:0 auto;font-family:inherit;text-align:center">
-          <div style="font-size:48px;margin-bottom:16px">\u26a0\ufe0f</div>
+          <div style="font-size:48px;margin-bottom:16px">⚠️</div>
           <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px">Render error</div>
           <div style="font-size:11px;color:var(--muted);margin-bottom:16px">
             Something went wrong while drawing the UI. Your data is safe.
@@ -60,31 +66,38 @@ function _doRenderInner() {
   const _focusVal = document.activeElement?.value;
   const _focusSel = [document.activeElement?.selectionStart, document.activeElement?.selectionEnd];
 
-  // Build render context — single source of truth for all sub-renderers
   const ctx = buildRenderContext();
-  const { dayName, day, prog, wp, isToday } = ctx;
-  const currentSectionIdx = isToday ? getCurrentSectionIndex(day.sections) : -1;
+  const view = currentView();
+
+  // Update nav (sidebar + bottom tabs)
+  renderNav(ctx);
 
   let html = '';
 
-  html += renderHeaderControls(ctx);
+  if (view === 'schedule') {
+    const { dayName, day } = ctx;
+    const currentSectionIdx = ctx.isToday ? getCurrentSectionIndex(day.sections) : -1;
 
-  // ── Week view ──
-  if (state.viewMode === 'week') {
-    html += renderWeekViewModule(ctx);
-  }
+    html += renderHeaderControls(ctx);
 
-  // ── Day view ──
-  if (state.viewMode === 'day') {
-    html += renderDayViewModule(ctx, currentSectionIdx);
-  }
+    if (state.viewMode === 'week') html += renderWeekViewModule(ctx);
+    if (state.viewMode === 'day')  html += renderDayViewModule(ctx, currentSectionIdx);
 
-  // ── Panels ──
-  html += renderPanelsModule(ctx);
+    html += renderSchedulePanels(ctx);
 
-  // Reset
-  if (state.viewMode === 'day') {
-    html += `<div class="reset-wrap"><button class="reset-btn" data-action="resetDay">Reset ${escapeHtml(getDayLabel(dayName))}</button></div>`;
+    if (state.viewMode === 'day') {
+      html += `<div class="reset-wrap"><button class="reset-btn" data-action="resetDay">Reset ${escapeHtml(getDayLabel(dayName))}</button></div>`;
+    }
+  } else if (view === 'home') {
+    html = renderHome(ctx);
+  } else if (view === 'ideal') {
+    html = renderIdealView(ctx);
+  } else if (view === 'tools') {
+    html = renderToolsView(ctx);
+  } else if (view === 'stats') {
+    html = renderStatsView(ctx);
+  } else {
+    html = renderHome(ctx);
   }
 
   const appEl = document.getElementById('app');

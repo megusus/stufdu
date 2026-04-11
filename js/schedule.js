@@ -181,8 +181,16 @@ export const DEFAULT_SCHEDULE = {
   },
 };
 
-// Mutable schedule object - starts as deep clone of default, then merged with custom
-export let schedule = structuredClone(DEFAULT_SCHEDULE);
+// Empty schedule — what new users start with (7 blank days, each with one empty section)
+export const EMPTY_SCHEDULE = Object.fromEntries(
+  ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day => [
+    day, { wake: '08:00', leave: null, meta: null, sections: [{ label: 'Tasks', items: [] }] }
+  ])
+);
+
+// Mutable schedule object — starts empty (new users fill from scratch or import Ideal Week)
+// DEFAULT_SCHEDULE is preserved as the opinionated template used by the Ideal Week
+export let schedule = structuredClone(EMPTY_SCHEDULE);
 
 export const DEFAULT_OVERVIEW = [
   { day: "Mon", tag: "Late start", desc: "FA \u2192 class \u2192 Analysis IV hw \u2192 FA \u2192 preview Tue", color: "#00d2ff" },

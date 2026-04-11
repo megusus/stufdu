@@ -6,18 +6,37 @@
  * Pure renderer: receives RenderContext, returns HTML string.
  * @param {import('./context.js').RenderContext} ctx
  */
+const _panelErr = (ctx, err) =>
+  `<div style="padding:10px 12px;margin:4px 0;font-size:11px;color:#e94560;background:#1a0808;border:1px solid #e9456033;border-radius:8px">
+    ⚠️ <strong>Panels</strong> failed to render &mdash;
+    <code style="font-size:9px;font-family:monospace">${ctx.escapeHtml(String(err).slice(0, 120))}</code>
+  </div>`;
+
+// All panels as accordions (original behavior — used in legacy/fallback only)
 export function renderPanels(ctx) {
-  try { return _renderPanelsInner(ctx); }
-  catch (err) {
-    console.error('[render] Panels failed:', err);
-    return `<div style="padding:10px 12px;margin:4px 0;font-size:11px;color:#e94560;background:#1a0808;border:1px solid #e9456033;border-radius:8px">
-      \u26a0\ufe0f <strong>Panels</strong> failed to render &mdash;
-      <code style="font-size:9px;font-family:monospace">${ctx.escapeHtml(String(err).slice(0, 120))}</code>
-    </div>`;
-  }
+  try { return _renderPanelsInner(ctx, 'all', false); }
+  catch (err) { console.error('[render] Panels failed:', err); return _panelErr(ctx, err); }
 }
 
-function _renderPanelsInner(ctx) {
+// Schedule-specific panels (overview, fa, how, cut, rhythm, editor)
+export function renderSchedulePanels(ctx) {
+  try { return _renderPanelsInner(ctx, 'schedule', false); }
+  catch (err) { console.error('[render] SchedulePanels failed:', err); return _panelErr(ctx, err); }
+}
+
+// Tool panels — start open by default (sync, meals, reading, heatmap, data, notifs, categories, settings)
+export function renderToolPanels(ctx) {
+  try { return _renderPanelsInner(ctx, 'tools', true); }
+  catch (err) { console.error('[render] ToolPanels failed:', err); return _panelErr(ctx, err); }
+}
+
+// Stat panels — start open by default (streak, summary, deadlines)
+export function renderStatPanels(ctx) {
+  try { return _renderPanelsInner(ctx, 'stats', true); }
+  catch (err) { console.error('[render] StatPanels failed:', err); return _panelErr(ctx, err); }
+}
+
+function _renderPanelsInner(ctx, group = 'all', defaultOpen = false) {
   const { config, state, days, dayConfig, schedule, dayName, day, wp,
           escapeHtml, formatEst, getStatus, getDayProgress, getDayLabel, getShortLabel,
           categories, buildOverviewData, getSubjectStreaks, getHeatmapData,
@@ -28,25 +47,44 @@ function _renderPanelsInner(ctx) {
 
   let html = '';
 
-  function lazyPanel(id, title, titleStyle, contentFn) {
-    const isOpen = state.openPanels[id];
-    html += `<div class="panel">
-      <div class="panel-header ${isOpen ? 'open' : ''}" data-panel-id="${id}" data-action="togglePanel" data-panel="${id}"
-           role="button" aria-expanded="${!!isOpen}" aria-controls="panel-${id}" tabindex="0">
-        <div class="panel-title"${titleStyle ? ` style="${titleStyle}"` : ''}>${title}</div><div class="panel-arrow">\u25bc</div>
-      </div>
-      <div class="panel-content ${isOpen ? 'open' : ''}" id="panel-${id}">`;
-    if (isOpen) {
-      try {
-        contentFn();
-      } catch (err) {
+  function lazyPanel(id, title, titleStyle, contentFn, panelGroup = 'schedule') {
+    if (group !== 'all' && panelGroup !== group) return;
+
+    if (defaultOpen) {
+      // View-section mode: always expanded, no toggle header (used in tools/stats views)
+      html += `<div class="panel view-section">
+        <div class="panel-header open view-section-header">
+          <div class="panel-title"${titleStyle ? ` style="${titleStyle}"` : ''}>${title}</div>
+        </div>
+        <div class="panel-content open" id="panel-${id}">`;
+      try { contentFn(); }
+      catch (err) {
         console.error(`[render] Panel "${id}" failed:`, err);
         html += `<div style="padding:10px 12px;font-size:11px;color:#e94560;background:#1a0808;border-radius:6px">
           \u26a0\ufe0f Panel failed to render &mdash; <code style="font-size:9px;font-family:monospace">${escapeHtml(String(err).slice(0, 120))}</code>
         </div>`;
       }
+      html += `</div></div>`;
+    } else {
+      // Standard accordion (schedule view)
+      const isOpen = !!state.openPanels[id];
+      html += `<div class="panel">
+        <div class="panel-header ${isOpen ? 'open' : ''}" data-panel-id="${id}" data-action="togglePanel" data-panel="${id}"
+             role="button" aria-expanded="${isOpen}" aria-controls="panel-${id}" tabindex="0">
+          <div class="panel-title"${titleStyle ? ` style="${titleStyle}"` : ''}>${title}</div><div class="panel-arrow">\u25bc</div>
+        </div>
+        <div class="panel-content ${isOpen ? 'open' : ''}" id="panel-${id}">`;
+      if (isOpen) {
+        try { contentFn(); }
+        catch (err) {
+          console.error(`[render] Panel "${id}" failed:`, err);
+          html += `<div style="padding:10px 12px;font-size:11px;color:#e94560;background:#1a0808;border-radius:6px">
+            \u26a0\ufe0f Panel failed to render &mdash; <code style="font-size:9px;font-family:monospace">${escapeHtml(String(err).slice(0, 120))}</code>
+          </div>`;
+        }
+      }
+      html += `</div></div>`;
     }
-    html += `</div></div>`;
   }
 
   // Weekly overview
@@ -122,7 +160,7 @@ function _renderPanelsInner(ctx) {
       html += `<p style="margin:0;padding:2px 0">${i + 1}. <strong>${escapeHtml(book.title)}</strong> <span style="color:#71717a">\u2014 ${escapeHtml(book.author)}</span></p>`;
     });
     html += `</div>`;
-  });
+  }, 'tools');
 
   // 3-week rhythm
   lazyPanel('rhythm', '3-week rhythm', 'color:#00e676', () => {
@@ -187,7 +225,7 @@ function _renderPanelsInner(ctx) {
       });
       html += `</div>`;
     }
-  });
+  }, 'stats');
 
   // Sync panel
   lazyPanel('sync', `Sync ${hasSyncConfig && state.firebaseReady ? '<span style="color:#00e676;font-size:9px;margin-left:6px">\u25cf connected</span>' : ''}`, '', () => {
@@ -205,7 +243,7 @@ function _renderPanelsInner(ctx) {
         <button class="data-btn" data-action="connectSync" style="width:100%;color:var(--accent);border-color:#00d2ff44">Connect Sync</button>
         <div id="sync-msg" class="sync-msg"></div>`;
     }
-  });
+  }, 'tools');
 
   // Schedule editor
   lazyPanel('editor', 'Edit Schedule', '', () => {
@@ -336,8 +374,8 @@ function _renderPanelsInner(ctx) {
         <button class="data-btn" data-action="resetDefaultSchedule" style="color:#e94560;border-color:#e9456033">\u21ba Default</button>
         <button class="data-btn" data-action="newSemester" style="color:#ff9100;border-color:#ff910033">\ud83c\udf93 New Semester</button>
       </div>
-    </div>`;
-  });
+      </div>`;
+  }); // schedule: editor
 
   // Meal panel
   const hasMealData = Object.keys(state.mealData).length > 0;
@@ -364,7 +402,7 @@ function _renderPanelsInner(ctx) {
         html += `<div style="font-size:10px;color:var(--text);margin-bottom:4px"><span style="color:#ff9100;font-weight:600">${date}</span><span style="color:var(--dim)"> \u2014 ${items.slice(0, 3).join(', ')}${items.length > 3 ? '\u2026' : ''}</span></div>`;
       });
     }
-  });
+  }, 'tools');
 
   // Data
   lazyPanel('data', 'Data', '', () => {
@@ -374,7 +412,7 @@ function _renderPanelsInner(ctx) {
       <button class="data-btn" data-action="exportCalendar" style="color:#b44aff;border-color:#b44aff33">\ud83d\udcc5 .ics</button>
       <button class="data-btn" data-action="shareProgress" style="color:#00e676;border-color:#00e67633">\ud83d\udce4 Share</button>
     </div>`;
-  });
+  }, 'tools');
 
   // Deadlines
   lazyPanel('deadlines', '\ud83d\udcc5 Deadlines', 'color:#b44aff', () => {
@@ -397,7 +435,7 @@ function _renderPanelsInner(ctx) {
     } else {
       html += `<button class="deadline-add" data-action="showDeadlineForm">+ Add deadline</button>`;
     }
-  });
+  }, 'stats');
 
   // Heatmap
   lazyPanel('heatmap', '\u23f1 Focus Timer & Heatmap', '', () => {
@@ -417,7 +455,7 @@ function _renderPanelsInner(ctx) {
     html += `</div>`;
     html += `<div class="heatmap-legend"><span>Less</span><div class="heatmap-cell"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell l2"></div><div class="heatmap-cell l3"></div><div class="heatmap-cell l4"></div><span>More</span></div>`;
     html += `<div style="font-size:10px;color:var(--dim);margin-top:6px">Based on focus sessions. Start a timer on any task to log study time.</div>`;
-  });
+  }, 'tools');
 
   // Weekly summary
   lazyPanel('summary', '\ud83d\udccb Weekly Summary', '', () => {
@@ -441,7 +479,7 @@ function _renderPanelsInner(ctx) {
         html += `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0"><span style="color:#e94560">${label}</span><span style="font-weight:600;color:#e94560">${count}</span></div>`;
       });
     }
-  });
+  }, 'stats');
 
   // Notifications
   lazyPanel('notifs', '\ud83d\udd14 Notifications', '', () => {
@@ -451,7 +489,7 @@ function _renderPanelsInner(ctx) {
     } else {
       html += `<button class="data-btn" data-action="requestNotifPermission" style="width:100%;color:var(--accent);border-color:#00d2ff44">Enable Notifications</button>`;
     }
-  });
+  }, 'tools');
 
   // Categories
   lazyPanel('categories', '\ud83c\udfa8 Categories', 'color:var(--muted)', () => {
@@ -509,7 +547,7 @@ function _renderPanelsInner(ctx) {
     }
     html += `<button class="data-btn" data-action="resetCatToDefaults" style="width:100%;color:#e94560;border-color:#e9456033;margin-top:2px">\u21ba Reset to Defaults</button>`;
     html += `</div>`;
-  });
+  }, 'tools');
 
   // Settings
   const TIMEZONES = ['Europe/Istanbul','Europe/London','Europe/Paris','Europe/Berlin','Europe/Madrid','America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Sao_Paulo','Asia/Tokyo','Asia/Shanghai','Asia/Seoul','Asia/Kolkata','Asia/Dubai','Australia/Sydney','Pacific/Auckland'];
@@ -540,7 +578,7 @@ function _renderPanelsInner(ctx) {
       <button class="data-btn" data-action="resetSettings" style="width:100%;color:#e94560;border-color:#e9456033;margin-top:6px">\u21ba Reset to Defaults</button>
       <div class="settings-save-note">Changes take effect immediately. Reset requires a page reload.</div>
     </div>`;
-  });
+  }, 'tools');
 
   return html;
 }
