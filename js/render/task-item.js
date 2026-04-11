@@ -82,7 +82,6 @@ export function renderItem(ctx, item, dayName, extraClass, fromDay) {
       <button class="action-btn blocked" data-action="setTaskStatus" data-id="${item.id}" data-status="${STATUS_BLOCKED}">Blocked</button>
       <button class="action-btn" data-action="showNoteInput" data-id="${item.id}">\ud83d\udcdd Note</button>
       <button class="action-btn" data-action="addLink" data-id="${item.id}">\ud83d\udd17 Link</button>
-      <button class="action-btn" data-action="startPomo" data-id="${item.id}">\u23f1 Focus</button>
       <button class="action-btn defer" data-action="showDeferPicker" data-id="${item.id}">\u2192 Defer</button>
       <button class="action-btn danger" data-action="clearTask" data-id="${item.id}">\u2715 Clear</button>
     </div>`;

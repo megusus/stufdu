@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { id: 'ideal',    icon: '✦',  label: 'Ideal Week' },
   { id: 'tools',    icon: '⚙',  label: 'Tools'      },
   { id: 'stats',    icon: '◈',  label: 'Stats'      },
+  { id: 'review',   icon: '📋', label: 'Review'     },
 ];
 
 /**

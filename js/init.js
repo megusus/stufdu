@@ -11,8 +11,7 @@ import { initPasswordGate } from './password.js';
 import { syncGoodreads, saveGoodreadsCSV, handleGoodreadsFile } from './reading.js';
 import { getSyncConfig, connectSync, disconnectSync, setupStoredSync, syncPush, updateSyncDot } from './sync.js';
 import { initTheme, toggleTheme, checkAutoTheme, currentTheme } from './ui/theme.js';
-import { startPomo, cancelPomo, togglePomoPause, restartPomo, resetPomoPosition, setFocusTimerMin, ensurePomoBar, setTimerContextMenu } from './ui/timer.js';
-import { toggle, setTaskStatus, toggleActionMenu, showNoteInput, saveNote, showDeferPicker, deferTask, clearTask, markSectionDone, addLink, showLinkInput, saveLink, removeLink, toggleFab, fabAddTask, toggleCatFilter, toggleFocusMode, togglePanel, selectDay, setViewMode, resetDay, viewPastWeek, toggleWeekDayCollapse, toggleFontSize, toggleShortcuts, toggleScratchpad, showToast, hideToast, undoToggle, showConfirm, showCtxMenu, showTaskCtxMenu, showTimerCtxMenu, showTabCtxMenu, closeCtxMenu, patchTaskDOM, updateProgressBars, toggleLock, setRenderFn } from './ui/toggle.js';
+import { toggle, setTaskStatus, toggleActionMenu, showNoteInput, saveNote, showDeferPicker, deferTask, clearTask, markSectionDone, addLink, showLinkInput, saveLink, removeLink, toggleFab, fabAddTask, toggleCatFilter, toggleFocusMode, togglePanel, selectDay, setViewMode, resetDay, viewPastWeek, toggleWeekDayCollapse, toggleFontSize, toggleShortcuts, toggleScratchpad, showToast, hideToast, undoToggle, showConfirm, showCtxMenu, showTaskCtxMenu, showTabCtxMenu, closeCtxMenu, patchTaskDOM, updateProgressBars, toggleLock, setRenderFn } from './ui/toggle.js';
 import { setSearch, clearSearch } from './ui/search.js';
 import { initSwipeListeners, initPageSwipe, handleLongPressStart, handleLongPressEnd, handleItemClick } from './ui/swipe.js';
 import { render, renderImmediate, doRender } from './render/index.js';
@@ -23,6 +22,12 @@ import {
   addIdealTask, removeIdealTask, addIdealSection, removeIdealSection,
   saveIdealDayMeta, setIdealShowCompare, setIdealEditingDay,
 } from './ideal.js';
+import {
+  getReviewStep, setReviewStep, resetReview, setReviewDraft, getReviewDraft,
+  generateReviewData, saveReview,
+} from './review.js';
+import { getWeekKey } from './state.js';
+import { toggleGlobalSearch, closeGlobalSearch, isGlobalSearchOpen } from './ui/global-search.js';
 
 // Extracted modules
 import { fetchMeals, savePastedMeals, toggleMealPaste, clearMealData } from './meals.js';
@@ -33,9 +38,6 @@ import { detectOldPrefixKeys, offerMigration } from './migration.js';
 
 // ── Wire up render function references ──
 setRenderFn(render, doRender);
-
-// ── Wire timer context menu ──
-setTimerContextMenu(showTimerCtxMenu);
 
 // ── Event dispatcher: handles all data-action click attributes ──
 initDispatch({
@@ -72,19 +74,10 @@ initDispatch({
   clearTask:                ({ id }, e) => clearTask(id, e),
   addLink:                  ({ id }) => addLink(id),
   saveLink:                 ({ id }) => saveLink(id),
-  startPomo:                ({ id }) => startPomo(id, render, showToast),
   deferTask:                ({ id, day }) => deferTask(id, day),
   markSectionDone:          ({ day, i }) => markSectionDone(day, +i),
   // Panels
   togglePanel:              ({ panel }) => togglePanel(panel),
-  // Pomodoro
-  cancelPomo:               () => cancelPomo(render, showToast),
-  togglePomoPause:          () => togglePomoPause(render),
-  restartPomo:              () => restartPomo(showToast),
-  resetPomoPosition:        () => resetPomoPosition(),
-  // Timer duration
-  setFocusTimerMinAndRender:({ min }) => { setFocusTimerMin(+min); doRender(); },
-  setFocusTimerMinFromInput:(_data, _e, el) => { setFocusTimerMin(+el.value); doRender(); },
   stopPropagation:          (_data, e) => e.stopPropagation(),
   // Reading
   syncGoodreads:            () => syncGoodreads(render, showToast),
@@ -328,8 +321,31 @@ initDispatch({
     });
   },
 
-  // ── Home quick-timer ──
-  startPomoFromHome:        ({ min }) => { setFocusTimerMin(+min); startPomo(null, render, showToast); },
+  // ── Weekly Review ──
+  reviewNext:               () => {
+    const step = getReviewStep();
+    if (step === 3) {
+      const draft = getReviewDraft();
+      const data = generateReviewData();
+      saveReview(getWeekKey(), {
+        highlight: draft.highlight,
+        improvement: draft.improvement,
+        reflection: draft.reflection,
+        wp: data.wp,
+        skippedCount: data.skippedTasks.length,
+        incompleteCount: data.incompleteTasks.length,
+      });
+      showToast('Review saved!');
+    }
+    setReviewStep(step + 1);
+    render();
+  },
+  reviewPrev:               () => { setReviewStep(getReviewStep() - 1); render(); },
+  reviewRestart:            () => { resetReview(); render(); },
+  updateReviewDraft:        ({ field }, _e, el) => { setReviewDraft(field, el.value); },
+
+  // ── Global Search ──
+  openGlobalSearch:         () => toggleGlobalSearch(),
 });
 
 // ════════════════════════════════════════
@@ -342,6 +358,15 @@ document.addEventListener('scroll', closeCtxMenu, true);
 
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
+  // Cmd/Ctrl+K global search
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    toggleGlobalSearch();
+    return;
+  }
+  // If global search is open, let it handle its own keys
+  if (isGlobalSearchOpen()) return;
+
   const tag = (e.target.tagName || '').toLowerCase();
   const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
   if (e.key === 'Enter' || e.key === ' ') {
@@ -354,7 +379,8 @@ document.addEventListener('keydown', e => {
     }
   }
   if (e.key === 'Escape') {
-    // Priority chain: context menu → shortcuts → search → scratchpad → FAB → open panels
+    // Priority chain: global search → context menu → shortcuts → search → scratchpad → FAB → open panels
+    if (isGlobalSearchOpen()) { closeGlobalSearch(); return; }
     const ctxMenu = document.querySelector('.ctx-menu');
     if (ctxMenu) { closeCtxMenu(); return; }
     if (state.showShortcuts) { toggleShortcuts(); return; }
@@ -381,6 +407,7 @@ document.addEventListener('keydown', e => {
   if (e.key === '3') navigateRoute('ideal');
   if (e.key === '4') navigateRoute('tools');
   if (e.key === '5') navigateRoute('stats');
+  if (e.key === '6') navigateRoute('review');
 });
 
 // Offline/Online indicator

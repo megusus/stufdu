@@ -17,7 +17,8 @@ A no-build vanilla JS PWA study planner with configurable schedules, categories,
 - **Swipe navigation** — swipe between days on mobile
 - **Export/import** — JSON data backup and restore
 - **Storage migration** — automatic detection and migration when storage prefix changes
-- **Focus timer & heatmap** — pomodoro timer with activity heatmap
+- **Weekly review wizard** — guided end-of-week reflection with insights and suggestions
+- **Global search** — Cmd+K overlay to search tasks, deadlines, books, and scratchpad
 
 ## Setup
 
@@ -70,9 +71,8 @@ All persistent keys use `CONFIG.storagePrefix` as a prefix. With the default pre
 | `sp26-categories` | Category registry overrides |
 | `sp26-config` | Settings overrides |
 | `sp26-scratch` | Scratchpad text |
-| `sp26-pomo-log` | Focus timer session log |
 | `sp26-fontscale` | Font scale preference |
-| `sp26-timer-min` | Focus timer default minutes |
+| `sp26-weekly-reviews` | Weekly review reflections |
 
 ### Storage Prefix Migration
 
@@ -130,7 +130,7 @@ Settings are stored in `CONFIG.config` (localStorage key `sp26-config`). Settabl
 | `semester` | string | Semester display name |
 | `headerTag` | string | Subtitle below title |
 | `timezone` | string | IANA timezone (e.g. `Europe/Istanbul`) |
-| `focusTimerDefault` | number | Default timer minutes |
+
 | `toastDuration` | number | Toast notification duration (ms) |
 | `swipeThreshold` | number | Swipe gesture threshold (px) |
 | `mealApiUrl` | string | University meal API endpoint |
@@ -166,7 +166,7 @@ js/render/
 js/ui/
   dispatch.js           — delegated event dispatcher
   toggle.js             — task/UI state toggle functions
-  timer.js              — focus timer (pomodoro)
+  global-search.js      — global search overlay (Cmd+K)
   theme.js              — dark/light theme management
   search.js             — search state management
   swipe.js              — swipe gesture handlers

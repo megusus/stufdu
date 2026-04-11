@@ -4,6 +4,7 @@
 
 import { loadScratchpad } from '../state.js';
 import { getIdealGap } from '../ideal.js';
+import { hasReviewForCurrentWeek } from '../review.js';
 
 export function renderHome(ctx) {
   try { return _renderHomeInner(ctx); }
@@ -16,7 +17,7 @@ export function renderHome(ctx) {
 function _renderHomeInner(ctx) {
   const { state, config, escapeHtml, formatEst, getDayProgress, getWeeklyProgress,
           getDayLabel, categories, getEstimate, getStatus, todayIdx, days,
-          schedule, wp, getDaysUntil, loadHistory, getWeekNum } = ctx;
+          schedule, wp, getDaysUntil, loadHistory, weekNum } = ctx;
 
   const todayName = days[todayIdx] || days[0];
   const todayProg = getDayProgress(todayName);
@@ -67,7 +68,7 @@ function _renderHomeInner(ctx) {
   let html = `<div class="view-page">
     <div class="view-page-header">
       <h1 class="view-page-title">Good ${_timeOfDay()} ✦</h1>
-      <div class="view-page-sub">${escapeHtml(config.semester)} &middot; Week ${getWeekNum()}</div>
+      <div class="view-page-sub">${escapeHtml(config.semester)} &middot; Week ${weekNum}</div>
     </div>
     <div class="home-grid">`;
 
@@ -134,33 +135,7 @@ function _renderHomeInner(ctx) {
   }
   html += `</div>`;
 
-  // ── 4. Quick Timer ──
-  const pomoRunning = state.pomoState?.running || state.pomoState?.paused;
-  html += `<div class="home-card" data-stop>
-    <div class="home-card-label">⏱ Focus Timer</div>`;
-  if (pomoRunning) {
-    const elapsed = state.pomoState?.elapsed || 0;
-    const total = (state.focusTimerMin || 25) * 60;
-    const left = Math.max(0, total - elapsed);
-    const mm = Math.floor(left / 60), ss = left % 60;
-    html += `<div class="home-card-big" style="color:var(--accent)">${mm}:${ss.toString().padStart(2, '0')}</div>
-      <div class="home-card-sub">${state.pomoState?.running ? 'Running' : 'Paused'}</div>
-      <div style="display:flex;gap:6px;margin-top:8px">
-        <button class="data-btn" data-action="togglePomoPause" style="flex:1">${state.pomoState?.running ? 'Pause' : 'Resume'}</button>
-        <button class="data-btn" data-action="cancelPomo" style="color:#e94560;border-color:#e9456033">✕</button>
-      </div>`;
-  } else {
-    html += `<div class="home-card-sub" style="margin-bottom:8px">Start a focus session</div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap">`;
-    [15, 25, 45].forEach(m => {
-      const active = state.focusTimerMin === m;
-      html += `<button class="cat-filter-btn${active ? ' active' : ''}" data-action="startPomoFromHome" data-min="${m}" style="${active ? 'background:var(--accent);color:#09090b;border-color:var(--accent)' : ''}">${m}m</button>`;
-    });
-    html += `</div>`;
-  }
-  html += `</div>`;
-
-  // ── 5. Streak ──
+  // ── 4. Streak ──
   html += `<div class="home-card" data-action="navigate" data-view="stats">
     <div class="home-card-label">🔥 Weekly Streak</div>`;
   if (recentWeeks.length > 0) {
@@ -215,6 +190,19 @@ function _renderHomeInner(ctx) {
   } else {
     html += `<div class="home-card-empty">Empty</div>
       <div class="home-card-hint">Tap to write →</div>`;
+  }
+  html += `</div>`;
+
+  // ── 9. Weekly Review ──
+  const hasReview = hasReviewForCurrentWeek();
+  html += `<div class="home-card" data-action="navigate" data-view="review">
+    <div class="home-card-label">📋 Weekly Review</div>`;
+  if (hasReview) {
+    html += `<div class="home-card-big" style="color:#00e676;font-size:11px">Review complete ✓</div>
+      <div class="home-card-hint">View or redo →</div>`;
+  } else {
+    html += `<div class="home-card-empty">Not reviewed yet</div>
+      <div class="home-card-hint">Reflect on your week →</div>`;
   }
   html += `</div>`;
 

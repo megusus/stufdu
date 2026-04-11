@@ -13,8 +13,6 @@ import {
 import { findItemById } from '../schedule.js';
 import { Storage } from '../storage.js';
 import { syncPush } from '../sync.js';
-import { startPomo, cancelPomo, togglePomoPause, restartPomo, resetPomoPosition } from './timer.js';
-
 // Forward references set by init.js
 let _render = () => {};
 let _doRender = () => {};
@@ -426,6 +424,8 @@ export function toggleShortcuts() {
       <div class="shortcut-row"><span class="shortcut-desc">Ideal Week</span><span class="shortcut-key">3</span></div>
       <div class="shortcut-row"><span class="shortcut-desc">Tools</span><span class="shortcut-key">4</span></div>
       <div class="shortcut-row"><span class="shortcut-desc">Stats</span><span class="shortcut-key">5</span></div>
+      <div class="shortcut-row"><span class="shortcut-desc">Weekly Review</span><span class="shortcut-key">6</span></div>
+      <div class="shortcut-row"><span class="shortcut-desc">Global Search</span><span class="shortcut-key">⌘K</span></div>
       <div class="shortcut-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span class="shortcut-desc">Next day</span><span class="shortcut-key">\u2192</span></div>
       <div class="shortcut-row"><span class="shortcut-desc">Previous day</span><span class="shortcut-key">\u2190</span></div>
       <div class="shortcut-row"><span class="shortcut-desc">Toggle task</span><span class="shortcut-key">Enter</span></div>
@@ -499,7 +499,6 @@ export function showTaskCtxMenu(taskId, e) {
   items.push('---');
   items.push({ icon: '\ud83d\udcdd', label: 'Add note', action: () => { state.openActions = taskId; showNoteInput(taskId); } });
   items.push({ icon: '\ud83d\udd17', label: 'Add link', action: () => addLink(taskId) });
-  items.push({ icon: '\u23f1', label: `Focus (${state.focusTimerMin}m)`, action: () => startPomo(taskId, _render, showToast) });
   items.push({ icon: '\u2192', label: 'Defer \u2192', action: () => showDeferCtxMenu(taskId, e.clientX, e.clientY, dayName) });
   items.push('---');
   items.push({ icon: '\u2715', label: 'Clear all', cls: 'danger', action: () => clearTask(taskId) });
@@ -513,19 +512,6 @@ function showDeferCtxMenu(taskId, x, y, currentDay) {
     }));
     showCtxMenu(x + 10, y, items);
   }, 10);
-}
-
-export function showTimerCtxMenu(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  if (!state.pomoState) return;
-  showCtxMenu(e.clientX, e.clientY, [
-    { icon: state.pomoState.paused ? '\u25b6' : '\u23f8', label: state.pomoState.paused ? 'Resume' : 'Pause', action: () => togglePomoPause(_render) },
-    { icon: '\u21bb', label: 'Restart', action: () => restartPomo(showToast) },
-    { icon: '\u2316', label: 'Re-center', action: () => resetPomoPosition() },
-    '---',
-    { icon: '\u2715', label: 'Stop timer', cls: 'danger', action: () => cancelPomo(_render, showToast) },
-  ]);
 }
 
 export function showTabCtxMenu(dayIdx, e) {

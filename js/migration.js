@@ -11,7 +11,7 @@ import { Storage } from './storage.js';
 const STATIC_KEYS = [
   'history', 'links', 'deadlines', 'meals', 'reading-list',
   'custom-schedule', 'day-config', 'categories', 'config',
-  'theme', 'fontscale', 'timer-min', 'scratch', 'pomo-log',
+  'theme', 'fontscale', 'scratch',
   'sync-config', 'reading-last-sync',
 ];
 

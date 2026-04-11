@@ -10,7 +10,7 @@ import { DAYS, SHORT, schedule, buildOverviewData, getDayLabel, getShortLabel, g
 import {
   state, getStatus, getDayProgress, getWeeklyProgress,
   getEstimate, formatEst, escapeHtml, getWeekKey, getWeekNum, nowInTZ,
-  getDaysUntil, getSubjectStreaks, getHeatmapData, generateWeeklySummary,
+  getDaysUntil, getSubjectStreaks, generateWeeklySummary,
   getPastWeekData, loadHistory, todayIdx,
   STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED,
 } from '../state.js';
@@ -73,7 +73,6 @@ export function buildRenderContext() {
     getActiveDays,
     getDaysUntil,
     getSubjectStreaks,
-    getHeatmapData,
     generateWeeklySummary,
     getPastWeekData,
     loadHistory,

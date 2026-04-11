@@ -24,7 +24,7 @@ export function renderSchedulePanels(ctx) {
   catch (err) { console.error('[render] SchedulePanels failed:', err); return _panelErr(ctx, err); }
 }
 
-// Tool panels — start open by default (sync, meals, reading, heatmap, data, notifs, categories, settings)
+// Tool panels — start open by default (sync, meals, reading, data, notifs, categories, settings)
 export function renderToolPanels(ctx) {
   try { return _renderPanelsInner(ctx, 'tools', true); }
   catch (err) { console.error('[render] ToolPanels failed:', err); return _panelErr(ctx, err); }
@@ -39,7 +39,7 @@ export function renderStatPanels(ctx) {
 function _renderPanelsInner(ctx, group = 'all', defaultOpen = false) {
   const { config, state, days, dayConfig, schedule, dayName, day, wp,
           escapeHtml, formatEst, getStatus, getDayProgress, getDayLabel, getShortLabel,
-          categories, buildOverviewData, getSubjectStreaks, getHeatmapData,
+          categories, buildOverviewData, getSubjectStreaks,
           generateWeeklySummary, getPastWeekData, loadHistory, getDaysUntil,
           hasSyncConfig, weekKey,
           STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS } = ctx;
@@ -430,48 +430,19 @@ function _renderPanelsInner(ctx, group = 'all', defaultOpen = false) {
         <input id="dl-name" placeholder="Name (e.g. Midterm)">
         <input id="dl-date" type="date">
         <select id="dl-cat">${categories.keys().map(k => `<option value="${k}">${categories.getLabel(k)||k}</option>`).join('')}</select>
-        <button class="pomo-btn" data-action="addDeadline">Add</button>
+        <button class="data-btn" data-action="addDeadline">Add</button>
       </div>`;
     } else {
       html += `<button class="deadline-add" data-action="showDeadlineForm">+ Add deadline</button>`;
     }
   }, 'stats');
 
-  // Heatmap
-  lazyPanel('heatmap', '\u23f1 Focus Timer & Heatmap', '', () => {
-    html += `<div style="margin-bottom:12px"><div style="font-size:10px;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Session Duration</div><div style="display:flex;gap:4px;flex-wrap:wrap">`;
-    [15, 25, 30, 45, 60, 90].forEach(m => {
-      const active = state.focusTimerMin === m;
-      html += `<button class="cat-filter-btn ${active ? 'active' : ''}" data-action="setFocusTimerMinAndRender" data-min="${m}" style="${active ? 'background:var(--accent);color:#09090b;border-color:var(--accent);font-weight:600' : ''}">${m}m</button>`;
-    });
-    html += `<input type="number" min="1" max="180" value="${state.focusTimerMin}" style="width:55px;font-family:inherit;font-size:11px;background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:20px;padding:5px 8px;text-align:center" data-change-action="setFocusTimerMinFromInput" data-key-action="stopPropagation" data-stop></div></div>`;
-    html += `<div style="font-size:10px;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Heatmap</div>`;
-    const data = getHeatmapData();
-    html += `<div class="heatmap-grid">`;
-    data.forEach(d => {
-      const lvl = d.mins <= 0 ? '' : d.mins < 30 ? 'l1' : d.mins < 60 ? 'l2' : d.mins < 120 ? 'l3' : 'l4';
-      html += `<div class="heatmap-cell ${lvl}" title="${d.date}: ${d.mins}m"></div>`;
-    });
-    html += `</div>`;
-    html += `<div class="heatmap-legend"><span>Less</span><div class="heatmap-cell"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell l2"></div><div class="heatmap-cell l3"></div><div class="heatmap-cell l4"></div><span>More</span></div>`;
-    html += `<div style="font-size:10px;color:var(--dim);margin-top:6px">Based on focus sessions. Start a timer on any task to log study time.</div>`;
-  }, 'tools');
-
   // Weekly summary
   lazyPanel('summary', '\ud83d\udccb Weekly Summary', '', () => {
     const s = generateWeeklySummary();
     html += `<div class="summary-card">
       <div class="summary-stat"><span class="summary-label">Tasks completed</span><span class="summary-value">${s.wp.done}/${s.wp.total} (${s.wp.pct}%)</span></div>
-      <div class="summary-stat"><span class="summary-label">Focus time</span><span class="summary-value">${formatEst(s.totalPomo) || '0m'}</span></div>
     </div>`;
-    if (Object.keys(s.pomoWeek).length > 0) {
-      html += `<div style="font-size:10px;color:var(--dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Time by Subject</div>`;
-      Object.entries(s.pomoWeek).sort((a,b) => b[1] - a[1]).forEach(([cat, min]) => {
-        const c = categories.getColor(cat);
-        const label = categories.getLabel(cat) || cat;
-        html += `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0"><span style="color:${c.border}">${label}</span><span style="color:var(--text);font-weight:600">${formatEst(min)}</span></div>`;
-      });
-    }
     const debtEntries = Object.entries(s.skipDebt).filter(([,c]) => c >= 1);
     if (debtEntries.length > 0) {
       html += `<div style="font-size:10px;color:var(--dim);margin:8px 0 4px;text-transform:uppercase;letter-spacing:1px">Skip Debt</div>`;
@@ -565,7 +536,6 @@ function _renderPanelsInner(ctx, group = 'all', defaultOpen = false) {
       </div>
       <div class="settings-section">
         <div class="settings-section-label">UI Defaults</div>
-        <div class="settings-row"><label>Focus Timer Default (min)</label><input class="settings-input" type="number" id="cfg-focusTimerDefault" min="1" max="180" value="${config.focusTimerDefault}"></div>
         <div class="settings-row"><label>Toast Duration (ms)</label><input class="settings-input" type="number" id="cfg-toastDuration" min="500" max="10000" value="${config.toastDuration}"></div>
         <div class="settings-row"><label>Swipe Threshold (px)</label><input class="settings-input" type="number" id="cfg-swipeThreshold" min="20" max="200" value="${config.swipeThreshold}"></div>
       </div>

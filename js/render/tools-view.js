@@ -14,7 +14,7 @@ export function renderToolsView(ctx) {
     return `<div class="view-page">
       <div class="view-page-header">
         <h1 class="view-page-title">⚙ Tools</h1>
-        <div class="view-page-sub">Configure meals, reading, timer, sync, and more${syncStatus}</div>
+        <div class="view-page-sub">Configure meals, reading, sync, and more${syncStatus}</div>
       </div>
       ${renderToolPanels(ctx)}
     </div>`;

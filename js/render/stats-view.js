@@ -10,7 +10,7 @@ export function renderStatsView(ctx) {
     return `<div class="view-page">
       <div class="view-page-header">
         <h1 class="view-page-title">◈ Stats</h1>
-        <div class="view-page-sub">Weekly streak, focus heatmap, deadlines &mdash; ${wp.done}/${wp.total} tasks this week (${wp.pct}%)</div>
+        <div class="view-page-sub">Weekly streak, deadlines, summaries &mdash; ${wp.done}/${wp.total} tasks this week (${wp.pct}%)</div>
       </div>
       ${renderStatPanels(ctx)}
     </div>`;

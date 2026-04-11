@@ -2,7 +2,7 @@
 // ── Hash-based Client Router ──
 // ════════════════════════════════════════
 
-export const VIEWS = ['home', 'schedule', 'ideal', 'tools', 'stats'];
+export const VIEWS = ['home', 'schedule', 'ideal', 'tools', 'stats', 'review'];
 
 let _renderFn = null;
 

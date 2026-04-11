@@ -21,7 +21,6 @@ export const CONFIG = {
   firebase: null,
 
   // UI defaults
-  focusTimerDefault: 25,
   toastDuration: 3500,
   saveDebounceMs: 100,
   syncDebounceMs: 500,
@@ -38,7 +37,7 @@ export const CONFIG = {
   sunriseBySeason: [7.5, 7, 6.5, 6, 5.5, 5.5, 5.5, 6, 6.5, 7, 7, 7.5],
   sunsetBySeason: [17, 17.5, 18, 19, 19.5, 20.5, 20.5, 20, 19, 18, 17, 16.5],
 
-  // Semester start (for heatmap)
+  // Semester start
   semesterStart: [2026, 1, 9], // [year, monthIdx, day]
 };
 

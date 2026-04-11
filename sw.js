@@ -1,4 +1,4 @@
-const CACHE_VERSION = 11;
+const CACHE_VERSION = 12;
 const CACHE_NAME = 'study-plan-v' + CACHE_VERSION;
 const ASSETS = [
   './',
@@ -17,9 +17,10 @@ const ASSETS = [
   './js/migration.js',
   './js/router.js',
   './js/ideal.js',
+  './js/review.js',
   './js/ui/theme.js',
-  './js/ui/timer.js',
   './js/ui/toggle.js',
+  './js/ui/global-search.js',
   './js/ui/search.js',
   './js/ui/swipe.js',
   './js/ui/dispatch.js',
@@ -33,6 +34,7 @@ const ASSETS = [
   './js/render/ideal.js',
   './js/render/tools-view.js',
   './js/render/stats-view.js',
+  './js/render/review.js',
   './js/render/week-view.js',
   './js/render/day-view.js',
   './js/render/panels.js',

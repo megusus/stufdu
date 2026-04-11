@@ -476,7 +476,7 @@
     test('has all required keys', () => {
       if (!CONFIG) return;
       ['storagePrefix','timezone','passwordHash','semester','appTitle',
-       'focusTimerDefault','toastDuration','swipeThreshold','searchDebounceMs',
+       'toastDuration','swipeThreshold','searchDebounceMs',
        'mealApiUrl','goodreadsRss','themeColors'].forEach(k => {
         assert(k in CONFIG, `Missing CONFIG key: ${k}`);
       });
@@ -489,7 +489,6 @@
 
     test('numeric defaults are positive', () => {
       if (!CONFIG) return;
-      assert(CONFIG.focusTimerDefault > 0, 'focusTimerDefault must be > 0');
       assert(CONFIG.toastDuration > 0, 'toastDuration must be > 0');
       assert(CONFIG.swipeThreshold > 0, 'swipeThreshold must be > 0');
     });
@@ -957,7 +956,7 @@
         './js/init.js', './js/config.js', './js/storage.js', './js/categories.js',
         './js/schedule.js', './js/state.js', './js/meals.js', './js/data.js',
         './js/migration.js', './js/render/index.js', './js/render/context.js',
-        './js/ui/dispatch.js', './js/ui/timer.js', './js/ui/toggle.js',
+        './js/ui/dispatch.js', './js/ui/toggle.js',
         './js/ui/settings.js', './js/ui/categories-editor.js',
       ];
       required.forEach(path => {

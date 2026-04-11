@@ -15,7 +15,6 @@ import { renderDayView as renderDayViewModule } from './day-view.js';
 import { renderSchedulePanels } from './panels.js';
 import { renderFAB } from './fab.js';
 import { renderScratchpad } from './scratchpad.js';
-import { ensurePomoBar } from '../ui/timer.js';
 import { showToast } from '../ui/toggle.js';
 import { currentView } from '../router.js';
 import { renderNav } from './nav.js';
@@ -23,6 +22,7 @@ import { renderHome } from './home.js';
 import { renderIdealView } from './ideal.js';
 import { renderToolsView } from './tools-view.js';
 import { renderStatsView } from './stats-view.js';
+import { renderReviewView } from './review.js';
 
 // ── Render batching ──
 let _renderQueued = false;
@@ -96,6 +96,8 @@ function _doRenderInner() {
     html = renderToolsView(ctx);
   } else if (view === 'stats') {
     html = renderStatsView(ctx);
+  } else if (view === 'review') {
+    html = renderReviewView(ctx);
   } else {
     html = renderHome(ctx);
   }
@@ -109,9 +111,6 @@ function _doRenderInner() {
 
   // Scratchpad
   renderScratchpad(ctx);
-
-  // Focus timer bar
-  ensurePomoBar(render, showToast);
 
   // Restore focus
   if (_focusId) {

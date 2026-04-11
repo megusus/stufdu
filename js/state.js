@@ -118,11 +118,6 @@ export const state = {
   renamingDayName: null,     // dayName | null
   showDayManager: false,
 
-  // Focus timer
-  pomoState: null,
-  pomoInterval: null,
-  focusTimerMin: CONFIG.focusTimerDefault,
-
   // Notifications
   notifEnabled: typeof Notification !== 'undefined' && Notification.permission === 'granted',
   notifTimers: [],
@@ -212,7 +207,6 @@ export function loadState() {
   state.deadlines = Storage.get('deadlines', []);
   state.mealData = Storage.get('meals', {});
   state.fontScale = Storage.getRaw('fontscale', 'normal') || 'normal';
-  state.focusTimerMin = parseInt(Storage.getRaw('timer-min', '')) || CONFIG.focusTimerDefault;
   // Reading list
   state.readingList = Storage.get('reading-list', null) || READING_LIST_DEFAULT;
   state.readingLastSync = Storage.getRaw('reading-sync-ts', '') || null;
@@ -263,35 +257,6 @@ export function loadHistory() {
 // ── Scratchpad ──
 export function loadScratchpad() { return Storage.getRaw('scratch', ''); }
 export function saveScratchpad(text) { Storage.setRaw('scratch', text); }
-
-// ── Pomo log ──
-export function logPomoSession(taskId, elapsed) {
-  try {
-    const log = Storage.get('pomo-log', {});
-    const today = nowInTZ();
-    const dateKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-    if (!log[dateKey]) log[dateKey] = {};
-    const item = findItemById(taskId);
-    const cat = item ? item.cat : 'unknown';
-    log[dateKey][cat] = (log[dateKey][cat] || 0) + Math.round(elapsed / 60000);
-    Storage.set('pomo-log', log);
-  } catch (e) { /* non-critical */ }
-}
-
-export function getPomoLog() { return Storage.get('pomo-log', {}); }
-
-export function getWeeklyPomoMinutes() {
-  const log = getPomoLog();
-  const totals = {};
-  const now = nowInTZ();
-  const dow = now.getDay() === 0 ? 6 : now.getDay() - 1;
-  for (let i = 0; i <= dow; i++) {
-    const d = new Date(now); d.setDate(d.getDate() - (dow - i));
-    const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    if (log[dk]) { for (const [cat, min] of Object.entries(log[dk])) { totals[cat] = (totals[cat] || 0) + min; } }
-  }
-  return totals;
-}
 
 // ── Day helpers ──
 export function getTaskDay(id) {
@@ -427,29 +392,12 @@ export function getCommuteInfo() {
   return { label: `Leave in`, mins: diff, time: day.leave };
 }
 
-// ── Heatmap ──
-export function getHeatmapData() {
-  const data = [];
-  const log = getPomoLog();
-  const [sy, sm, sd] = CONFIG.semesterStart;
-  const semesterStart = new Date(sy, sm, sd);
-  const now = nowInTZ();
-  for (let d = new Date(semesterStart); d <= now; d.setDate(d.getDate() + 1)) {
-    const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const mins = log[dk] ? Object.values(log[dk]).reduce((a,b) => a+b, 0) : 0;
-    data.push({ date: dk, mins, day: d.getDay() });
-  }
-  return data;
-}
-
 // ── Weekly summary ──
 export function generateWeeklySummary() {
   const wp = getWeeklyProgress();
-  const pomoWeek = getWeeklyPomoMinutes();
-  const totalPomo = Object.values(pomoWeek).reduce((a,b) => a+b, 0);
   const skipDebt = getSkipDebt();
   const streaks = getSubjectStreaks();
-  return { wp, totalPomo, pomoWeek, skipDebt, streaks };
+  return { wp, skipDebt, streaks };
 }
 
 // ── Days until helper ──

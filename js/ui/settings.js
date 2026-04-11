@@ -13,7 +13,6 @@ export function applySettings(render, showToast) {
     semester:          v('cfg-semester').trim()         || CONFIG.semester,
     headerTag:         v('cfg-headerTag').trim()        || CONFIG.headerTag,
     timezone:          v('cfg-timezone')                || CONFIG.timezone,
-    focusTimerDefault: num('cfg-focusTimerDefault',      CONFIG.focusTimerDefault),
     toastDuration:     num('cfg-toastDuration',          CONFIG.toastDuration),
     swipeThreshold:    num('cfg-swipeThreshold',         CONFIG.swipeThreshold),
     mealApiUrl:        v('cfg-mealApiUrl').trim()        || CONFIG.mealApiUrl,
