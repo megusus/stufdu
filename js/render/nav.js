@@ -26,6 +26,7 @@ const NAV_ITEMS = [
 export function renderNav(ctx) {
   const active = currentView();
   const { escapeHtml, config, currentTheme } = ctx;
+  const inboxCount = getInboxCount();
 
   const sidebarEl = document.getElementById('sidebar');
   if (sidebarEl) {
@@ -37,7 +38,6 @@ export function renderNav(ctx) {
       </div>
     </div>
     <nav class="sidebar-nav">`;
-    const inboxCount = getInboxCount();
     NAV_ITEMS.forEach(({ id, icon, label }) => {
       const badge = id === 'inbox' && inboxCount > 0 ? `<span class="nav-badge">${inboxCount}</span>` : '';
       h += `<a class="sidebar-link${active === id ? ' active' : ''}" href="#${id}">
