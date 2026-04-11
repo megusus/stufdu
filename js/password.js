@@ -28,18 +28,39 @@ export function initPasswordGate(onUnlocked) {
   const lockInput = document.getElementById('lock-input');
   if (!lockInput) return;
 
-  lockInput.addEventListener('keydown', async (e) => {
-    if (e.key !== 'Enter') return;
-    const hash = await hashPass(lockInput.value);
-    if (hash === CONFIG.passwordHash) {
-      unlock();
-      if (onUnlocked) onUnlocked();
-    } else {
+  async function tryUnlock() {
+    try {
+      const hash = await hashPass(lockInput.value);
+      if (hash === CONFIG.passwordHash) {
+        unlock();
+        if (onUnlocked) onUnlocked();
+      } else {
+        const errEl = document.getElementById('lock-error');
+        if (errEl) errEl.style.display = 'block';
+        lockInput.value = '';
+        lockInput.style.borderColor = '#e94560';
+        setTimeout(() => {
+          if (errEl) errEl.style.display = 'none';
+          lockInput.style.borderColor = '';
+          lockInput.focus();
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('[password] Hash error:', err);
+      // Fallback: if crypto.subtle unavailable, show a message
       const errEl = document.getElementById('lock-error');
-      errEl.style.display = 'block';
-      lockInput.value = '';
-      lockInput.style.borderColor = '#e94560';
-      setTimeout(() => { errEl.style.display = 'none'; lockInput.style.borderColor = ''; }, 2000);
+      if (errEl) {
+        errEl.textContent = 'Cannot verify password (requires HTTPS)';
+        errEl.style.display = 'block';
+      }
     }
+  }
+
+  lockInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') tryUnlock();
   });
+
+  // Also wire up submit button if present
+  const lockBtn = document.getElementById('lock-submit');
+  if (lockBtn) lockBtn.addEventListener('click', tryUnlock);
 }

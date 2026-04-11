@@ -6,7 +6,7 @@ import { CONFIG } from './config.js';
 import { Storage } from './storage.js';
 import { CategoryRegistry } from './categories.js';
 import { DAYS, schedule, addTaskToSection, removeTaskFromSchedule, renameSectionInSchedule, addSectionToDay, removeSectionFromDay, moveSectionInDay, moveTaskInSection, updateDayMetadata, addDayToSchedule, removeDayFromSchedule, dayConfig, setDayActive, setDayAlias, saveDayConfig, saveScheduleToStorage, getDayLabel, loadCustomSchedule } from './schedule.js';
-import { state, loadState, saveState, saveLinks, saveDeadlines, saveMeals, saveReadingList, loadHistory, loadScratchpad, saveScratchpad, getWeekKey, getWeekNum, getISOWeek, nowInTZ, getStatus, getDayProgress, getWeeklyProgress, invalidateProgressCache, STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED, todayIdx, READING_LIST_DEFAULT, escapeHtml, formatEst, haptic } from './state.js';
+import { state, loadState, saveState, saveLinks, saveDeadlines, saveMeals, saveReadingList, loadHistory, loadScratchpad, saveScratchpad, getWeekKey, getWeekNum, getISOWeek, nowInTZ, getStatus, getDayProgress, getWeeklyProgress, invalidateProgressCache, STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED, todayIdx, READING_LIST_DEFAULT, escapeHtml, formatEst, haptic, saveLectureNotes, saveTaskBlockedBy } from './state.js';
 import { initPasswordGate } from './password.js';
 import { syncGoodreads, saveGoodreadsCSV, handleGoodreadsFile } from './reading.js';
 import { getSyncConfig, connectSync, disconnectSync, setupStoredSync, syncPush, updateSyncDot } from './sync.js';
@@ -26,7 +26,6 @@ import {
   getReviewStep, setReviewStep, resetReview, setReviewDraft, getReviewDraft,
   generateReviewData, saveReview,
 } from './review.js';
-import { getWeekKey } from './state.js';
 import { toggleGlobalSearch, closeGlobalSearch, isGlobalSearchOpen } from './ui/global-search.js';
 import { addToInbox, removeFromInbox, clearInbox, moveInboxToScratchpad, moveInboxToDeadline, loadInbox } from './inbox.js';
 import { addHabit, removeHabit, toggleHabitToday, loadHabits } from './habits.js';
@@ -41,13 +40,11 @@ import { addGoal, removeGoal, updateGoalProgress, loadGoals } from './goals.js';
 import { logCompletionTime } from './analytics.js';
 import { initBroadcastChannel, initOnlineDetection, replayQueue, getQueueSize } from './offline-queue.js';
 import { addRecurringTask, removeRecurringTask, loadRecurringTasks } from './recurrence.js';
-import { saveTaskBlockedBy } from './state.js';
 import { setCalendarMode } from './render/calendar.js';
 import {
   openOnboarding, closeOnboarding, getOnboardingStep, setOnboardingStep,
   markOnboardingDone, shouldShowOnboarding,
 } from './onboarding.js';
-import { saveLectureNotes } from './state.js';
 
 // Extracted modules
 import { fetchMeals, savePastedMeals, toggleMealPaste, clearMealData } from './meals.js';
