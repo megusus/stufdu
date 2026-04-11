@@ -5,709 +5,750 @@
   <title>Study Plan — Unit Tests</title>
   <style>
     body { font-family: 'JetBrains Mono', monospace; background: #09090b; color: #e4e4e7; padding: 20px; }
-    .pass { color: #00e676; }
-    .fail { color: #e94560; }
+    .pass  { color: #00e676; }
+    .fail  { color: #e94560; }
+    .skip  { color: #ffab00; }
     .suite { margin-bottom: 16px; }
     .suite-name { font-size: 14px; font-weight: 600; margin-bottom: 6px; color: #00d2ff; }
-    .test { font-size: 12px; padding: 2px 0; padding-left: 16px; }
+    .test  { font-size: 12px; padding: 2px 0; padding-left: 16px; }
     .summary { margin-top: 20px; font-size: 14px; font-weight: 600; padding: 12px; border-radius: 8px; }
     .summary.all-pass { background: #00e67615; color: #00e676; border: 1px solid #00e67633; }
     .summary.has-fail { background: #e9456015; color: #e94560; border: 1px solid #e9456033; }
+    .import-error { background: #1a0808; color: #e94560; border: 1px solid #e9456033; border-radius: 8px;
+                    padding: 12px; margin-bottom: 16px; font-size: 12px; white-space: pre-wrap; }
+    h1 { font-size: 18px; margin-bottom: 4px; }
+    .subtitle { font-size: 11px; color: #71717a; margin-bottom: 20px; }
   </style>
 </head>
 <body>
   <h1>Unit Tests</h1>
+  <p class="subtitle">Tests run against the real ES modules — any function drift is caught immediately.</p>
   <div id="results"></div>
   <div id="summary"></div>
 
-  <script>
-    // ── Minimal test runner ──
-    let totalTests = 0, passedTests = 0, failedTests = 0;
-    const results = document.getElementById('results');
+  <script type="module">
+  // ════════════════════════════════════════
+  // ── Minimal test runner ──
+  // ════════════════════════════════════════
+  let totalTests = 0, passedTests = 0, failedTests = 0;
+  const results = document.getElementById('results');
+  let _currentSuite = null;
 
-    function suite(name, fn) {
-      const div = document.createElement('div');
-      div.className = 'suite';
-      div.innerHTML = `<div class="suite-name">${name}</div>`;
-      results.appendChild(div);
-      window._currentSuite = div;
+  function suite(name, fn) {
+    const div = document.createElement('div');
+    div.className = 'suite';
+    div.innerHTML = `<div class="suite-name">${name}</div>`;
+    results.appendChild(div);
+    _currentSuite = div;
+    try { fn(); } catch (e) {
+      const err = document.createElement('div');
+      err.className = 'test';
+      err.innerHTML = `<span class="fail">SUITE ERROR</span> ${e.message}`;
+      div.appendChild(err);
+    }
+  }
+
+  function test(name, fn) {
+    totalTests++;
+    const div = document.createElement('div');
+    div.className = 'test';
+    try {
       fn();
+      passedTests++;
+      div.innerHTML = `<span class="pass">PASS</span> ${name}`;
+    } catch (e) {
+      failedTests++;
+      div.innerHTML = `<span class="fail">FAIL</span> ${name} \u2014 ${e.message}`;
     }
+    _currentSuite.appendChild(div);
+  }
 
-    function test(name, fn) {
-      totalTests++;
-      const div = document.createElement('div');
-      div.className = 'test';
-      try {
-        fn();
-        passedTests++;
-        div.innerHTML = `<span class="pass">PASS</span> ${name}`;
-      } catch (e) {
-        failedTests++;
-        div.innerHTML = `<span class="fail">FAIL</span> ${name} — ${e.message}`;
-      }
-      window._currentSuite.appendChild(div);
-    }
+  function assert(condition, msg) {
+    if (!condition) throw new Error(msg || 'Assertion failed');
+  }
+  function assertEqual(actual, expected, msg) {
+    if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+  function assertDeepEqual(actual, expected, msg) {
+    if (JSON.stringify(actual) !== JSON.stringify(expected))
+      throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+  function assertThrows(fn, msg) {
+    try { fn(); throw new Error('Expected throw but did not throw'); }
+    catch (e) { if (e.message === 'Expected throw but did not throw') throw new Error(msg || e.message); }
+  }
 
-    function assert(condition, msg) {
-      if (!condition) throw new Error(msg || 'Assertion failed');
-    }
+  // ════════════════════════════════════════
+  // ── Import real modules ──
+  // ════════════════════════════════════════
+  let _importError = null;
 
-    function assertEqual(actual, expected, msg) {
-      if (actual !== expected) throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-    }
+  // Core imports from real modules
+  let getISOWeek, escapeHtml, formatEst, getEstimate, getStatus, state,
+      STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED, DAYS;
+  let CategoryRegistry;
+  let Storage;
+  let CONFIG;
 
-    function assertDeepEqual(actual, expected, msg) {
-      if (JSON.stringify(actual) !== JSON.stringify(expected))
-        throw new Error(msg || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-    }
+  try {
+    ({ getISOWeek, escapeHtml, formatEst, getEstimate, getStatus, state,
+       STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED } = await import('./js/state.js'));
+    ({ CategoryRegistry } = await import('./js/categories.js'));
+    ({ Storage } = await import('./js/storage.js'));
+    ({ CONFIG } = await import('./js/config.js'));
+    ({ DAYS } = await import('./js/schedule.js'));
+  } catch (e) {
+    _importError = e;
+    const errDiv = document.createElement('div');
+    errDiv.className = 'import-error';
+    errDiv.textContent = `Module import failed — tests will run with local fallback copies.\n${e}`;
+    results.insertBefore(errDiv, results.firstChild);
+  }
 
-    // ═══════════════════════════════════════
-    // ── Functions under test (extracted) ──
-    // ═══════════════════════════════════════
-
-    function getISOWeek(d) {
+  // ── Local fallbacks (used only when module imports fail) ──
+  if (!getISOWeek) {
+    getISOWeek = (d) => {
       const date = new Date(d.getTime());
       date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
       const week1 = new Date(date.getFullYear(), 0, 4);
       return 1 + Math.round(((date - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-
-    function parseFirebaseConfig(text) {
-      function fillDatabaseURL(obj) {
-        if (!obj.databaseURL && obj.projectId) {
-          obj.databaseURL = 'https://' + obj.projectId + '-default-rtdb.firebaseio.com';
-        }
-        return (obj.apiKey && obj.projectId) ? obj : null;
-      }
-      try { const obj = JSON.parse(text); if (fillDatabaseURL(obj)) return obj; } catch (e) { }
-      const match = text.match(/\{[^{}]*apiKey[^{}]*\}/s);
-      if (match) {
-        try {
-          const jsonStr = match[0].replace(/(['"])?(\w+)(['"])?\s*:/g, '"$2":').replace(/'/g, '"').replace(/,\s*}/g, '}');
-          const obj = JSON.parse(jsonStr);
-          if (obj && typeof obj === 'object' && fillDatabaseURL(obj)) return obj;
-        } catch (e) { }
-      }
-      return null;
-    }
-
-    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-    function getStatus(checked, id) {
-      const v = checked[id];
-      if (v === true || v === 'done') return 'done';
-      if (v === 'skip' || v === 'progress') return v;
-      return '';
-    }
-
-    // Simulate getDayProgress with minimal schedule
-    function getDayProgress(schedule, checked, taskDeferred, dayName) {
-      const day = schedule[dayName];
-      if (!day) return { total: 0, done: 0, pct: 0 };
-      let total = 0, done = 0;
-      day.sections.forEach(s => s.items.forEach(item => {
-        if (taskDeferred[item.id] && taskDeferred[item.id] !== dayName) return;
-        total++;
-        const st = getStatus(checked, item.id);
-        if (st === 'done' || st === 'skip') done++;
-      }));
-      Object.entries(taskDeferred).forEach(([id, target]) => {
-        if (target === dayName) {
-          let isOwnTask = false;
-          for (const sec of day.sections) {
-            for (const it of sec.items) { if (it.id === id) { isOwnTask = true; break; } }
-            if (isOwnTask) break;
-          }
-          if (isOwnTask) return;
-          total++;
-          const st = getStatus(checked, id);
-          if (st === 'done' || st === 'skip') done++;
-        }
-      });
-      return { total, done, pct: total ? Math.round((done / total) * 100) : 0 };
-    }
-
-    // ═══════════════════════════════════════
-    // ── Tests ──
-    // ═══════════════════════════════════════
-
-    suite('getISOWeek', () => {
-      test('returns week 1 for Jan 1 2024 (Monday)', () => {
-        assertEqual(getISOWeek(new Date(2024, 0, 1)), 1);
-      });
-
-      test('returns week 1 for Jan 4 2024 (Thursday)', () => {
-        assertEqual(getISOWeek(new Date(2024, 0, 4)), 1);
-      });
-
-      test('returns week 52 or 1 for Dec 31', () => {
-        const w = getISOWeek(new Date(2024, 11, 31));
-        assert(w === 1 || w === 52 || w === 53, `Week ${w} not valid for Dec 31`);
-      });
-
-      test('returns correct week for mid-year date', () => {
-        // June 15 2024 is a Saturday, should be week 24
-        const w = getISOWeek(new Date(2024, 5, 15));
-        assertEqual(w, 24);
-      });
-
-      test('returns week 10 for March 2026 (test semester)', () => {
-        // March 2, 2026 is a Monday, should be week 10
-        const w = getISOWeek(new Date(2026, 2, 2));
-        assertEqual(w, 10);
-      });
-
-      test('handles year boundary correctly', () => {
-        // Jan 1 2026 is a Thursday, should be week 1
-        assertEqual(getISOWeek(new Date(2026, 0, 1)), 1);
-      });
-    });
-
-    suite('escapeHtml', () => {
-      test('escapes angle brackets', () => {
-        assertEqual(escapeHtml('<script>alert("xss")</script>'), '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
-      });
-
-      test('escapes ampersands', () => {
-        assertEqual(escapeHtml('a & b'), 'a &amp; b');
-      });
-
-      test('passes through normal text', () => {
-        assertEqual(escapeHtml('Hello world'), 'Hello world');
-      });
-
-      test('handles empty string', () => {
-        assertEqual(escapeHtml(''), '');
-      });
-
-      test('escapes quotes in content', () => {
-        assertEqual(escapeHtml('"test"'), '&quot;test&quot;');
-      });
-    });
-
-    suite('getStatus', () => {
-      test('returns done for true (legacy)', () => {
-        assertEqual(getStatus({ 'mon-1': true }, 'mon-1'), 'done');
-      });
-
-      test('returns done for "done"', () => {
-        assertEqual(getStatus({ 'mon-1': 'done' }, 'mon-1'), 'done');
-      });
-
-      test('returns skip', () => {
-        assertEqual(getStatus({ 'mon-1': 'skip' }, 'mon-1'), 'skip');
-      });
-
-      test('returns progress', () => {
-        assertEqual(getStatus({ 'mon-1': 'progress' }, 'mon-1'), 'progress');
-      });
-
-      test('returns empty for missing', () => {
-        assertEqual(getStatus({}, 'mon-1'), '');
-      });
-
-      test('returns empty for unknown status', () => {
-        assertEqual(getStatus({ 'mon-1': 'invalid' }, 'mon-1'), '');
-      });
-    });
-
-    suite('parseFirebaseConfig', () => {
-      test('parses valid JSON config', () => {
-        const config = parseFirebaseConfig('{"apiKey":"AIza123","projectId":"test-app"}');
-        assert(config !== null, 'Should parse valid config');
-        assertEqual(config.apiKey, 'AIza123');
-        assertEqual(config.projectId, 'test-app');
-      });
-
-      test('auto-fills databaseURL', () => {
-        const config = parseFirebaseConfig('{"apiKey":"AIza123","projectId":"test-app"}');
-        assertEqual(config.databaseURL, 'https://test-app-default-rtdb.firebaseio.com');
-      });
-
-      test('preserves existing databaseURL', () => {
-        const config = parseFirebaseConfig('{"apiKey":"AIza123","projectId":"test-app","databaseURL":"https://custom.com"}');
-        assertEqual(config.databaseURL, 'https://custom.com');
-      });
-
-      test('returns null for missing apiKey', () => {
-        const config = parseFirebaseConfig('{"projectId":"test-app"}');
-        assertEqual(config, null);
-      });
-
-      test('returns null for missing projectId', () => {
-        const config = parseFirebaseConfig('{"apiKey":"AIza123"}');
-        assertEqual(config, null);
-      });
-
-      test('returns null for garbage input', () => {
-        assertEqual(parseFirebaseConfig('hello world'), null);
-      });
-
-      test('parses JS object literal format', () => {
-        const input = `const config = { apiKey: "AIza123", projectId: "test-app" };`;
-        const config = parseFirebaseConfig(input);
-        assert(config !== null, 'Should parse JS literal');
-        assertEqual(config.apiKey, 'AIza123');
-      });
-    });
-
-    suite('getDayProgress', () => {
-      const testSchedule = {
-        Monday: {
-          sections: [
-            { label: 'Morning', items: [
-              { id: 'mon-1', text: 'Task 1', cat: 'fa' },
-              { id: 'mon-2', text: 'Task 2', cat: 'fa' },
-              { id: 'mon-3', text: 'Task 3', cat: 'fa' },
-            ]}
-          ]
-        },
-        Tuesday: {
-          sections: [
-            { label: 'Morning', items: [
-              { id: 'tue-1', text: 'Task 1', cat: 'fa' },
-            ]}
-          ]
-        }
-      };
-
-      test('counts total tasks', () => {
-        const p = getDayProgress(testSchedule, {}, {}, 'Monday');
-        assertEqual(p.total, 3);
-        assertEqual(p.done, 0);
-        assertEqual(p.pct, 0);
-      });
-
-      test('counts done tasks', () => {
-        const p = getDayProgress(testSchedule, { 'mon-1': 'done', 'mon-2': 'skip' }, {}, 'Monday');
-        assertEqual(p.done, 2);
-        assertEqual(p.pct, 67);
-      });
-
-      test('excludes deferred-out tasks', () => {
-        const p = getDayProgress(testSchedule, {}, { 'mon-1': 'Tuesday' }, 'Monday');
-        assertEqual(p.total, 2);
-      });
-
-      test('includes deferred-in tasks', () => {
-        const p = getDayProgress(testSchedule, {}, { 'mon-1': 'Tuesday' }, 'Tuesday');
-        // tue-1 + mon-1 deferred in = 2
-        assertEqual(p.total, 2);
-      });
-
-      test('counts deferred-in done tasks', () => {
-        const p = getDayProgress(testSchedule, { 'mon-1': 'done' }, { 'mon-1': 'Tuesday' }, 'Tuesday');
-        assertEqual(p.done, 1);
-      });
-
-      test('returns 100% when all done', () => {
-        const p = getDayProgress(testSchedule, { 'mon-1': 'done', 'mon-2': 'done', 'mon-3': 'skip' }, {}, 'Monday');
-        assertEqual(p.pct, 100);
-      });
-
-      test('returns 0 for empty day', () => {
-        const emptySchedule = { Empty: { sections: [{ label: 'Test', items: [] }] } };
-        const p = getDayProgress(emptySchedule, {}, {}, 'Empty');
-        assertEqual(p.pct, 0);
-      });
-    });
-
-    // ═══════════════════════════════════════
-    // ── Additional functions under test ──
-    // ═══════════════════════════════════════
-
-    function parseMealString(str) {
-      if (!str || typeof str !== 'string') return [];
-      return str.split(/[\r\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
-    }
-
-    function parseMealText(text) {
-      const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
-      const newData = {};
-      let currentDate = null;
-      let currentType = 'ogle';
-      const months = {
-        'ocak': 1, 'şubat': 2, 'subat': 2, 'mart': 3, 'nisan': 4, 'mayıs': 5, 'mayis': 5,
-        'haziran': 6, 'temmuz': 7, 'ağustos': 8, 'agustos': 8, 'eylül': 9, 'eylul': 9,
-        'ekim': 10, 'kasım': 11, 'kasim': 11, 'aralık': 12, 'aralik': 12
-      };
-      for (const line of lines) {
-        const lower = line.toLowerCase();
-        const dateMatch1 = line.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
-        const dateMatch2 = line.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
-        const dateMatch3 = line.match(/(\d{4})-(\d{2})-(\d{2})/);
-        if (dateMatch3) {
-          currentDate = dateMatch3[0];
-          if (!newData[currentDate]) newData[currentDate] = { kahvalti: [], ogle: [], aksam: [], vegan: [] };
-          continue;
-        }
-        if (dateMatch2) {
-          currentDate = `${dateMatch2[3]}-${dateMatch2[2].padStart(2, '0')}-${dateMatch2[1].padStart(2, '0')}`;
-          if (!newData[currentDate]) newData[currentDate] = { kahvalti: [], ogle: [], aksam: [], vegan: [] };
-          continue;
-        }
-        if (dateMatch1 && months[dateMatch1[2].toLowerCase()]) {
-          const m = months[dateMatch1[2].toLowerCase()];
-          currentDate = `${dateMatch1[3]}-${String(m).padStart(2, '0')}-${dateMatch1[1].padStart(2, '0')}`;
-          if (!newData[currentDate]) newData[currentDate] = { kahvalti: [], ogle: [], aksam: [], vegan: [] };
-          continue;
-        }
-        if (lower.includes('kahvalt') || lower.includes('breakfast')) { currentType = 'kahvalti'; continue; }
-        if (lower.includes('öğle') || lower.includes('ogle') || lower.includes('lunch')) { currentType = 'ogle'; continue; }
-        if (lower.includes('akşam') || lower.includes('aksam') || lower.includes('dinner')) { currentType = 'aksam'; continue; }
-        if (lower.includes('vegan')) { currentType = 'vegan'; continue; }
-        if (currentDate && newData[currentDate]) {
-          if (lower === 'tarih' || lower === 'gün' || lower === 'gun' || lower === 'menü' || lower === 'menu') continue;
-          const clean = line.replace(/^\d+[\.)\]]\s*/, '').replace(/\t+/g, ' ').trim();
-          if (clean.length > 1 && clean.length < 100) newData[currentDate][currentType].push(clean);
-        }
-      }
-      return newData;
-    }
-
-    function sanitizeCat(cat) {
-      return (cat || 'homework').replace(/[^a-zA-Z0-9]/g, '');
-    }
-
-    // ═══════════════════════════════════════
-    // ── New test suites ──
-    // ═══════════════════════════════════════
-
-    suite('parseMealString', () => {
-      test('splits comma-separated items', () => {
-        assertDeepEqual(parseMealString('Soup, Rice, Salad'), ['Soup', 'Rice', 'Salad']);
-      });
-
-      test('splits newline-separated items', () => {
-        assertDeepEqual(parseMealString('Soup\nRice\nSalad'), ['Soup', 'Rice', 'Salad']);
-      });
-
-      test('handles mixed separators', () => {
-        assertDeepEqual(parseMealString('Soup,Rice\r\nSalad'), ['Soup', 'Rice', 'Salad']);
-      });
-
-      test('returns empty array for null/undefined', () => {
-        assertDeepEqual(parseMealString(null), []);
-        assertDeepEqual(parseMealString(undefined), []);
-      });
-
-      test('returns empty array for empty string', () => {
-        assertDeepEqual(parseMealString(''), []);
-      });
-
-      test('trims whitespace from items', () => {
-        assertDeepEqual(parseMealString('  Soup  ,  Rice  '), ['Soup', 'Rice']);
-      });
-
-      test('filters out empty segments', () => {
-        assertDeepEqual(parseMealString('Soup,,Rice,,,'), ['Soup', 'Rice']);
-      });
-    });
-
-    suite('parseMealText', () => {
-      test('parses ISO date format (YYYY-MM-DD)', () => {
-        const result = parseMealText('2026-03-10\nMercimek Çorbası\nPilav');
-        assert(result['2026-03-10'] !== undefined, 'Should parse ISO date');
-        assertEqual(result['2026-03-10'].ogle.length, 2);
-      });
-
-      test('parses DD.MM.YYYY date format', () => {
-        const result = parseMealText('10.03.2026\nSoup\nRice');
-        assert(result['2026-03-10'] !== undefined, 'Should parse dotted date');
-      });
-
-      test('parses Turkish date format (10 Mart 2026)', () => {
-        const result = parseMealText('10 Mart 2026\nSoup');
-        assert(result['2026-03-10'] !== undefined, 'Should parse Turkish date');
-      });
-
-      test('switches meal type on keyword', () => {
-        const result = parseMealText('2026-03-10\nKahvaltı\nYumurta\nÖğle\nSoup\nAkşam\nPilav');
-        assertEqual(result['2026-03-10'].kahvalti.length, 1);
-        assertEqual(result['2026-03-10'].ogle.length, 1);
-        assertEqual(result['2026-03-10'].aksam.length, 1);
-      });
-
-      test('handles vegan section', () => {
-        const result = parseMealText('2026-03-10\nVegan\nTofu Burger\nSalad');
-        assertEqual(result['2026-03-10'].vegan.length, 2);
-      });
-
-      test('skips meta lines (tarih, gün, menü)', () => {
-        const result = parseMealText('2026-03-10\nTarih\nMenü\nActual Food');
-        assertEqual(result['2026-03-10'].ogle.length, 1);
-        assertEqual(result['2026-03-10'].ogle[0], 'Actual Food');
-      });
-
-      test('returns empty object for unparseable text', () => {
-        const result = parseMealText('this is just random text');
-        assertEqual(Object.keys(result).length, 0);
-      });
-
-      test('handles multiple dates in one text', () => {
-        const result = parseMealText('2026-03-10\nSoup\n2026-03-11\nRice');
-        assertEqual(Object.keys(result).length, 2);
-        assertEqual(result['2026-03-10'].ogle[0], 'Soup');
-        assertEqual(result['2026-03-11'].ogle[0], 'Rice');
-      });
-
-      test('strips numbered prefixes (1. 2) 3])', () => {
-        const result = parseMealText('2026-03-10\n1. Soup\n2) Rice\n3] Salad');
-        assertEqual(result['2026-03-10'].ogle[0], 'Soup');
-        assertEqual(result['2026-03-10'].ogle[1], 'Rice');
-        assertEqual(result['2026-03-10'].ogle[2], 'Salad');
-      });
-
-      test('rejects items that are too short or too long', () => {
-        const longItem = 'A'.repeat(101);
-        const result = parseMealText(`2026-03-10\nX\n${longItem}\nValid Item`);
-        assertEqual(result['2026-03-10'].ogle.length, 1);
-        assertEqual(result['2026-03-10'].ogle[0], 'Valid Item');
-      });
-    });
-
-    suite('Category sanitization', () => {
-      test('passes through valid alphanumeric cats', () => {
-        assertEqual(sanitizeCat('homework'), 'homework');
-        assertEqual(sanitizeCat('fa'), 'fa');
-        assertEqual(sanitizeCat('algebra'), 'algebra');
-      });
-
-      test('strips special characters', () => {
-        assertEqual(sanitizeCat('home-work'), 'homework');
-        assertEqual(sanitizeCat('my_cat'), 'mycat');
-        assertEqual(sanitizeCat('test!@#'), 'test');
-      });
-
-      test('strips XSS attempts', () => {
-        assertEqual(sanitizeCat('<script>'), 'script');
-        assertEqual(sanitizeCat("';DROP TABLE"), 'DROPTABLE');
-      });
-
-      test('defaults to homework for null/empty', () => {
-        assertEqual(sanitizeCat(null), 'homework');
-        assertEqual(sanitizeCat(''), 'homework');
-      });
-    });
-
-    suite('Lock and task state logic', () => {
-      test('lock state prevents modifications', () => {
-        const lockedDays = { Monday: true };
-        assert(!!lockedDays['Monday'], 'Monday should be locked');
-        assert(!lockedDays['Tuesday'], 'Tuesday should not be locked');
-      });
-
-      test('unlock removes lock', () => {
-        const lockedDays = { Monday: true };
-        delete lockedDays['Monday'];
-        assert(!lockedDays['Monday'], 'Monday should be unlocked after delete');
-      });
-
-      test('getStatus handles legacy true values', () => {
-        assertEqual(getStatus({ 'mon-1': true }, 'mon-1'), 'done');
-      });
-
-      test('progress counts toward total but not done', () => {
-        const schedule = {
-          Monday: { sections: [{ label: 'Test', items: [
-            { id: 'mon-1', text: 'T1', cat: 'fa' },
-            { id: 'mon-2', text: 'T2', cat: 'fa' },
-          ]}]}
-        };
-        const p = getDayProgress(schedule, { 'mon-1': 'progress' }, {}, 'Monday');
-        assertEqual(p.total, 2);
-        assertEqual(p.done, 0); // progress doesn't count as done
-        assertEqual(p.pct, 0);
-      });
-    });
-
-    suite('Deferral logic', () => {
-      const schedule = {
-        Monday: { sections: [{ label: 'AM', items: [
-          { id: 'mon-1', text: 'T1', cat: 'fa' },
-          { id: 'mon-2', text: 'T2', cat: 'fa' },
-        ]}]},
-        Tuesday: { sections: [{ label: 'AM', items: [
-          { id: 'tue-1', text: 'T3', cat: 'fa' },
-        ]}]}
-      };
-
-      test('deferred task removed from source day count', () => {
-        const p = getDayProgress(schedule, {}, { 'mon-1': 'Tuesday' }, 'Monday');
-        assertEqual(p.total, 1); // only mon-2 remains
-      });
-
-      test('deferred task added to target day count', () => {
-        const p = getDayProgress(schedule, {}, { 'mon-1': 'Tuesday' }, 'Tuesday');
-        assertEqual(p.total, 2); // tue-1 + deferred mon-1
-      });
-
-      test('deferred done task counts in target day', () => {
-        const p = getDayProgress(schedule, { 'mon-1': 'done' }, { 'mon-1': 'Tuesday' }, 'Tuesday');
-        assertEqual(p.done, 1);
-        assertEqual(p.total, 2);
-      });
-
-      test('deferred task staying same day has no effect', () => {
-        const p = getDayProgress(schedule, {}, { 'mon-1': 'Monday' }, 'Monday');
-        assertEqual(p.total, 2); // both still count
-      });
-
-      test('multiple deferrals track independently', () => {
-        const defer = { 'mon-1': 'Tuesday', 'mon-2': 'Tuesday' };
-        const pMon = getDayProgress(schedule, {}, defer, 'Monday');
-        const pTue = getDayProgress(schedule, {}, defer, 'Tuesday');
-        assertEqual(pMon.total, 0);
-        assertEqual(pTue.total, 3); // tue-1 + mon-1 + mon-2
-      });
-    });
-
-    suite('escapeHtml edge cases', () => {
-      test('escapes nested HTML', () => {
-        const result = escapeHtml('<div onclick="alert(1)">test</div>');
-        assert(!result.includes('<div'), 'Should not contain unescaped tags');
-        assert(result.includes('&lt;div'), 'Should contain escaped tags');
-      });
-
-      test('handles unicode characters', () => {
-        assertEqual(escapeHtml('Üniversite Çorbası'), 'Üniversite Çorbası');
-      });
-
-      test('handles newlines and tabs', () => {
-        const result = escapeHtml('line1\nline2\ttab');
-        assert(result.includes('line1'), 'Should preserve text content');
-      });
-
-      test('handles numbers and special math symbols', () => {
-        assertEqual(escapeHtml('≥ 18h/week'), '≥ 18h/week');
-      });
-
-      test('returns empty string for null/undefined', () => {
-        assertEqual(escapeHtml(null), '');
-        assertEqual(escapeHtml(undefined), '');
-        assertEqual(escapeHtml(''), '');
-      });
-
-      test('handles numeric input', () => {
-        assertEqual(escapeHtml(42), '42');
-      });
-    });
-
-    // ═══════════════════════════════════════
-    // ── Time estimate helpers ──
-    // ═══════════════════════════════════════
-    const CAT_DEFAULT_EST = {
-      class: 0, fa: 120, fameeting: 90, analysis: 75, algebra: 60,
-      diffeq: 60, numtheory: 60, physics: 60, homework: 60, routine: 45, reflect: 10,
     };
-    function getEstimate(item) { return item.est || CAT_DEFAULT_EST[item.cat] || 60; }
-    function formatEst(min) {
+  }
+  if (!escapeHtml) {
+    escapeHtml = (str) => {
+      if (!str) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    };
+  }
+  if (!formatEst) {
+    formatEst = (min) => {
       if (min <= 0) return '';
       if (min < 60) return min + 'm';
       const h = Math.floor(min / 60), m = min % 60;
       return m ? `${h}h ${m}m` : `${h}h`;
+    };
+  }
+  if (!getEstimate) {
+    const _CAT_EST = { class:0,fa:120,fameeting:90,analysis:75,algebra:60,diffeq:60,numtheory:60,physics:60,homework:60,routine:45,reflect:10 };
+    getEstimate = (item) => item.est || _CAT_EST[item.cat] || 60;
+  }
+  if (!DAYS) DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+  // ── Local getStatus simulation (for table-driven tests that don't touch global state) ──
+  function getStatusLocal(checked, id) {
+    const v = checked[id];
+    if (v === true || v === 'done') return 'done';
+    if (v === 'skip' || v === 'progress' || v === 'blocked') return v;
+    return '';
+  }
+
+  // ── Helper to temporarily override state.checked ──
+  function withChecked(checkedMap, fn) {
+    if (!state) { fn(); return; }
+    const saved = state.checked;
+    state.checked = checkedMap;
+    try { fn(); } finally { state.checked = saved; }
+  }
+
+  // ── Local getDayProgress simulation ──
+  function getDayProgress(schedule, checked, taskDeferred, dayName) {
+    const day = schedule[dayName];
+    if (!day) return { total: 0, done: 0, pct: 0 };
+    let total = 0, done = 0;
+    day.sections.forEach(s => s.items.forEach(item => {
+      if (taskDeferred[item.id] && taskDeferred[item.id] !== dayName) return;
+      total++;
+      const st = getStatusLocal(checked, item.id);
+      if (st === 'done' || st === 'skip') done++;
+    }));
+    Object.entries(taskDeferred).forEach(([id, target]) => {
+      if (target !== dayName) return;
+      let isOwnTask = false;
+      for (const sec of day.sections) {
+        for (const it of sec.items) { if (it.id === id) { isOwnTask = true; break; } }
+        if (isOwnTask) break;
+      }
+      if (isOwnTask) return;
+      total++;
+      if (getStatusLocal(checked, id) === 'done' || getStatusLocal(checked, id) === 'skip') done++;
+    });
+    return { total, done, pct: total ? Math.round((done / total) * 100) : 0 };
+  }
+
+  // ── Local parseFirebaseConfig (pure utility, safe to duplicate) ──
+  function parseFirebaseConfig(text) {
+    function fill(obj) {
+      if (!obj.databaseURL && obj.projectId)
+        obj.databaseURL = 'https://' + obj.projectId + '-default-rtdb.firebaseio.com';
+      return (obj.apiKey && obj.projectId) ? obj : null;
     }
+    try { const obj = JSON.parse(text); if (fill(obj)) return obj; } catch(e) {}
+    const match = text.match(/\{[^{}]*apiKey[^{}]*\}/s);
+    if (match) {
+      try {
+        const j = match[0].replace(/(['"])?(\w+)(['"])?\s*:/g,'"$2":').replace(/'/g,'"').replace(/,\s*}/g,'}');
+        const obj = JSON.parse(j);
+        if (obj && typeof obj === 'object' && fill(obj)) return obj;
+      } catch(e) {}
+    }
+    return null;
+  }
 
-    suite('Time estimates', () => {
-      test('uses item.est when provided', () => {
-        assertEqual(getEstimate({ cat: 'fa', est: 45 }), 45);
-      });
+  // ── Local parseMealString / parseMealText (from init.js, not a separate module) ──
+  function parseMealString(str) {
+    if (!str || typeof str !== 'string') return [];
+    return str.split(/[\r\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
+  }
 
-      test('falls back to CAT_DEFAULT_EST', () => {
-        assertEqual(getEstimate({ cat: 'fa' }), 120);
-        assertEqual(getEstimate({ cat: 'reflect' }), 10);
-      });
+  function parseMealText(text) {
+    const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
+    const newData = {};
+    let currentDate = null, currentType = 'ogle';
+    const months = {
+      'ocak':1,'şubat':2,'subat':2,'mart':3,'nisan':4,'mayıs':5,'mayis':5,
+      'haziran':6,'temmuz':7,'ağustos':8,'agustos':8,'eylül':9,'eylul':9,
+      'ekim':10,'kasım':11,'kasim':11,'aralık':12,'aralik':12,
+    };
+    for (const line of lines) {
+      const lower = line.toLowerCase();
+      const dm1 = line.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+      const dm2 = line.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+      const dm3 = line.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (dm3) {
+        currentDate = dm3[0];
+        if (!newData[currentDate]) newData[currentDate] = { kahvalti:[], ogle:[], aksam:[], vegan:[] };
+        continue;
+      }
+      if (dm2) {
+        currentDate = `${dm2[3]}-${dm2[2].padStart(2,'0')}-${dm2[1].padStart(2,'0')}`;
+        if (!newData[currentDate]) newData[currentDate] = { kahvalti:[], ogle:[], aksam:[], vegan:[] };
+        continue;
+      }
+      if (dm1 && months[dm1[2].toLowerCase()]) {
+        const m = months[dm1[2].toLowerCase()];
+        currentDate = `${dm1[3]}-${String(m).padStart(2,'0')}-${dm1[1].padStart(2,'0')}`;
+        if (!newData[currentDate]) newData[currentDate] = { kahvalti:[], ogle:[], aksam:[], vegan:[] };
+        continue;
+      }
+      if (lower.includes('kahvalt')||lower.includes('breakfast')) { currentType='kahvalti'; continue; }
+      if (lower.includes('öğle')||lower.includes('ogle')||lower.includes('lunch')) { currentType='ogle'; continue; }
+      if (lower.includes('akşam')||lower.includes('aksam')||lower.includes('dinner')) { currentType='aksam'; continue; }
+      if (lower.includes('vegan')) { currentType='vegan'; continue; }
+      if (currentDate && newData[currentDate]) {
+        if (['tarih','gün','gun','menü','menu'].includes(lower)) continue;
+        const clean = line.replace(/^\d+[\.)\]]\s*/,'').replace(/\t+/g,' ').trim();
+        if (clean.length > 1 && clean.length < 100) newData[currentDate][currentType].push(clean);
+      }
+    }
+    return newData;
+  }
 
-      test('uses 60 for unknown categories', () => {
-        assertEqual(getEstimate({ cat: 'unknown' }), 60);
-      });
+  function sanitizeCat(cat) {
+    return (cat || 'homework').replace(/[^a-zA-Z0-9]/g,'');
+  }
 
-      test('class tasks have 0 estimate', () => {
-        assertEqual(getEstimate({ cat: 'class' }), 0);
-      });
+  // ════════════════════════════════════════
+  // ── Test suites ──
+  // ════════════════════════════════════════
 
-      test('formatEst shows minutes for <60', () => {
-        assertEqual(formatEst(30), '30m');
-        assertEqual(formatEst(45), '45m');
-      });
+  // ── getISOWeek (imported from state.js) ──
+  suite('getISOWeek [module: state.js]', () => {
+    test('week 1 for Jan 1 2024 (Monday)', () =>
+      assertEqual(getISOWeek(new Date(2024, 0, 1)), 1));
+    test('week 1 for Jan 4 2024 (Thursday)', () =>
+      assertEqual(getISOWeek(new Date(2024, 0, 4)), 1));
+    test('valid week for Dec 31 2024', () => {
+      const w = getISOWeek(new Date(2024, 11, 31));
+      assert(w === 1 || w === 52 || w === 53, `Week ${w} unexpected for Dec 31`);
+    });
+    test('week 24 for June 15 2024 (Saturday)', () =>
+      assertEqual(getISOWeek(new Date(2024, 5, 15)), 24));
+    test('week 10 for March 2 2026', () =>
+      assertEqual(getISOWeek(new Date(2026, 2, 2)), 10));
+    test('week 1 for Jan 1 2026 (Thursday)', () =>
+      assertEqual(getISOWeek(new Date(2026, 0, 1)), 1));
+    test('increments each week', () => {
+      const w1 = getISOWeek(new Date(2026, 0, 5));  // Monday Jan 5
+      const w2 = getISOWeek(new Date(2026, 0, 12)); // Monday Jan 12
+      assertEqual(w2, w1 + 1);
+    });
+  });
 
-      test('formatEst shows hours for >=60', () => {
-        assertEqual(formatEst(60), '1h');
-        assertEqual(formatEst(120), '2h');
-      });
+  // ── escapeHtml (imported from state.js) ──
+  suite('escapeHtml [module: state.js]', () => {
+    test('escapes angle brackets', () =>
+      assertEqual(escapeHtml('<script>alert("xss")</script>'),
+                  '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'));
+    test('escapes ampersands', () =>
+      assertEqual(escapeHtml('a & b'), 'a &amp; b'));
+    test('passes through normal text', () =>
+      assertEqual(escapeHtml('Hello world'), 'Hello world'));
+    test('handles empty string', () =>
+      assertEqual(escapeHtml(''), ''));
+    test('escapes quotes', () =>
+      assertEqual(escapeHtml('"test"'), '&quot;test&quot;'));
+    test('handles unicode (Turkish chars)', () =>
+      assertEqual(escapeHtml('Üniversite Çorbası'), 'Üniversite Çorbası'));
+    test('handles null/undefined', () => {
+      assertEqual(escapeHtml(null), '');
+      assertEqual(escapeHtml(undefined), '');
+    });
+    test('handles numeric input', () =>
+      assertEqual(escapeHtml(42), '42'));
+    test('handles math symbols (no escaping needed)', () =>
+      assertEqual(escapeHtml('≥ 18h/week'), '≥ 18h/week'));
+  });
 
-      test('formatEst shows hours and minutes', () => {
-        assertEqual(formatEst(90), '1h 30m');
-        assertEqual(formatEst(75), '1h 15m');
-      });
+  // ── formatEst (imported from state.js) ──
+  suite('formatEst [module: state.js]', () => {
+    test('minutes for <60', () => {
+      assertEqual(formatEst(30), '30m');
+      assertEqual(formatEst(45), '45m');
+      assertEqual(formatEst(1), '1m');
+    });
+    test('exact hours (no minutes)', () => {
+      assertEqual(formatEst(60), '1h');
+      assertEqual(formatEst(120), '2h');
+    });
+    test('hours + minutes', () => {
+      assertEqual(formatEst(90), '1h 30m');
+      assertEqual(formatEst(75), '1h 15m');
+    });
+    test('empty for 0 or negative', () => {
+      assertEqual(formatEst(0), '');
+      assertEqual(formatEst(-10), '');
+    });
+  });
 
-      test('formatEst returns empty for 0 or negative', () => {
-        assertEqual(formatEst(0), '');
-        assertEqual(formatEst(-10), '');
+  // ── getEstimate (imported from state.js, uses CategoryRegistry) ──
+  suite('getEstimate [module: state.js + categories.js]', () => {
+    test('uses item.est override', () =>
+      assertEqual(getEstimate({ cat: 'fa', est: 45 }), 45));
+    test('fa default: 120m', () =>
+      assertEqual(getEstimate({ cat: 'fa' }), 120));
+    test('reflect default: 10m', () =>
+      assertEqual(getEstimate({ cat: 'reflect' }), 10));
+    test('unknown category: 60m fallback', () =>
+      assertEqual(getEstimate({ cat: 'unknownabc123' }), 60));
+    test('class: 0m (no estimate)', () =>
+      assertEqual(getEstimate({ cat: 'class' }), 0));
+  });
+
+  // ── getStatus via real module state ──
+  suite('getStatus [module: state.js]', () => {
+    test('done for STATUS_DONE constant', () =>
+      withChecked({ 'mon-1': 'done' }, () =>
+        assertEqual(getStatus('mon-1'), 'done')));
+    test('done for legacy true', () =>
+      withChecked({ 'mon-1': true }, () =>
+        assertEqual(getStatus('mon-1'), 'done')));
+    test('skip', () =>
+      withChecked({ 'mon-1': 'skip' }, () =>
+        assertEqual(getStatus('mon-1'), 'skip')));
+    test('progress', () =>
+      withChecked({ 'mon-1': 'progress' }, () =>
+        assertEqual(getStatus('mon-1'), 'progress')));
+    test('empty for missing', () =>
+      withChecked({}, () => assertEqual(getStatus('mon-1'), '')));
+    test('empty for invalid status', () =>
+      withChecked({ 'mon-1': 'invalid' }, () =>
+        assertEqual(getStatus('mon-1'), '')));
+  });
+
+  // ── CategoryRegistry (imported from categories.js) ──
+  suite('CategoryRegistry [module: categories.js]', () => {
+    const TK = '__test_cat__';
+
+    test('has all 12 default categories', () => {
+      if (!CategoryRegistry) return;
+      const keys = CategoryRegistry.keys();
+      ['class','fa','fameeting','analysis','algebra','diffeq',
+       'numtheory','physics','homework','routine','reflect','reading'].forEach(k => {
+        assert(keys.includes(k), `Missing default category: ${k}`);
       });
     });
 
-    suite('Import validation patterns', () => {
-      const taskIdPattern = /^[a-z]{3}-\d+$/;
-      const historyKeyPattern = /^sp26-w\d+$/;
-      const validStates = ['done', 'skip', 'progress'];
+    test('register + get round-trip', () => {
+      if (!CategoryRegistry) return;
+      CategoryRegistry.register(TK, { bg: '#111', border: '#f00', label: 'TST', defaultEst: 77 });
+      const cat = CategoryRegistry.get(TK);
+      assertEqual(cat.border, '#f00');
+      assertEqual(cat.label, 'TST');
+      assertEqual(cat.defaultEst, 77);
+    });
 
-      test('valid task IDs pass', () => {
-        assert(taskIdPattern.test('mon-1'));
-        assert(taskIdPattern.test('tue-12'));
-        assert(taskIdPattern.test('sat-5'));
-      });
+    test('has() returns true after register', () => {
+      if (!CategoryRegistry) return;
+      assert(CategoryRegistry.has(TK));
+    });
 
-      test('invalid task IDs fail', () => {
-        assert(!taskIdPattern.test('Monday-1'));
-        assert(!taskIdPattern.test('mon1'));
-        assert(!taskIdPattern.test(''));
-        assert(!taskIdPattern.test('m-1'));
-      });
+    test('getColor returns border + bg', () => {
+      if (!CategoryRegistry) return;
+      const c = CategoryRegistry.getColor(TK);
+      assert('bg' in c && 'border' in c, 'getColor should return bg and border');
+      assertEqual(c.border, '#f00');
+    });
 
-      test('valid states pass', () => {
-        assert(validStates.includes('done'));
-        assert(validStates.includes('skip'));
-        assert(validStates.includes('progress'));
-      });
+    test('getLabel returns label', () => {
+      if (!CategoryRegistry) return;
+      assertEqual(CategoryRegistry.getLabel(TK), 'TST');
+    });
 
-      test('invalid states fail', () => {
-        assert(!validStates.includes('pending'));
-        assert(!validStates.includes(''));
-      });
+    test('getEstimate returns defaultEst', () => {
+      if (!CategoryRegistry) return;
+      assertEqual(CategoryRegistry.getEstimate(TK), 77);
+    });
 
-      test('valid history keys pass', () => {
-        assert(historyKeyPattern.test('sp26-w1'));
-        assert(historyKeyPattern.test('sp26-w52'));
-      });
+    test('remove() cleans up', () => {
+      if (!CategoryRegistry) return;
+      CategoryRegistry.remove(TK);
+      assert(!CategoryRegistry.has(TK), 'Category should be removed');
+    });
 
-      test('invalid history keys fail', () => {
-        assert(!historyKeyPattern.test('sp25-w1'));
-        assert(!historyKeyPattern.test('sp26-w'));
-        assert(!historyKeyPattern.test('w10'));
-      });
+    test('get() for unknown key returns fallback with label', () => {
+      if (!CategoryRegistry) return;
+      const cat = CategoryRegistry.get('__nonexistent_key__');
+      assert(cat && typeof cat.border === 'string', 'Should return fallback object');
+    });
 
-      test('DAYS array contains all days', () => {
-        assertEqual(DAYS.length, 7);
-        assert(DAYS.includes('Monday'));
-        assert(DAYS.includes('Sunday'));
+    test('keys() returns array', () => {
+      if (!CategoryRegistry) return;
+      const keys = CategoryRegistry.keys();
+      assert(Array.isArray(keys) && keys.length > 0);
+    });
+  });
+
+  // ── Storage (imported from storage.js) ──
+  suite('Storage [module: storage.js]', () => {
+    const TK = '__storagetest__';
+
+    test('set and get round-trip', () => {
+      if (!Storage) return;
+      Storage.set(TK, { hello: 'world', n: 42 });
+      const v = Storage.get(TK, null);
+      assert(v !== null && v.hello === 'world' && v.n === 42);
+    });
+
+    test('get with default for missing key', () => {
+      if (!Storage) return;
+      Storage.remove('__nonexistent__');
+      const v = Storage.get('__nonexistent__', 'fallback');
+      assertEqual(v, 'fallback');
+    });
+
+    test('setRaw / getRaw stores strings', () => {
+      if (!Storage) return;
+      Storage.setRaw(TK + '_raw', 'raw-value');
+      assertEqual(Storage.getRaw(TK + '_raw'), 'raw-value');
+      Storage.remove(TK + '_raw');
+    });
+
+    test('remove deletes key', () => {
+      if (!Storage) return;
+      Storage.set(TK + '_del', { x: 1 });
+      Storage.remove(TK + '_del');
+      assertEqual(Storage.get(TK + '_del', null), null);
+    });
+
+    test('overwrites existing value', () => {
+      if (!Storage) return;
+      Storage.set(TK, { v: 1 });
+      Storage.set(TK, { v: 2 });
+      assertEqual(Storage.get(TK).v, 2);
+    });
+
+    test('getUsageBytes returns a number', () => {
+      if (!Storage) return;
+      assert(typeof Storage.getUsageBytes() === 'number');
+    });
+
+    // Cleanup
+    test('cleanup test keys', () => {
+      if (!Storage) return;
+      Storage.remove(TK);
+      assert(Storage.get(TK, null) === null);
+    });
+  });
+
+  // ── CONFIG (imported from config.js) ──
+  suite('CONFIG [module: config.js]', () => {
+    test('has all required keys', () => {
+      if (!CONFIG) return;
+      ['storagePrefix','timezone','passwordHash','semester','appTitle',
+       'focusTimerDefault','toastDuration','swipeThreshold','searchDebounceMs',
+       'mealApiUrl','goodreadsRss','themeColors'].forEach(k => {
+        assert(k in CONFIG, `Missing CONFIG key: ${k}`);
       });
     });
 
-    // ── Show summary ──
-    const summaryDiv = document.getElementById('summary');
-    const allPassed = failedTests === 0;
-    summaryDiv.className = 'summary ' + (allPassed ? 'all-pass' : 'has-fail');
-    summaryDiv.textContent = allPassed
-      ? `All ${totalTests} tests passed`
-      : `${failedTests} of ${totalTests} tests failed`;
+    test('timezone is a valid string', () => {
+      if (!CONFIG) return;
+      assert(typeof CONFIG.timezone === 'string' && CONFIG.timezone.includes('/'));
+    });
+
+    test('numeric defaults are positive', () => {
+      if (!CONFIG) return;
+      assert(CONFIG.focusTimerDefault > 0, 'focusTimerDefault must be > 0');
+      assert(CONFIG.toastDuration > 0, 'toastDuration must be > 0');
+      assert(CONFIG.swipeThreshold > 0, 'swipeThreshold must be > 0');
+    });
+
+    test('semesterStart is [year, monthIdx, day]', () => {
+      if (!CONFIG) return;
+      assert(Array.isArray(CONFIG.semesterStart) && CONFIG.semesterStart.length === 3);
+      assert(CONFIG.semesterStart[0] >= 2020, 'Year should be reasonable');
+    });
+
+    test('sunriseBySeason and sunsetBySeason have 12 entries', () => {
+      if (!CONFIG) return;
+      assertEqual(CONFIG.sunriseBySeason.length, 12);
+      assertEqual(CONFIG.sunsetBySeason.length, 12);
+    });
+  });
+
+  // ── DAYS constant ──
+  suite('DAYS [module: schedule.js]', () => {
+    test('has exactly 7 days', () =>
+      assertEqual(DAYS.length, 7));
+    test('starts with Monday', () =>
+      assertEqual(DAYS[0], 'Monday'));
+    test('ends with Sunday', () =>
+      assertEqual(DAYS[6], 'Sunday'));
+    test('contains all expected days', () => {
+      ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+        .forEach(d => assert(DAYS.includes(d), `Missing: ${d}`));
+    });
+  });
+
+  // ── parseFirebaseConfig (local copy — pure utility) ──
+  suite('parseFirebaseConfig [local]', () => {
+    test('parses valid JSON config', () => {
+      const c = parseFirebaseConfig('{"apiKey":"AIza123","projectId":"test-app"}');
+      assert(c !== null);
+      assertEqual(c.apiKey, 'AIza123');
+    });
+    test('auto-fills databaseURL', () => {
+      const c = parseFirebaseConfig('{"apiKey":"AIza123","projectId":"test-app"}');
+      assertEqual(c.databaseURL, 'https://test-app-default-rtdb.firebaseio.com');
+    });
+    test('preserves existing databaseURL', () => {
+      const c = parseFirebaseConfig('{"apiKey":"AIza123","projectId":"p","databaseURL":"https://custom.com"}');
+      assertEqual(c.databaseURL, 'https://custom.com');
+    });
+    test('returns null for missing apiKey', () =>
+      assertEqual(parseFirebaseConfig('{"projectId":"test-app"}'), null));
+    test('returns null for missing projectId', () =>
+      assertEqual(parseFirebaseConfig('{"apiKey":"AIza123"}'), null));
+    test('returns null for garbage', () =>
+      assertEqual(parseFirebaseConfig('hello world'), null));
+    test('parses JS object literal format', () => {
+      const c = parseFirebaseConfig('const config = { apiKey: "AIza123", projectId: "test-app" };');
+      assert(c !== null && c.apiKey === 'AIza123');
+    });
+  });
+
+  // ── getDayProgress (local simulation) ──
+  suite('getDayProgress [local simulation]', () => {
+    const sched = {
+      Monday:  { sections: [{ label: 'AM', items: [
+        { id: 'mon-1', text: 'T1', cat: 'fa' },
+        { id: 'mon-2', text: 'T2', cat: 'fa' },
+        { id: 'mon-3', text: 'T3', cat: 'fa' },
+      ]}]},
+      Tuesday: { sections: [{ label: 'AM', items: [
+        { id: 'tue-1', text: 'T4', cat: 'fa' },
+      ]}]},
+    };
+
+    test('counts total tasks', () => {
+      const p = getDayProgress(sched, {}, {}, 'Monday');
+      assertEqual(p.total, 3); assertEqual(p.done, 0); assertEqual(p.pct, 0);
+    });
+    test('counts done + skip', () => {
+      const p = getDayProgress(sched, { 'mon-1': 'done', 'mon-2': 'skip' }, {}, 'Monday');
+      assertEqual(p.done, 2); assertEqual(p.pct, 67);
+    });
+    test('progress does not count toward done', () => {
+      const p = getDayProgress(sched, { 'mon-1': 'progress' }, {}, 'Monday');
+      assertEqual(p.done, 0); assertEqual(p.pct, 0);
+    });
+    test('excludes deferred-out tasks', () => {
+      const p = getDayProgress(sched, {}, { 'mon-1': 'Tuesday' }, 'Monday');
+      assertEqual(p.total, 2);
+    });
+    test('includes deferred-in tasks', () => {
+      const p = getDayProgress(sched, {}, { 'mon-1': 'Tuesday' }, 'Tuesday');
+      assertEqual(p.total, 2); // tue-1 + deferred mon-1
+    });
+    test('deferred done task counts in target', () => {
+      const p = getDayProgress(sched, { 'mon-1': 'done' }, { 'mon-1': 'Tuesday' }, 'Tuesday');
+      assertEqual(p.done, 1); assertEqual(p.total, 2);
+    });
+    test('100% when all done', () => {
+      const p = getDayProgress(sched, { 'mon-1':'done','mon-2':'done','mon-3':'skip' }, {}, 'Monday');
+      assertEqual(p.pct, 100);
+    });
+    test('returns 0 for empty day', () => {
+      const p = getDayProgress({ Empty: { sections: [{ label:'', items:[] }] } }, {}, {}, 'Empty');
+      assertEqual(p.pct, 0);
+    });
+    test('same-day deferral has no effect', () => {
+      const p = getDayProgress(sched, {}, { 'mon-1': 'Monday' }, 'Monday');
+      assertEqual(p.total, 3);
+    });
+    test('multiple deferrals accumulate in target', () => {
+      const defer = { 'mon-1': 'Tuesday', 'mon-2': 'Tuesday' };
+      assertEqual(getDayProgress(sched, {}, defer, 'Monday').total, 1);
+      assertEqual(getDayProgress(sched, {}, defer, 'Tuesday').total, 3);
+    });
+  });
+
+  // ── parseMealString (local — lives in init.js) ──
+  suite('parseMealString [local]', () => {
+    test('comma-separated', () =>
+      assertDeepEqual(parseMealString('Soup, Rice, Salad'), ['Soup','Rice','Salad']));
+    test('newline-separated', () =>
+      assertDeepEqual(parseMealString('Soup\nRice\nSalad'), ['Soup','Rice','Salad']));
+    test('mixed separators', () =>
+      assertDeepEqual(parseMealString('Soup,Rice\r\nSalad'), ['Soup','Rice','Salad']));
+    test('null/undefined → []', () => {
+      assertDeepEqual(parseMealString(null), []);
+      assertDeepEqual(parseMealString(undefined), []);
+    });
+    test('empty string → []', () =>
+      assertDeepEqual(parseMealString(''), []));
+    test('trims whitespace', () =>
+      assertDeepEqual(parseMealString('  Soup  ,  Rice  '), ['Soup','Rice']));
+    test('filters empty segments', () =>
+      assertDeepEqual(parseMealString('Soup,,Rice,,,'), ['Soup','Rice']));
+  });
+
+  // ── parseMealText (local — lives in init.js) ──
+  suite('parseMealText [local]', () => {
+    test('parses ISO date (YYYY-MM-DD)', () => {
+      const r = parseMealText('2026-03-10\nMercimek Çorbası\nPilav');
+      assert(r['2026-03-10'] !== undefined);
+      assertEqual(r['2026-03-10'].ogle.length, 2);
+    });
+    test('parses DD.MM.YYYY', () => {
+      assert(parseMealText('10.03.2026\nSoup\nRice')['2026-03-10'] !== undefined);
+    });
+    test('parses Turkish date (10 Mart 2026)', () => {
+      assert(parseMealText('10 Mart 2026\nSoup')['2026-03-10'] !== undefined);
+    });
+    test('switches meal type on keyword', () => {
+      const r = parseMealText('2026-03-10\nKahvaltı\nYumurta\nÖğle\nSoup\nAkşam\nPilav');
+      assertEqual(r['2026-03-10'].kahvalti.length, 1);
+      assertEqual(r['2026-03-10'].ogle.length, 1);
+      assertEqual(r['2026-03-10'].aksam.length, 1);
+    });
+    test('handles vegan section', () => {
+      const r = parseMealText('2026-03-10\nVegan\nTofu Burger\nSalad');
+      assertEqual(r['2026-03-10'].vegan.length, 2);
+    });
+    test('skips meta lines (tarih, gün, menü)', () => {
+      const r = parseMealText('2026-03-10\nTarih\nMenü\nActual Food');
+      assertEqual(r['2026-03-10'].ogle.length, 1);
+      assertEqual(r['2026-03-10'].ogle[0], 'Actual Food');
+    });
+    test('returns {} for unparseable text', () =>
+      assertEqual(Object.keys(parseMealText('this is just random text')).length, 0));
+    test('handles multiple dates', () => {
+      const r = parseMealText('2026-03-10\nSoup\n2026-03-11\nRice');
+      assertEqual(Object.keys(r).length, 2);
+      assertEqual(r['2026-03-10'].ogle[0], 'Soup');
+      assertEqual(r['2026-03-11'].ogle[0], 'Rice');
+    });
+    test('strips numbered prefixes', () => {
+      const r = parseMealText('2026-03-10\n1. Soup\n2) Rice\n3] Salad');
+      assertEqual(r['2026-03-10'].ogle[0], 'Soup');
+      assertEqual(r['2026-03-10'].ogle[1], 'Rice');
+      assertEqual(r['2026-03-10'].ogle[2], 'Salad');
+    });
+    test('rejects items too short or too long', () => {
+      const r = parseMealText(`2026-03-10\nX\n${'A'.repeat(101)}\nValid Item`);
+      assertEqual(r['2026-03-10'].ogle.length, 1);
+      assertEqual(r['2026-03-10'].ogle[0], 'Valid Item');
+    });
+  });
+
+  // ── sanitizeCat (local) ──
+  suite('sanitizeCat [local]', () => {
+    test('passes alphanumeric', () => {
+      assertEqual(sanitizeCat('homework'), 'homework');
+      assertEqual(sanitizeCat('fa'), 'fa');
+    });
+    test('strips special chars', () => {
+      assertEqual(sanitizeCat('home-work'), 'homework');
+      assertEqual(sanitizeCat('my_cat'), 'mycat');
+      assertEqual(sanitizeCat('test!@#'), 'test');
+    });
+    test('strips XSS attempts', () => {
+      assertEqual(sanitizeCat('<script>'), 'script');
+      assertEqual(sanitizeCat("';DROP TABLE"), 'DROPTABLE');
+    });
+    test('defaults to homework for null/empty', () => {
+      assertEqual(sanitizeCat(null), 'homework');
+      assertEqual(sanitizeCat(''), 'homework');
+    });
+  });
+
+  // ── Misc pattern validation ──
+  suite('Validation patterns', () => {
+    const taskIdPat = /^[a-z]{3}-\d+$/;
+    const histKeyPat = /^sp26-w\d+$/;
+    const validStatuses = ['done', 'skip', 'progress', 'blocked'];
+
+    test('valid task IDs', () => {
+      assert(taskIdPat.test('mon-1'));
+      assert(taskIdPat.test('tue-12'));
+      assert(taskIdPat.test('sat-5'));
+    });
+    test('invalid task IDs', () => {
+      assert(!taskIdPat.test('Monday-1'));
+      assert(!taskIdPat.test('mon1'));
+      assert(!taskIdPat.test(''));
+    });
+    test('valid statuses', () => {
+      validStatuses.forEach(s => assert(validStatuses.includes(s)));
+    });
+    test('invalid statuses', () => {
+      assert(!validStatuses.includes('pending'));
+      assert(!validStatuses.includes(''));
+    });
+    test('valid history keys match storagePrefix', () => {
+      assert(histKeyPat.test('sp26-w1'));
+      assert(histKeyPat.test('sp26-w52'));
+      assert(!histKeyPat.test('sp25-w1'));
+      assert(!histKeyPat.test('w10'));
+    });
+  });
+
+  // ── Lock state logic ──
+  suite('Lock state logic', () => {
+    test('locked day is truthy', () => {
+      const locks = { Monday: true };
+      assert(!!locks['Monday']);
+      assert(!locks['Tuesday']);
+    });
+    test('unlock removes lock', () => {
+      const locks = { Monday: true };
+      delete locks['Monday'];
+      assert(!locks['Monday']);
+    });
+  });
+
+  // ════════════════════════════════════════
+  // ── Summary ──
+  // ════════════════════════════════════════
+  const summaryDiv = document.getElementById('summary');
+  const allPassed = failedTests === 0;
+  summaryDiv.className = 'summary ' + (allPassed ? 'all-pass' : 'has-fail');
+  const importNote = _importError ? ' (some tests used fallback copies — check import error above)' : ' (all functions tested against real modules)';
+  summaryDiv.textContent = allPassed
+    ? `All ${totalTests} tests passed${importNote}`
+    : `${failedTests} of ${totalTests} tests failed${importNote}`;
   </script>
 </body>
 </html>

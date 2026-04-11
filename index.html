@@ -1239,6 +1239,29 @@
     /* Schedule editor */
     .editor-section {
       margin-bottom: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+
+    .editor-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .editor-section-actions {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .editor-section-rename-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 6px;
     }
 
     .editor-section-label {
@@ -1246,7 +1269,6 @@
       letter-spacing: 1px;
       text-transform: uppercase;
       color: var(--dim);
-      margin-bottom: 6px;
     }
 
     .editor-item {
@@ -1260,6 +1282,32 @@
       margin-bottom: 4px;
       font-size: 11px;
       color: var(--text);
+    }
+
+    .editor-item-reorder {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      flex-shrink: 0;
+    }
+
+    .editor-reorder-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 10px;
+      padding: 0 2px;
+      line-height: 1.2;
+    }
+
+    .editor-reorder-btn:disabled {
+      opacity: 0.2;
+      cursor: default;
+    }
+
+    .editor-reorder-btn:not(:disabled):hover {
+      color: var(--accent);
     }
 
     .editor-item-text {
@@ -2821,6 +2869,29 @@
     .summary-value.good { color: #00e676; }
     .summary-value.warn { color: #ffab00; }
     .summary-value.bad { color: #e94560; }
+
+    /* ── Settings panel ── */
+    .settings-section { margin-bottom: 14px; }
+    .settings-section-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--dim); margin-bottom: 8px; font-weight: 600; }
+    .settings-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .settings-row:last-child { margin-bottom: 0; }
+    .settings-row > label { font-size: 10px; color: var(--muted); }
+    .settings-input { width: 100%; font-family: inherit; font-size: 12px; background: var(--bg); color: var(--text); border: 1px solid var(--border2); border-radius: 6px; padding: 7px 10px; outline: none; transition: border-color 0.15s; box-sizing: border-box; }
+    .settings-input:focus { border-color: var(--accent); }
+    select.settings-input { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2371717a'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+    .settings-save-note { font-size: 10px; color: var(--dim); text-align: center; margin-top: 6px; }
+
+    /* ── Category management panel ── */
+    .cat-list-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+    .cat-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+    .cat-row-key { font-size: 10px; color: var(--dim); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cat-row-badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; border: 1px solid; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+    .cat-row-est { font-size: 10px; color: var(--dim); width: 28px; text-align: right; flex-shrink: 0; }
+    .cat-row-btn { font-size: 10px; color: var(--muted); background: none; border: 1px solid var(--border2); border-radius: 4px; padding: 3px 8px; cursor: pointer; font-family: inherit; flex-shrink: 0; transition: all 0.15s; }
+    .cat-row-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .cat-row-btn.danger:hover { color: #e94560; border-color: #e94560; }
+    .cat-edit-row { padding: 12px; background: var(--surface); border: 1px solid; border-radius: 8px; }
+    input[type="color"].settings-input { padding: 3px 4px; height: 34px; cursor: pointer; }
   </style>
 </head>
 
@@ -2846,7 +2917,8 @@
     <div class="sw-update-banner" id="sw-update" onclick="location.reload()">New version available — tap to refresh</div>
   </div>
 
-  <script>
+  <script type="module" src="js/init.js"></script>
+  <script>/* ORIGINAL INLINE JS REMOVED — Now loaded as ES modules from js/init.js */
     // ════════════════════════════════════════
     // ── Password Gate ──
     // ════════════════════════════════════════
@@ -6683,8 +6755,7 @@
       setupStoredSync().catch(err => {
         console.warn('Auto-sync failed:', err.message);
       });
-    })();
-  </script>
+    */</script>
 </body>
 
 </html>

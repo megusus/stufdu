@@ -1,8 +1,26 @@
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 5;
 const CACHE_NAME = 'study-plan-v' + CACHE_VERSION;
 const ASSETS = [
   './',
   './index.html',
+  './js/init.js',
+  './js/config.js',
+  './js/storage.js',
+  './js/categories.js',
+  './js/schedule.js',
+  './js/state.js',
+  './js/password.js',
+  './js/reading.js',
+  './js/sync.js',
+  './js/ui/theme.js',
+  './js/ui/timer.js',
+  './js/ui/toggle.js',
+  './js/ui/search.js',
+  './js/ui/swipe.js',
+  './js/ui/dispatch.js',
+  './js/render/index.js',
+  './js/render/task-item.js',
+  './js/render/meals.js',
 ];
 const FONT_CACHE = 'study-plan-fonts-v1';
 
