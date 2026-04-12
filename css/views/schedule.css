@@ -1,0 +1,146 @@
+/* ── Schedule View ── */
+/* Phase 3 component redesign will complete task item overhaul. */
+
+/* ─── Section header — progress fraction + mini bar ─────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.section-prog-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.section-frac {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 2.8ch;
+}
+
+.section-prog-track {
+  flex: 1;
+  height: 3px;
+  background: var(--surface-3);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  max-width: 80px;
+}
+
+.section-prog-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--r-pill);
+  transition: width var(--dur-slow) var(--ease-spring);
+}
+
+.section-prog-fill.complete {
+  background: var(--success);
+}
+
+/* ─── Section header (legacy placeholder) ──────────────────────────── */
+.section-header-new {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) 0 var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.section-time-range {
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.section-label-new {
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* ─── Task item — enhanced layout ────────────────────────────────── */
+.item-new {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--glass-border);
+  border-left: 3px solid var(--cat-color, var(--border));
+  border-radius: var(--r-md);
+  cursor: pointer;
+  position: relative;
+  transition:
+    background var(--dur-fast) var(--ease-smooth),
+    border-left-width var(--dur-instant) var(--ease-snap),
+    box-shadow var(--dur-fast) var(--ease-smooth);
+}
+
+.item-new:hover {
+  background: var(--surface-2);
+  border-left-width: 4px;
+  box-shadow: var(--sh-sm);
+}
+
+/* ─── Category pill ───────────────────────────────────────────────── */
+.item-cat-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--cat-color, var(--accent)) 12%, transparent);
+  color: var(--cat-color, var(--accent));
+  border: 1px solid color-mix(in srgb, var(--cat-color, var(--accent)) 25%, transparent);
+  letter-spacing: 0.01em;
+}
+
+/* ─── Time estimate ───────────────────────────────────────────────── */
+.item-est-new {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ─── Stagger entry animations ────────────────────────────────────── */
+.item-enter {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: item-enter var(--dur-normal) var(--ease-dramatic) forwards;
+}
+
+@keyframes item-enter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* nth-child stagger delays — up to 10 items, cap at 360ms */
+.item:nth-child(1)  { animation-delay: 0ms; }
+.item:nth-child(2)  { animation-delay: 40ms; }
+.item:nth-child(3)  { animation-delay: 80ms; }
+.item:nth-child(4)  { animation-delay: 120ms; }
+.item:nth-child(5)  { animation-delay: 160ms; }
+.item:nth-child(6)  { animation-delay: 200ms; }
+.item:nth-child(7)  { animation-delay: 240ms; }
+.item:nth-child(8)  { animation-delay: 280ms; }
+.item:nth-child(9)  { animation-delay: 320ms; }
+.item:nth-child(10) { animation-delay: 360ms; }
+.item:nth-child(n+11) { animation-delay: 360ms; }

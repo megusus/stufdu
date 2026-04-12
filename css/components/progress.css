@@ -1,0 +1,124 @@
+/* ── Progress Bars ── */
+
+/* ─── Track ───────────────────────────────────────────────────────── */
+.progress-track {
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.progress-track-sm {
+  height: 3px;
+}
+
+.progress-track-lg {
+  height: 10px;
+}
+
+/* ─── Fill ────────────────────────────────────────────────────────── */
+.progress-fill {
+  height: 100%;
+  background: var(--accent-gradient);
+  border-radius: var(--r-pill);
+  transition: width var(--dur-slow) var(--ease-spring);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Liquid leading-edge glow */
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  right: -6px;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  background: inherit;
+  filter: blur(3px);
+  opacity: 0.5;
+  border-radius: 50%;
+}
+
+/* ─── Semantic fill variants ──────────────────────────────────────── */
+.progress-fill-success {
+  background: var(--success-gradient);
+}
+
+.progress-fill-warning {
+  background: var(--warning-gradient);
+}
+
+.progress-fill-danger {
+  background: var(--danger-gradient);
+}
+
+/* ─── 100% completion flash ───────────────────────────────────────── */
+.progress-fill.complete::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.28),
+    transparent
+  );
+  animation: progress-complete-flash var(--dur-dramatic) var(--ease-smooth) forwards;
+}
+
+@keyframes progress-complete-flash {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+/* ─── Progress label ──────────────────────────────────────────────── */
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Inline badge progress (micro bar) ──────────────────────────── */
+.micro-progress {
+  display: inline-block;
+  width: 48px;
+  height: 3px;
+  background: var(--surface-3);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.micro-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--r-pill);
+  transition: width var(--dur-slow) var(--ease-spring);
+}
+
+/* ─── Circular/ring progress ──────────────────────────────────────── */
+.ring-progress {
+  transform: rotate(-90deg);
+}
+
+.ring-progress-track {
+  fill: none;
+  stroke: var(--surface-3);
+  stroke-width: 3;
+}
+
+.ring-progress-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--dur-slow) var(--ease-spring);
+}

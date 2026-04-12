@@ -70,9 +70,13 @@ import { resolveConflict, clearPendingConflict } from './sync-conflict.js';
 import { applyMarkdownShortcut, renderMarkdown } from './markdown.js';
 import { XP_REWARDS, awardActivityXP, awardXP, claimDailyChallenge, syncAchievementMilestones } from './challenges.js';
 import { initA11y } from './ui/a11y.js';
+import { initScrollObserver } from './ui/scroll-observer.js';
 
 // ── Wire up render function references ──
 setRenderFn(render, doRender);
+
+// ── Boot scroll observer ──
+initScrollObserver();
 
 function _dateKey(date = nowInTZ()) {
   return [

@@ -1,0 +1,142 @@
+/* ── Stats & Analytics Views ── */
+/* Phase 6 will complete the full stats redesign. */
+
+/* ─── Heatmap grid ────────────────────────────────────────────────── */
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(53, 1fr);
+  gap: 3px;
+}
+
+.heatmap-cell {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-smooth),
+    transform var(--dur-fast) var(--ease-snap);
+}
+
+.heatmap-cell:hover {
+  transform: scale(1.2);
+  z-index: 1;
+  position: relative;
+}
+
+/* Completion levels */
+.heatmap-cell[data-level="0"] { background: var(--surface-2); }
+.heatmap-cell[data-level="1"] { background: color-mix(in srgb, var(--accent) 25%, var(--surface-2)); }
+.heatmap-cell[data-level="2"] { background: color-mix(in srgb, var(--accent) 45%, var(--surface-2)); }
+.heatmap-cell[data-level="3"] { background: color-mix(in srgb, var(--accent) 65%, var(--surface-2)); }
+.heatmap-cell[data-level="4"] { background: var(--accent); }
+
+/* ─── Stats number display ────────────────────────────────────────── */
+.stat-num {
+  font-family: var(--font-mono);
+  font-size: var(--t-3xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--ls-tight);
+}
+
+.stat-label {
+  font-family: var(--font-ui);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: var(--ls-wider);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+
+/* ─── Mini bar chart ──────────────────────────────────────────────── */
+.mini-bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 40px;
+}
+
+.mini-bar {
+  flex: 1;
+  background: var(--accent-dim);
+  border-radius: 2px 2px 0 0;
+  transition: height var(--dur-slow) var(--ease-spring);
+  position: relative;
+  min-height: 4px;
+}
+
+.mini-bar:hover {
+  background: var(--accent);
+}
+
+/* ─── Burnout gauge ───────────────────────────────────────────────── */
+.gauge-container {
+  position: relative;
+  width: 160px;
+  height: 80px;
+  overflow: hidden;
+}
+
+.gauge-track {
+  fill: none;
+  stroke: var(--surface-3);
+  stroke-width: 12;
+}
+
+.gauge-fill {
+  fill: none;
+  stroke-width: 12;
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--dur-slow) var(--ease-spring);
+}
+
+.gauge-fill.low    { stroke: var(--success); }
+.gauge-fill.medium { stroke: var(--warning); }
+.gauge-fill.high   { stroke: var(--danger); }
+
+/* ─── Streak flame ────────────────────────────────────────────────── */
+.streak-flame {
+  font-size: 2rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.5));
+  animation: flame-flicker 2s ease-in-out infinite;
+}
+
+@keyframes flame-flicker {
+  0%, 100% { transform: scale(1) rotate(-2deg); }
+  33%       { transform: scale(1.05) rotate(1deg); }
+  66%       { transform: scale(0.97) rotate(-1deg); }
+}
+
+/* ─── Analytics card ──────────────────────────────────────────────── */
+.analytics-card-new {
+  background: var(--surface-1);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  padding: var(--space-5);
+  position: relative;
+  overflow: hidden;
+}
+
+.analytics-card-new::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-gradient);
+}
+
+/* Background grid texture */
+.analytics-card-new.grid-bg {
+  background-image:
+    linear-gradient(var(--glass-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--glass-border) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-color: var(--surface-1);
+}

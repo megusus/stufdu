@@ -1,16 +1,64 @@
-/* Tier 4 base tokens and typography refinements. */
+/* ── Base: typography, font stack, fluid scale ── */
 
+/* ─── Font stack ─────────────────────────────────────────────────── */
 :root {
-  --font-ui: "JetBrains Mono", "SF Mono", "Cascadia Code", monospace;
-  --font-body: "Source Serif 4", "Iowan Old Style", "Charter", Georgia, serif;
-  --font-reading: "Source Serif 4", "Iowan Old Style", "Charter", Georgia, serif;
-  --line-body: 1.62;
+  /* Display — scholarly gravity for headings & view titles */
+  --font-display: 'DM Serif Display', Georgia, 'Times New Roman', serif;
+
+  /* UI — geometric sans for labels, nav, buttons */
+  --font-ui: 'Satoshi', 'General Sans', system-ui, -apple-system, sans-serif;
+
+  /* Body — serif warmth for task text, notes, descriptions */
+  --font-body: 'Source Serif 4', 'Iowan Old Style', 'Charter', Georgia, serif;
+  --font-reading: 'Source Serif 4', 'Iowan Old Style', 'Charter', Georgia, serif;
+
+  /* Mono — code, numbers, timestamps, data */
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', monospace;
+
+  /* ─── Fluid type scale with clamp() ─── */
+  --t-xs:  clamp(0.625rem,  0.55rem  + 0.20vw, 0.700rem);   /* ~10–11px */
+  --t-sm:  clamp(0.725rem,  0.65rem  + 0.25vw, 0.800rem);   /* ~11.5–13px */
+  --t-md:  clamp(0.8125rem, 0.75rem  + 0.20vw, 0.900rem);   /* ~13–14.5px */
+  --t-lg:  clamp(1rem,      0.90rem  + 0.30vw, 1.150rem);   /* ~16–18px */
+  --t-xl:  clamp(1.25rem,   1.10rem  + 0.50vw, 1.500rem);   /* ~20–24px */
+  --t-2xl: clamp(1.5rem,    1.30rem  + 0.70vw, 1.875rem);   /* ~24–30px */
+  --t-3xl: clamp(2rem,      1.60rem  + 1.20vw, 2.500rem);   /* ~32–40px */
+
+  /* ─── Line heights ─── */
+  --line-display: 1.15;
+  --line-ui:      1.30;
+  --line-body:    1.62;
+
+  /* ─── Letter spacing ─── */
+  --ls-tight:  -0.02em;
+  --ls-normal:  0;
+  --ls-wide:    0.04em;
+  --ls-wider:   0.08em;
+  --ls-widest:  0.12em;
+
+  /* ─── Render surface ─── */
   --render-surface-min: 180px;
 }
 
+/* ─── Font large mode overrides ───────────────────────────────────── */
+.app.font-large {
+  --t-xs:  clamp(0.700rem,  0.625rem + 0.25vw, 0.800rem);
+  --t-sm:  clamp(0.800rem,  0.725rem + 0.25vw, 0.875rem);
+  --t-md:  clamp(0.875rem,  0.825rem + 0.20vw, 0.975rem);
+  --t-lg:  clamp(1.063rem,  0.975rem + 0.30vw, 1.225rem);
+  --t-xl:  clamp(1.375rem,  1.225rem + 0.50vw, 1.625rem);
+  --t-2xl: clamp(1.625rem,  1.425rem + 0.70vw, 2.000rem);
+}
+
+/* ─── Base element styles ─────────────────────────────────────────── */
 body {
   font-family: var(--font-ui);
+  font-size: var(--t-md);
+  line-height: var(--line-ui);
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'kern' 1, 'liga' 1;
 }
 
 input,
@@ -20,6 +68,17 @@ button {
   font-family: inherit;
 }
 
+/* ─── Display / heading elements ──────────────────────────────────── */
+.view-page-title,
+.panel-title,
+h1, h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: var(--line-display);
+  letter-spacing: var(--ls-tight);
+}
+
+/* ─── Body / reading text ─────────────────────────────────────────── */
 .body-text,
 .info p,
 .item-hint,
@@ -48,36 +107,47 @@ button {
 .review-textarea,
 .lecture-notes-textarea,
 .scratchpad-area {
-  font-size: 13px;
+  font-size: var(--t-sm);
 }
 
+/* ─── UI chrome — uses Satoshi ────────────────────────────────────── */
 .header-title,
-.view-page-title,
-.panel-title,
 .home-card-label,
 .home-card-big,
 .analytics-card-title,
 .badge-name,
 .item-cat,
-.item-est,
 .btab-label,
 .tab,
 .data-btn,
 .view-btn,
 .settings-section-label,
-.settings-row label {
+.settings-row label,
+.sidebar-link,
+.nav-group-label,
+.section-label,
+.view-page-sub {
   font-family: var(--font-ui);
 }
 
-.app.font-large {
-  --t-xs: 10px;
-  --t-sm: 12px;
-  --t-md: 14px;
-  --t-lg: 17px;
-  --t-xl: 22px;
-  --t-2xl: 26px;
+/* ─── Monospace — numbers, code, time, IDs ────────────────────────── */
+.item-est,
+.stat-num,
+.timer-display,
+.pomodoro-time,
+.gpa-num,
+.week-num,
+.progress-text,
+.header-tag,
+.cal-date-num,
+.heatmap-val,
+.grade-val {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
 }
 
+/* ─── Font large adjustments ──────────────────────────────────────── */
 .app.font-large .body-text,
 .app.font-large .markdown-body,
 .app.font-large .markdown-preview,
@@ -86,6 +156,6 @@ button {
 .app.font-large .scratchpad-area,
 .app.font-large .info p,
 .app.font-large .item-hint {
-  font-size: 15px;
+  font-size: var(--t-md);
   line-height: 1.68;
 }

@@ -91,7 +91,7 @@ function _badge(id, inboxCount, flashDue) {
   if (id === 'inbox' && inboxCount > 0)
     return `<span class="nav-badge btab-badge">${inboxCount}</span>`;
   if (id === 'flashcards' && flashDue > 0)
-    return `<span class="nav-badge btab-badge" style="background:#cf7aff">${flashDue}</span>`;
+    return `<span class="nav-badge btab-badge nav-badge--flash">${flashDue}</span>`;
   return '';
 }
 

@@ -1,0 +1,257 @@
+/* ── Calendar View ── */
+/* Phase 5 will flesh this out fully. Structural tokens defined here. */
+
+/* ─── Calendar container ──────────────────────────────────────────── */
+.cal-view {
+  container-type: inline-size;
+}
+
+/* ─── Calendar header ─────────────────────────────────────────────── */
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+
+.cal-month-title {
+  font-family: var(--font-display);
+  font-size: var(--t-2xl);
+  color: var(--text-primary);
+  font-weight: 400;
+}
+
+/* ─── Day-of-week labels ──────────────────────────────────────────── */
+.cal-dow-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.cal-dow {
+  font-family: var(--font-ui);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: var(--ls-wider);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: var(--space-1) 0;
+}
+
+/* ─── Calendar grid ───────────────────────────────────────────────── */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-1);
+}
+
+/* ─── Calendar cell ───────────────────────────────────────────────── */
+.cal-cell {
+  border-radius: var(--r-md);
+  border: 1px solid var(--glass-border);
+  background: var(--surface-0);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-smooth),
+    box-shadow var(--dur-fast) var(--ease-snap),
+    transform var(--dur-fast) var(--ease-snap),
+    border-color var(--dur-fast) var(--ease-smooth);
+  position: relative;
+  min-height: 80px;
+  overflow: hidden;
+
+  /* Stagger entry animation */
+  opacity: 0;
+  transform: scale(0.9);
+  animation: cell-pop var(--dur-normal) var(--ease-spring) forwards;
+  animation-delay: calc(var(--cell-i, 0) * 20ms);
+}
+
+@keyframes cell-pop {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.cal-cell:hover {
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--accent-ring);
+  transform: scale(1.03);
+  z-index: 2;
+}
+
+/* ─── Today cell ──────────────────────────────────────────────────── */
+.cal-cell.today {
+  background: var(--accent-dim);
+  border: 2px solid var(--accent);
+  box-shadow:
+    0 0 20px var(--accent-ring),
+    inset 0 0 12px var(--accent-dim);
+  z-index: 2;
+}
+
+/* Breathing glow ring */
+.cal-cell.today::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 1px solid var(--accent);
+  opacity: 0.3;
+  animation: today-breathe 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes today-breathe {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.025); }
+}
+
+/* ─── Past day ────────────────────────────────────────────────────── */
+.cal-cell.past {
+  background: var(--surface-0);
+  opacity: 0.85;
+}
+
+/* ─── Off day (no schedule) ───────────────────────────────────────── */
+.cal-cell.off-day {
+  background: transparent;
+  border-color: transparent;
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cal-cell.off-day:hover {
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+/* ─── Cell content ────────────────────────────────────────────────── */
+.cal-date-num {
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+}
+
+.cal-cell.today .cal-date-num {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ─── Progress mini-bar inside cell ──────────────────────────────────*/
+.cal-cell-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--surface-2);
+}
+
+.cal-cell-progress-fill {
+  height: 100%;
+  border-radius: 0 var(--r-sm) 0 0;
+  transition: width var(--dur-slow) var(--ease-spring);
+}
+
+/* Color by completion */
+.cal-cell-progress-fill[data-pct="100"] { background: var(--success); }
+.cal-cell-progress-fill[data-pct="high"] { background: var(--accent); }
+.cal-cell-progress-fill[data-pct="mid"]  { background: var(--warning); }
+.cal-cell-progress-fill[data-pct="low"]  { background: var(--danger); }
+
+/* ─── Deadline dots ───────────────────────────────────────────────── */
+.cal-cell-dots {
+  position: absolute;
+  bottom: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  gap: 3px;
+}
+
+.cal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Pulsing dot for upcoming deadlines (≤2 days) */
+.cal-dot.urgent {
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(1.3); }
+}
+
+/* ─── Day detail side panel ───────────────────────────────────────── */
+.cal-day-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 300px;
+  background: var(--surface-1);
+  border-left: 1px solid var(--glass-border);
+  box-shadow: var(--sh-lg);
+  transform: translateX(100%);
+  transition: transform var(--dur-slow) var(--ease-spring);
+  z-index: 10;
+  overflow-y: auto;
+}
+
+.cal-day-panel.open {
+  transform: translateX(0);
+}
+
+.cal-day-panel-header {
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.cal-day-panel-title {
+  font-family: var(--font-display);
+  font-size: var(--t-xl);
+  color: var(--text-primary);
+  font-weight: 400;
+}
+
+.cal-day-panel-body {
+  padding: var(--space-4) var(--space-5);
+}
+
+/* ─── Legend ──────────────────────────────────────────────────────── */
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--glass-border);
+  font-family: var(--font-ui);
+  font-size: var(--t-xs);
+  color: var(--text-tertiary);
+}
+
+.cal-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ─── Mode controls ───────────────────────────────────────────────── */
+.cal-mode-controls {
+  display: flex;
+  gap: var(--space-1);
+}

@@ -1,12 +1,92 @@
-/* Tier 4 theme normalization. */
+/* ── Theme normalization & overrides ── */
 
+/* ─── Noise texture overlay ───────────────────────────────────────── */
+/* Applied via .app::after — adds paper/film grain to both themes */
+.app::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: var(--noise-opacity, 0.03);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+  mix-blend-mode: overlay;
+  will-change: opacity;
+}
+
+/* ─── Skip link ───────────────────────────────────────────────────── */
 [data-theme="light"] .skip-link {
   background: var(--text-bright);
   color: var(--bg);
 }
 
+/* ─── Skeleton ────────────────────────────────────────────────────── */
 [data-theme="light"] .skeleton-card,
 [data-theme="light"] .skeleton-line,
 [data-theme="light"] .skeleton-pill {
   background: color-mix(in srgb, var(--surface2) 84%, white);
+}
+
+/* ─── Light theme tab overrides ───────────────────────────────────── */
+[data-theme="light"] .tab.active {
+  background: var(--text-bright);
+  color: var(--bg);
+}
+
+[data-theme="light"] .tab .tab-progress {
+  background: rgba(13, 148, 136, 0.25);
+}
+
+[data-theme="light"] .tab.active .tab-progress {
+  background: rgba(247, 244, 238, 0.3);
+}
+
+/* ─── Light theme task items ──────────────────────────────────────── */
+[data-theme="light"] .item {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="light"] .item.done .item-check {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+[data-theme="light"] .item.done .item-check::after {
+  color: var(--accent);
+}
+
+[data-theme="light"] .item.done .item-text::after {
+  color: var(--accent);
+}
+
+/* ─── Light theme info panels ─────────────────────────────────────── */
+[data-theme="light"] .info {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+/* ─── Light theme sync dot ────────────────────────────────────────── */
+[data-theme="light"] .sync-dot.connected {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success-dim);
+}
+
+/* ─── Light theme card glass ──────────────────────────────────────── */
+[data-theme="light"] .card-glass {
+  background: var(--glass-bg);
+}
+
+/* ─── Smooth theme switching ──────────────────────────────────────── */
+:root {
+  transition:
+    background-color 0.3s var(--ease-smooth),
+    color 0.3s var(--ease-smooth);
+}
+
+body {
+  transition:
+    background-color 0.3s var(--ease-smooth),
+    color 0.3s var(--ease-smooth);
 }

@@ -1,0 +1,109 @@
+/* ── Achievement Badges ── */
+
+/* ─── Badge mount ─────────────────────────────────────────────────── */
+.badge-mount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  position: relative;
+}
+
+/* Gradient ring border */
+.badge-mount::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  z-index: -1;
+}
+
+.badge-mount::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: var(--surface-1);
+  z-index: -1;
+}
+
+/* ─── Badge icon ──────────────────────────────────────────────────── */
+.badge-icon {
+  font-size: 2rem;
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Locked state ────────────────────────────────────────────────── */
+.badge-mount.locked {
+  filter: grayscale(1) opacity(0.4);
+}
+
+.badge-mount.locked::before {
+  background: var(--surface-3);
+}
+
+/* ─── Unlock animation ────────────────────────────────────────────── */
+.badge-mount.unlocking {
+  animation: badge-unlock var(--dur-dramatic) var(--ease-bounce) forwards;
+}
+
+@keyframes badge-unlock {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.2); opacity: 1; }
+  80%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
+/* Golden ring explosion */
+.badge-mount.unlocking::before {
+  animation: badge-ring-explode var(--dur-dramatic) var(--ease-smooth) forwards;
+}
+
+@keyframes badge-ring-explode {
+  0%   { inset: -3px; opacity: 1; }
+  100% { inset: -20px; opacity: 0; }
+}
+
+/* ─── Pill badge (counts, labels) ─────────────────────────────────── */
+.pill-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-family: var(--font-ui);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  border-radius: var(--r-pill);
+  line-height: 1.4;
+}
+
+.pill-badge-accent {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid var(--accent-ring);
+}
+
+.pill-badge-success {
+  background: var(--success-dim);
+  color: var(--success);
+}
+
+.pill-badge-warning {
+  background: var(--warning-dim);
+  color: var(--warning);
+}
+
+.pill-badge-danger {
+  background: var(--danger-dim);
+  color: var(--danger);
+}
+
+.pill-badge-neutral {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}

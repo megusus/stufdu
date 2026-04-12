@@ -30,16 +30,19 @@ function _renderDayViewInner(ctx, currentSectionIdx) {
 
   let html = '';
 
-  // Celebration
+  // Celebration banner
   if (prog.pct === 100 && state.celebrationShown[dayName]) {
-    html += `<div class="celebration">\u2728 All tasks complete! Take a well-deserved break. \u2728</div>`;
+    html += `<div class="day-complete-banner animate-on-scroll">
+      <div class="day-complete-text">✦ All tasks complete ✦</div>
+      <div class="day-complete-sub">Take a well-deserved break today.</div>
+    </div>`;
   }
 
   // Day header
   html += `<div class="day-header">
     <div>
       <h2 class="day-name">${escapeHtml(getDayLabel(dayName))}${isToday ? ' <span class="today-tag">today</span>' : ''}</h2>
-      <div class="day-meta">Wake <strong>${escapeHtml(day.wake || '08:00')}</strong>${day.leave ? ` · Leave <strong>${escapeHtml(day.leave)}</strong>` : ' <span style="color:#00e676">Home day</span>'}${day.meta ? ` · <em>${escapeHtml(day.meta)}</em>` : ''}</div>
+      <div class="day-meta">Wake <strong>${escapeHtml(day.wake || '08:00')}</strong>${day.leave ? ` · Leave <strong>${escapeHtml(day.leave)}</strong>` : ' <span class="home-day-tag">Home day</span>'}${day.meta ? ` · <em>${escapeHtml(day.meta)}</em>` : ''}</div>
     </div>
     <button class="lock-btn ${state.lockedDays[dayName] ? 'locked' : ''}" data-action="toggleLock" data-day="${escapeHtml(dayName)}" title="${state.lockedDays[dayName] ? 'Unlock' : 'Lock'} day">
       \ud83d\udd12 ${state.lockedDays[dayName] ? 'Locked' : 'Lock'}
@@ -58,7 +61,7 @@ function _renderDayViewInner(ctx, currentSectionIdx) {
     [...dayCats].forEach(cat => {
       const c = categories.getColor(cat);
       const label = categories.getLabel(cat) || cat;
-      html += `<button class="cat-filter-btn ${state.activeFilter === cat ? 'active' : ''}" data-action="toggleCatFilter" data-cat="${cat}" style="${state.activeFilter === cat ? `background:${c.border};color:#09090b;border-color:${c.border};font-weight:600` : `border-color:${c.border}44;color:${c.border}`}">${label}</button>`;
+      html += `<button class="cat-filter-btn ${state.activeFilter === cat ? 'active' : ''}" data-action="toggleCatFilter" data-cat="${cat}" style="${state.activeFilter === cat ? `background:${c.border};color:var(--bg);border-color:${c.border}` : `border-color:${c.border}44;color:${c.border}`}">${label}</button>`;
     });
     html += '</div>';
   }
@@ -77,8 +80,8 @@ function _renderDayViewInner(ctx, currentSectionIdx) {
       <div class="day-empty-title">No tasks yet</div>
       <div class="day-empty-sub">Add tasks using the + button below,<br>or import from your Ideal Week.</div>
       <div class="day-empty-actions">
-        <button class="data-btn" data-action="toggleFab" style="color:var(--accent);border-color:#00d2ff44">+ Add task</button>
-        <a class="data-btn" href="#ideal" style="text-decoration:none;color:#cf7aff;border-color:#cf7aff33">✦ Ideal Week</a>
+        <button class="data-btn" data-action="toggleFab" style="color:var(--accent);border-color:var(--accent-ring)">+ Add task</button>
+        <a class="data-btn" href="#ideal" style="text-decoration:none;color:var(--c-purple,#cf7aff);border-color:color-mix(in srgb,var(--c-purple,#cf7aff) 25%,transparent)">✦ Ideal Week</a>
       </div>
     </div>`;
   }
@@ -94,11 +97,23 @@ function _renderDayViewInner(ctx, currentSectionIdx) {
     });
     if (items.length === 0 && (state.focusMode || state.activeFilter || query)) return;
 
+    // Section progress fraction (not filtered — actual state of all section items)
+    const secAllItems = section.items.filter(item => !(state.taskDeferred[item.id] && state.taskDeferred[item.id] !== dayName));
+    const secDone = secAllItems.filter(it => { const s = getStatus(it.id); return s === STATUS_DONE || s === STATUS_SKIP; }).length;
+    const secPct = secAllItems.length > 0 ? Math.round(secDone / secAllItems.length * 100) : 0;
+
     const isCurrent = isToday && sIdx === currentSectionIdx;
     html += `<div class="section ${isCurrent ? 'active-section' : ''}">`;
-    html += `<div class="section-header"><span class="section-label">${escapeHtml(section.label.toUpperCase())}</span>`;
-    html += `<button class="section-done-btn" data-action="markSectionDone" data-day="${escapeHtml(dayName)}" data-i="${sIdx}" title="Mark all done">\u2713 All done</button>`;
-    html += '</div>';
+    html += `<div class="section-header">
+      <span class="section-label">${escapeHtml(section.label.toUpperCase())}</span>
+      <div class="section-prog-wrap">
+        <span class="section-frac">${secDone}/${secAllItems.length}</span>
+        <div class="section-prog-track" title="${secPct}% complete">
+          <div class="section-prog-fill ${secPct === 100 ? 'complete' : ''}" style="width:${secPct}%"></div>
+        </div>
+      </div>
+      <button class="section-done-btn" data-action="markSectionDone" data-day="${escapeHtml(dayName)}" data-i="${sIdx}" title="Mark all done">\u2713 All</button>
+    </div>`;
 
     html += `<div class="drop-zone" data-drop-zone data-drop-day="${escapeHtml(dayName)}" data-drop-section="${sIdx}">`;
     items.forEach((item, itemIdx) => {

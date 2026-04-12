@@ -14,6 +14,7 @@ import { findItemById } from '../schedule.js';
 import { Storage } from '../storage.js';
 import { syncPush } from '../sync.js';
 import { activateModal, announce, deactivateModal } from './a11y.js';
+import { spawnDayComplete } from './confetti.js';
 // Forward references set by init.js
 let _render = () => {};
 let _doRender = () => {};
@@ -24,14 +25,15 @@ export function setRenderFn(renderFn, doRenderFn) {
 }
 
 // ── Toast / Undo ──
-export function showToast(msg) {
+// type: 'default' | 'success' | 'warning' | 'error' | 'info'
+export function showToast(msg, type = 'default') {
   const toast = document.getElementById('toast');
   const canUndo = state.lastToggle && /^(Task completed|Task unchecked|Skipped|Status cleared|In progress|Blocked)$/.test(String(msg));
   const undo = canUndo
     ? '<button class="toast-undo" data-action="undoToggle">Undo</button>'
     : '';
   toast.innerHTML = `<span>${escapeHtml(msg)}</span>${undo}`;
-  toast.classList.add('show');
+  toast.className = `toast show${type !== 'default' ? ' toast--' + type : ''}`;
   announce(msg);
   clearTimeout(state.toastTimer);
   state.toastTimer = setTimeout(hideToast, CONFIG.toastDuration);
@@ -93,7 +95,7 @@ export function toggleLock(dayName) {
 
 // ── Toggle (tap checkbox = toggle done) ──
 export function toggle(id) {
-  if (isTaskLocked(id)) { showToast('Day is locked'); haptic('error'); return; }
+  if (isTaskLocked(id)) { showToast('Day is locked', 'error'); haptic('error'); return; }
   const prev = state.checked[id];
   const wasDone = getStatus(id) === STATUS_DONE;
   if (wasDone) {
@@ -109,6 +111,7 @@ export function toggle(id) {
   saveState();
   syncPush();
   const msg = wasDone ? 'Task unchecked' : 'Task completed';
+  const msgType = wasDone ? 'default' : 'success';
   let needsFullRender = false;
   const dayName = getTaskDay(id);
   if (dayName && !wasDone) {
@@ -116,20 +119,21 @@ export function toggle(id) {
     if (prog.pct === 100 && !state.celebrationShown[dayName]) {
       state.celebrationShown[dayName] = true;
       haptic('heavy');
+      spawnDayComplete();
       needsFullRender = true;
     }
   }
   if (!needsFullRender && !state.openActions && !state.openNoteInput && !state.openDeferPicker && !state.openLinkInput && patchTaskDOM(id)) {
-    showToast(msg);
+    showToast(msg, msgType);
     return;
   }
   _render();
-  showToast(msg);
+  showToast(msg, msgType);
 }
 
 // ── Task status ──
 export function setTaskStatus(id, status) {
-  if (isTaskLocked(id)) { showToast('Day is locked'); haptic('error'); return; }
+  if (isTaskLocked(id)) { showToast('Day is locked', 'error'); haptic('error'); return; }
   const prev = state.checked[id];
   const hadOpenUI = state.openActions || state.openNoteInput || state.openDeferPicker || state.openLinkInput;
   if (getStatus(id) === status) {
@@ -156,10 +160,12 @@ export function setTaskStatus(id, status) {
     saveState();
     syncPush();
     const labels = { skip: 'Skipped', progress: 'In progress', blocked: 'Blocked' };
+    const types  = { skip: 'warning', progress: 'info', blocked: 'error' };
     const msg = labels[status] || status;
-    if (!hadOpenUI && patchTaskDOM(id)) { showToast(msg); return; }
+    const type = types[status] || 'default';
+    if (!hadOpenUI && patchTaskDOM(id)) { showToast(msg, type); return; }
     _render();
-    showToast(msg);
+    showToast(msg, type);
   }
 }
 
@@ -203,7 +209,7 @@ export function saveNote(id, fromBlur) {
   saveState();
   syncPush();
   _render();
-  showToast(text ? 'Note saved' : 'Note removed');
+  showToast(text ? 'Note saved' : 'Note removed', 'success');
 }
 
 // ── Defer ──
@@ -216,7 +222,7 @@ export function showDeferPicker(id, e) {
 }
 
 export function deferTask(id, targetDay) {
-  if (isTaskLocked(id)) { showToast('Day is locked'); haptic('error'); return; }
+  if (isTaskLocked(id)) { showToast('Day is locked', 'error'); haptic('error'); return; }
   state.taskDeferred[id] = targetDay;
   state.openActions = null;
   state.openDeferPicker = null;
@@ -224,13 +230,13 @@ export function deferTask(id, targetDay) {
   saveState();
   syncPush();
   _render();
-  showToast('Deferred to ' + targetDay);
+  showToast('Deferred to ' + targetDay, 'info');
 }
 
 // ── Clear ──
 export function clearTask(id, e) {
   if (e) e.stopPropagation();
-  if (isTaskLocked(id)) { showToast('Day is locked'); return; }
+  if (isTaskLocked(id)) { showToast('Day is locked', 'error'); return; }
   delete state.checked[id];
   delete state.taskNotes[id];
   delete state.taskDeferred[id];
@@ -246,7 +252,7 @@ export function clearTask(id, e) {
 
 // ── Mark section done ──
 export function markSectionDone(dayName, sectionIdx) {
-  if (isDayLocked(dayName)) { showToast('Day is locked'); haptic('error'); return; }
+  if (isDayLocked(dayName)) { showToast('Day is locked', 'error'); haptic('error'); return; }
   const section = schedule[dayName]?.sections?.[sectionIdx];
   if (!section) return;
   let count = 0;
@@ -262,11 +268,12 @@ export function markSectionDone(dayName, sectionIdx) {
     saveState();
     syncPush();
     _render();
-    showToast(`${count} task${count > 1 ? 's' : ''} completed`);
+    showToast(`${count} task${count > 1 ? 's' : ''} completed`, 'success');
     const prog = getDayProgress(dayName);
     if (prog.pct === 100 && !state.celebrationShown[dayName]) {
       state.celebrationShown[dayName] = true;
       haptic('heavy');
+      spawnDayComplete();
     }
   } else {
     showToast('Section already complete');

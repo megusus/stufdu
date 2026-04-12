@@ -23,7 +23,7 @@ export function renderHeaderControls(ctx) {
 
   const themeLabel = currentTheme === 'dark' ? '\u2600\ufe0f' : '\ud83c\udf19';
   const syncDot = hasSyncConfig && state.firebaseReady
-    ? '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#00e676;margin-left:4px;vertical-align:middle" title="Sync connected"></span>'
+    ? '<span class="sync-dot" title="Sync connected"></span>'
     : '';
 
   let html = `<div class="semester-tag">${escapeHtml(config.semester)}</div>
@@ -49,10 +49,10 @@ export function renderHeaderControls(ctx) {
 
   html += `<div class="search-bar"><span class="search-icon">\ud83d\udd0d</span><input id="search-input" type="text" class="search-input" placeholder="Search tasks\u2026" value="${escapeHtml(state.searchQuery || '')}" data-input-action="setSearch" data-focus-action="selectInput" data-stop></div>`;
 
-  html += `<div class="view-mode-toggle">
-    <button class="view-btn ${state.viewMode === 'day' ? 'active' : ''}" data-action="setViewMode" data-mode="day">Day</button>
-    <button class="view-btn ${state.viewMode === 'week' ? 'active' : ''}" data-action="setViewMode" data-mode="week">Week</button>
-    <button class="view-btn focus ${state.focusMode ? 'active' : ''}" data-action="toggleFocusMode">\ud83d\udc53 Focus</button>
+  html += `<div class="seg-control view-mode-seg" role="group" aria-label="View mode">
+    <button class="seg-btn ${state.viewMode === 'day' ? 'active' : ''}" data-action="setViewMode" data-mode="day" aria-pressed="${state.viewMode === 'day'}">Day</button>
+    <button class="seg-btn ${state.viewMode === 'week' ? 'active' : ''}" data-action="setViewMode" data-mode="week" aria-pressed="${state.viewMode === 'week'}">Week</button>
+    <button class="seg-btn seg-btn--focus ${state.focusMode ? 'active' : ''}" data-action="toggleFocusMode" aria-pressed="${state.focusMode ? 'true' : 'false'}">&#128053; Focus</button>
   </div>`;
 
   // Compute ideal gap for all days (for tab indicators)
@@ -68,8 +68,8 @@ export function renderHeaderControls(ctx) {
     const gap = idealGap[d];
     let gapDot = '';
     if (gap && gap.idealTotal > 0) {
-      const dotColor = gap.pct >= 80 ? '#00e676' : gap.pct >= 50 ? '#ffab00' : '#e94560';
-      gapDot = `<span class="tab-ideal-dot" style="background:${dotColor}" title="Ideal: ${gap.pct}%"></span>`;
+      const dotTier = gap.pct >= 80 ? 'good' : gap.pct >= 50 ? 'mid' : 'low';
+      gapDot = `<span class="tab-ideal-dot tab-ideal-dot--${dotTier}" title="Ideal: ${gap.pct}%"></span>`;
     }
     html += `<button class="tab ${sel ? 'active' : ''} ${today ? 'today' : ''}"
       data-action="selectDay" data-i="${i}" data-context-action="showTabCtxMenu"

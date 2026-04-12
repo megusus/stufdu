@@ -1,0 +1,185 @@
+/* ── Buttons & Controls ── */
+
+/* ─── Base button ─────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.5em 1em;
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: none;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition:
+    transform var(--dur-instant) var(--ease-snap),
+    background var(--dur-fast) var(--ease-smooth),
+    box-shadow var(--dur-fast) var(--ease-smooth),
+    color var(--dur-fast) var(--ease-smooth);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--sh-sm);
+}
+
+.btn:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: none;
+  transition-duration: var(--dur-instant);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ─── Primary ─────────────────────────────────────────────────────── */
+.btn-primary {
+  background: var(--accent-gradient);
+  color: #0a0a0c;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+/* ─── Ghost ───────────────────────────────────────────────────────── */
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background: var(--accent-dim);
+}
+
+/* ─── Danger ──────────────────────────────────────────────────────── */
+.btn-danger {
+  background: var(--danger-dim);
+  color: var(--danger);
+  border: 1px solid var(--danger-ring);
+}
+
+.btn-danger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* ─── Icon-only button ────────────────────────────────────────────── */
+.btn-icon {
+  padding: 0.4em;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-tertiary);
+  border: 1px solid transparent;
+  position: relative;
+}
+
+.btn-icon:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+/* Tooltip via CSS */
+.btn-icon[aria-label]::after {
+  content: attr(aria-label);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.9);
+  background: var(--surface-3);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--dur-fast) var(--ease-smooth),
+    transform var(--dur-fast) var(--ease-smooth);
+  z-index: 100;
+}
+
+.btn-icon[aria-label]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+/* ─── Segmented control ───────────────────────────────────────────── */
+.segmented-control,
+.seg-control {
+  display: inline-flex;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 3px;
+  gap: 2px;
+}
+
+.segmented-control .seg-btn,
+.seg-control .seg-btn {
+  padding: 5px 12px;
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  border-radius: calc(var(--r-lg) - 4px);
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-smooth),
+    color var(--dur-fast) var(--ease-smooth),
+    box-shadow var(--dur-fast) var(--ease-smooth),
+    transform var(--dur-instant) var(--ease-snap);
+}
+
+.segmented-control .seg-btn.active,
+.segmented-control .seg-btn[aria-pressed="true"],
+.seg-control .seg-btn.active,
+.seg-control .seg-btn[aria-pressed="true"] {
+  background: var(--accent-gradient);
+  color: #0a0a0c;
+  box-shadow: var(--sh-sm);
+  font-weight: 600;
+}
+
+.segmented-control .seg-btn:hover:not(.active),
+.seg-control .seg-btn:hover:not(.active) {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.segmented-control .seg-btn:active,
+.seg-control .seg-btn:active {
+  transform: scale(0.95);
+  transition-duration: var(--dur-instant);
+}
+
+.seg-control .seg-btn--focus.active {
+  background: linear-gradient(135deg, var(--c-purple, #a78bfa), var(--accent));
+}
+
+/* Full-width variant for view mode control */
+.view-mode-seg {
+  width: 100%;
+}
+
+.view-mode-seg .seg-btn {
+  flex: 1;
+  text-align: center;
+}

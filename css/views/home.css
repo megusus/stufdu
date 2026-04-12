@@ -1,0 +1,267 @@
+/* ── Dashboard / Home View ── */
+/* Phase 6 will complete full hero zone and card grid. */
+
+/* ─── Hero zone ───────────────────────────────────────────────────── */
+.hero-zone {
+  border-radius: var(--r-xl);
+  padding: var(--space-6) var(--space-6) var(--space-5);
+  margin-bottom: var(--space-5);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-1);
+}
+
+/* Time-of-day gradient overlay (set via JS class) */
+.hero-zone.morning::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg,
+    rgba(251, 191, 36, 0.06) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+.hero-zone.evening::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg,
+    rgba(99, 102, 241, 0.07) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+.hero-greeting {
+  font-family: var(--font-display);
+  font-size: var(--t-2xl);
+  color: var(--text-primary);
+  font-weight: 400;
+  margin-bottom: var(--space-1);
+}
+
+.hero-date {
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--ls-wide);
+}
+
+.hero-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+.hero-summary-sep {
+  color: var(--text-ghost);
+}
+
+.hero-next-task {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--glass-border);
+}
+
+.hero-next-label {
+  font-family: var(--font-ui);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: var(--ls-wider);
+  text-transform: uppercase;
+}
+
+.hero-next-name {
+  font-family: var(--font-body);
+  font-size: var(--t-md);
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+/* ─── Dashboard card grid ─────────────────────────────────────────── */
+.dashboard-grid-new {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* Span 2 columns for wide cards */
+.dashboard-card-wide {
+  grid-column: span 2;
+}
+
+@container (max-width: 600px) {
+  .dashboard-card-wide {
+    grid-column: span 1;
+  }
+}
+
+/* ─── Dashboard card ──────────────────────────────────────────────── */
+.home-card-new {
+  background: var(--surface-1);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  transition:
+    transform var(--dur-normal) var(--ease-smooth),
+    box-shadow var(--dur-normal) var(--ease-smooth);
+}
+
+.home-card-new:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-md);
+}
+
+/* Accent stripe */
+.home-card-new::before {
+  content: '';
+  display: block;
+  height: 2px;
+  background: var(--card-accent, var(--accent-gradient));
+}
+
+.home-card-new-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5) var(--space-3);
+}
+
+.home-card-new-title {
+  font-family: var(--font-ui);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-wider);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.home-card-new-body {
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+/* ─── Mini calendar strip ─────────────────────────────────────────── */
+.mini-cal-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-1);
+}
+
+.mini-cal-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-2) var(--space-1);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-smooth);
+}
+
+.mini-cal-day:hover {
+  background: var(--surface-2);
+}
+
+.mini-cal-day.today {
+  background: var(--accent-dim);
+}
+
+.mini-cal-dow {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.mini-cal-date {
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.mini-cal-day.today .mini-cal-date {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.mini-cal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-ghost);
+}
+
+.mini-cal-day.today .mini-cal-dot {
+  background: var(--accent);
+}
+
+/* ─── Deadline timeline ───────────────────────────────────────────── */
+.deadline-timeline {
+  position: relative;
+  padding-left: var(--space-5);
+}
+
+.deadline-timeline::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--border);
+}
+
+.deadline-timeline-item {
+  position: relative;
+  padding: var(--space-2) 0 var(--space-2) var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--t-sm);
+}
+
+.deadline-timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cat-color, var(--accent));
+  border: 2px solid var(--surface-1);
+}
+
+.deadline-timeline-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.deadline-timeline-date {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}

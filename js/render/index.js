@@ -37,6 +37,7 @@ import { getPinnedItems, getOverflowItems, ALL_NAV_ITEMS } from '../nav-config.j
 import { getSession as getPomodoroSession, getRemainingSecs } from '../pomodoro.js';
 import { hasPendingConflict, renderConflictModal } from '../sync-conflict.js';
 import { activateModal, deactivateModal, repairA11yTree } from '../ui/a11y.js';
+import { observeScrollAnimations } from '../ui/scroll-observer.js';
 
 function _updateTimerBar() {
   const timer = getActiveTimer();
@@ -439,5 +440,8 @@ function _doRenderInner() {
     }
   }
 
-  requestAnimationFrame(() => window.scrollTo(0, scrollY));
+  requestAnimationFrame(() => {
+    window.scrollTo(0, scrollY);
+    observeScrollAnimations();
+  });
 }

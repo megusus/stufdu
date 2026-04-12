@@ -1,11 +1,44 @@
-@layer reset, legacy, base, layout, components, views, themes, animations, accessibility, utilities;
+/* ── Study Plan — Main CSS entry point ──
+   Layer order: reset → legacy → base → layout → components → views → themes → animations → accessibility → utilities
+   Component and view layers import their sub-files.
+─────────────────────────────────────────────────────────────────────── */
 
-@import url("./legacy.css") layer(legacy);
-@import url("./base.css") layer(base);
-@import url("./layout.css") layer(layout);
-@import url("./components.css") layer(components);
-@import url("./views.css") layer(views);
-@import url("./themes.css") layer(themes);
-@import url("./animations.css") layer(animations);
+@layer
+  reset,
+  legacy,
+  base,
+  layout,
+  components,
+  views,
+  themes,
+  animations,
+  accessibility,
+  utilities;
+
+/* ─── Core ────────────────────────────────────────────────────────── */
+@import url("./legacy.css")        layer(legacy);
+@import url("./base.css")          layer(base);
+@import url("./layout.css")        layer(layout);
+
+/* ─── Components ──────────────────────────────────────────────────── */
+@import url("./components.css")              layer(components);
+@import url("./components/buttons.css")      layer(components);
+@import url("./components/cards.css")        layer(components);
+@import url("./components/progress.css")     layer(components);
+@import url("./components/modal.css")        layer(components);
+@import url("./components/toast.css")        layer(components);
+@import url("./components/badges.css")       layer(components);
+@import url("./components/forms.css")        layer(components);
+
+/* ─── Views ───────────────────────────────────────────────────────── */
+@import url("./views.css")                   layer(views);
+@import url("./views/calendar.css")          layer(views);
+@import url("./views/schedule.css")          layer(views);
+@import url("./views/stats.css")             layer(views);
+@import url("./views/home.css")              layer(views);
+
+/* ─── Theming & animation ─────────────────────────────────────────── */
+@import url("./themes.css")        layer(themes);
+@import url("./animations.css")    layer(animations);
 @import url("./accessibility.css") layer(accessibility);
-@import url("./utilities.css") layer(utilities);
+@import url("./utilities.css")     layer(utilities);

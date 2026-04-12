@@ -4,6 +4,40 @@
 
 import { renderMarkdown, markdownExcerpt } from '../markdown.js';
 
+// ── SVG checkbox icons — animated, state-aware ──
+function _svgCheck(st, STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED) {
+  if (!st) {
+    return `<svg class="check-svg" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="10" cy="10" r="8.5" stroke="currentColor" stroke-width="1.5"/>
+    </svg>`;
+  }
+  if (st === STATUS_DONE) {
+    return `<svg class="check-svg" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="10" cy="10" r="10" fill="var(--accent)"/>
+      <path class="check-mark" d="M5.5 10.5L8.5 13.5L14.5 7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+  if (st === STATUS_SKIP) {
+    return `<svg class="check-svg" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="10" cy="10" r="10" fill="var(--danger)"/>
+      <path d="M7 7L13 13M13 7L7 13" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>`;
+  }
+  if (st === STATUS_PROGRESS) {
+    return `<svg class="check-svg check-svg--pulse" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="10" cy="10" r="10" fill="var(--warning)"/>
+      <path d="M8 6.5L15 10L8 13.5V6.5Z" fill="white"/>
+    </svg>`;
+  }
+  if (st === STATUS_BLOCKED) {
+    return `<svg class="check-svg" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="10" cy="10" r="10" fill="var(--c-orange,#ff6d00)"/>
+      <rect x="6" y="9.25" width="8" height="1.5" rx="0.75" fill="white"/>
+    </svg>`;
+  }
+  return '';
+}
+
 /**
  * Pure renderer: receives RenderContext + item data, returns HTML string.
  * @param {import('./context.js').RenderContext} ctx
@@ -30,7 +64,7 @@ export function renderItem(ctx, item, dayName, extraClass, fromDay, dragAttrs) {
   if (state.justSkippedId === item.id) cls += ' just-skipped';
   if (extraClass) cls += ' ' + extraClass;
 
-  const check = st === STATUS_DONE ? '\u2713' : st === STATUS_SKIP ? '\u2716' : st === STATUS_PROGRESS ? '\u25b6' : st === STATUS_BLOCKED ? '\u26d4' : '';
+  const checkSvg = _svgCheck(st, STATUS_DONE, STATUS_SKIP, STATUS_PROGRESS, STATUS_BLOCKED);
   const checkCls = st ? `check ${st}` : 'check';
   const deferBadge = state.taskDeferred[item.id] && state.taskDeferred[item.id] !== dayName
     ? ` <span class="defer-badge">\u2192 ${escapeHtml(state.taskDeferred[item.id])}</span>` : '';
@@ -42,9 +76,9 @@ export function renderItem(ctx, item, dayName, extraClass, fromDay, dragAttrs) {
   let html = `<div class="${cls}" data-task-id="${item.id}" data-action="handleItemClick" data-id="${item.id}"
     data-context-action="showTaskCtxMenu" data-touchstart-action="handleLongPressStart" data-touchend-action="handleLongPressEnd"
     role="checkbox" aria-checked="${ariaChecked}" aria-label="${escapeHtml(item.text)} — ${statusText}"
-    style="border-left-color:${c.border}" ${dragAttrs || ''}>`;
+    style="--cat-color:${c.border};border-left-color:var(--cat-color)" ${dragAttrs || ''}>`;
 
-  html += `<div class="${checkCls}" data-action="toggle" data-id="${item.id}">${check}</div>`;
+  html += `<div class="${checkCls}" data-action="toggle" data-id="${item.id}" aria-hidden="true">${checkSvg}</div>`;
   html += `<div class="item-content">`;
   html += `<div class="item-text">${escapeHtml(item.text)}${deferBadge}${fromBadge}</div>`;
   if (item.hint) html += `<div class="item-hint">${escapeHtml(item.hint)}</div>`;
@@ -59,7 +93,7 @@ export function renderItem(ctx, item, dayName, extraClass, fromDay, dragAttrs) {
     }
   }
   html += `<div class="item-meta">`;
-  if (label) html += `<span class="item-cat" style="background:${c.border}18;color:${c.border};border-color:${c.border}33">${escapeHtml(label)}</span>`;
+  if (label) html += `<span class="item-cat" style="background:color-mix(in srgb, var(--cat-color) 12%, transparent);color:var(--cat-color);border-color:color-mix(in srgb, var(--cat-color) 25%, transparent)">${escapeHtml(label)}</span>`;
   if (est) html += `<span class="item-est">${formatEst(est)}</span>`;
   html += `</div>`;
 
@@ -144,7 +178,7 @@ export function renderItem(ctx, item, dayName, extraClass, fromDay, dragAttrs) {
       </div>
       <div class="lecture-notes-actions">
         <button class="data-btn" data-action="saveLectureNotes" data-id="${item.id}"
-          style="color:var(--accent);border-color:#00d2ff44">Save</button>
+          style="color:var(--accent);border-color:var(--accent-ring)">Save</button>
         <button class="data-btn" data-action="closeLectureNotes"
           style="color:var(--dim)">Close</button>
       </div>
@@ -181,7 +215,7 @@ export function renderItem(ctx, item, dayName, extraClass, fromDay, dragAttrs) {
         sec.items.forEach(it => {
           if (it.id === item.id) return;
           const isBlocker = currentBlockers.includes(it.id);
-          html += `<button class="defer-day-btn${isBlocker ? ' active' : ''}" style="${isBlocker ? 'color:#e94560;border-color:#e94560' : ''}"
+          html += `<button class="defer-day-btn${isBlocker ? ' active' : ''}" style="${isBlocker ? 'color:var(--danger);border-color:var(--danger-ring)' : ''}"
             data-action="toggleBlocker" data-id="${item.id}" data-blocker="${it.id}"
             title="${escapeHtml(d)}">${isBlocker ? '⛔ ' : ''}${escapeHtml(it.text.slice(0,35))}</button>`;
         });

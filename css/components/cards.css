@@ -1,0 +1,119 @@
+/* ── Cards & Elevation System ── */
+
+/* ─── Base card ───────────────────────────────────────────────────── */
+.card {
+  border-radius: var(--r-lg);
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+  transition:
+    transform var(--dur-normal) var(--ease-smooth),
+    box-shadow var(--dur-normal) var(--ease-smooth);
+}
+
+/* ─── Elevation levels ────────────────────────────────────────────── */
+.card-0 {
+  background: var(--surface-0);
+  box-shadow: none;
+}
+
+.card-1 {
+  background: var(--surface-1);
+  box-shadow: var(--sh-sm);
+}
+
+.card-2 {
+  background: var(--surface-2);
+  box-shadow: var(--sh-md);
+}
+
+.card-float {
+  background: var(--surface-2);
+  box-shadow: var(--sh-lg);
+  border: 1px solid var(--glass-border);
+}
+
+/* ─── Hover lift ──────────────────────────────────────────────────── */
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-md);
+}
+
+.card-2.card-hover:hover {
+  box-shadow: var(--sh-lg);
+}
+
+/* ─── Accent stripe (top edge) ────────────────────────────────────── */
+.card-accent-stripe {
+  position: relative;
+}
+
+.card-accent-stripe::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-gradient);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+
+/* ─── Card header ─────────────────────────────────────────────────── */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.card-title {
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.card-body {
+  padding: var(--space-4) var(--space-5);
+}
+
+/* ─── Glass morphism card ─────────────────────────────────────────── */
+.card-glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--sh-md);
+}
+
+/* ─── Analytics card grid background ─────────────────────────────── */
+.card-grid-bg {
+  background-image:
+    linear-gradient(var(--glass-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--glass-border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ─── Loading skeleton ────────────────────────────────────────────── */
+.card-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-2) 74%, var(--bg));
+}
+
+.card-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--text-bright) 6%, transparent),
+    transparent
+  );
+  animation: skeleton-sweep 1.4s var(--ease-smooth) infinite;
+}
