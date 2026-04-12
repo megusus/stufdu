@@ -7,6 +7,7 @@
  * @param {import('./context.js').RenderContext} ctx
  */
 import { THEME_PRESETS, currentPreset } from '../ui/theme.js';
+import { loadRecurringTasks } from '../recurrence.js';
 
 const _panelErr = (ctx, err) =>
   `<div style="padding:10px 12px;margin:4px 0;font-size:11px;color:#e94560;background:#1a0808;border:1px solid #e9456033;border-radius:8px">
@@ -406,6 +407,43 @@ function _renderPanelsInner(ctx, group = 'all', defaultOpen = false) {
     }
   }, 'tools');
 
+  // Recurring tasks
+  const recTasks = loadRecurringTasks();
+  lazyPanel('recurrence', `🔁 Recurring Tasks${recTasks.length ? ` (${recTasks.length})` : ''}`, 'color:#00d2ff', () => {
+    html += `<div style="font-size:10px;color:var(--dim);margin-bottom:10px">Auto-injected into your day view based on recurrence rules.</div>`;
+    recTasks.forEach(t => {
+      const ruleLabel = t.recurrence.type === 'daily' ? 'Every day'
+        : t.recurrence.type === 'weekdays' ? 'Mon-Fri'
+        : t.recurrence.type === 'weekly' ? `Every ${t.recurrence.targetDay || '?'}`
+        : `Custom: ${(t.recurrence.days || []).join(', ')}`;
+      html += `<div class="editor-item">
+        <span class="editor-item-text" style="flex:1">${escapeHtml(t.text)}</span>
+        <span style="font-size:9px;color:var(--dim)">${ruleLabel}</span>
+        <span class="editor-item-cat">${categories.getLabel(t.cat) || t.cat}</span>
+        <button class="editor-remove-btn" data-action="removeRecurringTask" data-id="${escapeHtml(t.id)}" title="Remove">✕</button>
+      </div>`;
+    });
+    html += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <div class="grades-form-row">
+        <input class="inbox-capture-input" id="rec-text" type="text" placeholder="Task text..." style="flex:2">
+        <select class="editor-select" id="rec-cat">
+          ${categories.keys().map(k => `<option value="${k}">${escapeHtml(categories.getLabel(k) || k)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="grades-form-row" style="margin-top:4px">
+        <select class="editor-select" id="rec-type">
+          <option value="daily">Daily</option>
+          <option value="weekdays" selected>Weekdays (Mon-Fri)</option>
+          <option value="weekly">Weekly</option>
+        </select>
+        <select class="editor-select" id="rec-target-day" style="display:none">
+          ${days.map(d => `<option value="${d}">${escapeHtml(getDayLabel(d))}</option>`).join('')}
+        </select>
+        <button class="data-btn" data-action="addRecurringTask" style="color:var(--accent);border-color:#00d2ff44">+ Add</button>
+      </div>
+    </div>`;
+  }, 'tools');
+
   // Data
   lazyPanel('data', 'Data', '', () => {
     html += `<div class="data-controls">
@@ -413,8 +451,9 @@ function _renderPanelsInner(ctx, group = 'all', defaultOpen = false) {
       <button class="data-btn" data-action="importData">Import JSON</button>
       <button class="data-btn" data-action="exportCalendar" style="color:#b44aff;border-color:#b44aff33">\ud83d\udcc5 .ics</button>
       <button class="data-btn" data-action="shareProgress" style="color:#00e676;border-color:#00e67633">\ud83d\udce4 Share</button>
-      <button class="data-btn" data-action="cloudBackup" style="color:#00d2ff;border-color:#00d2ff33">☁ Backup to Cloud</button>
-      <button class="data-btn" data-action="restoreBackup" style="color:#ffab00;border-color:#ffab0033">⬇ Restore Backup</button>
+      <button class="data-btn" data-action="downloadBackup" style="color:#00d2ff;border-color:#00d2ff33">⬇ Download Backup</button>
+      <label class="data-btn" style="color:#ffab00;border-color:#ffab0033;cursor:pointer;display:inline-block">⬆ Upload Backup<input type="file" id="backup-file-input" accept=".json" data-change-action="uploadBackup" style="display:none"></label>
+      <button class="data-btn" data-action="exportWeeklySummary" style="color:#cf7aff;border-color:#cf7aff33">📊 Export Week</button>
     </div>`;
   }, 'tools');
 
@@ -522,6 +561,30 @@ function _renderPanelsInner(ctx, group = 'all', defaultOpen = false) {
     }
     html += `<button class="data-btn" data-action="resetCatToDefaults" style="width:100%;color:#e94560;border-color:#e9456033;margin-top:2px">\u21ba Reset to Defaults</button>`;
     html += `</div>`;
+  }, 'tools');
+
+  // Pomodoro timer settings
+  lazyPanel('pomodoro', '🍅 Pomodoro Timer', 'color:var(--muted)', () => {
+    const { loadPomodoroConfig: _lpc } = (() => ({ loadPomodoroConfig: null }))();
+    // Defaults (config loaded client-side)
+    html += `<div style="display:flex;flex-direction:column;gap:0">
+      <div class="settings-section">
+        <div class="settings-section-label">Session Lengths</div>
+        <div class="settings-row"><label>Work (minutes)</label>
+          <input class="settings-input" type="number" id="pomo-work" min="1" max="120" value="25"></div>
+        <div class="settings-row"><label>Short break (minutes)</label>
+          <input class="settings-input" type="number" id="pomo-break" min="1" max="30" value="5"></div>
+        <div class="settings-row"><label>Long break (minutes)</label>
+          <input class="settings-input" type="number" id="pomo-long" min="1" max="60" value="15"></div>
+        <div class="settings-row"><label>Sessions before long break</label>
+          <input class="settings-input" type="number" id="pomo-sessions" min="1" max="10" value="4"></div>
+      </div>
+      <button class="data-btn" data-action="savePomodoroConfig"
+        style="width:100%;color:var(--accent);border-color:#00d2ff44;margin-top:4px">💾 Save Pomodoro Settings</button>
+      <div style="font-size:11px;color:var(--dim);margin-top:10px">
+        Start a Pomodoro from any task's action menu. The timer bar appears at the bottom of the screen.
+      </div>
+    </div>`;
   }, 'tools');
 
   // Settings

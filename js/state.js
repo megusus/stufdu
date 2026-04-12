@@ -124,6 +124,16 @@ export const state = {
   // Notifications
   notifEnabled: typeof Notification !== 'undefined' && Notification.permission === 'granted',
   notifTimers: [],
+
+  // Dashboard
+  dashboardEditMode: false,
+
+  // Flashcards
+  flashcardStudyDeck: null,   // deckId | '' (empty = all) | null (not studying)
+  flashcardFlipped:   false,
+
+  // Pomodoro
+  pomodoroBarVisible: false,
 };
 
 // ── Status helpers ──

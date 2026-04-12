@@ -6,15 +6,40 @@ import { Storage } from './storage.js';
 
 const LOG_KEY = 'time-log';
 
-// ── In-memory active timer (not persisted — resets on refresh) ──
-let _activeTimer = null; // { taskId, taskText, startedAt }
+const TIMER_SESSION_KEY = 'active-timer';
+
+let _activeTimer = null;
 let _tickInterval = null;
+
+function _persistTimer() {
+  if (_activeTimer) {
+    try { sessionStorage.setItem(TIMER_SESSION_KEY, JSON.stringify(_activeTimer)); }
+    catch {}
+  } else {
+    sessionStorage.removeItem(TIMER_SESSION_KEY);
+  }
+}
+
+function _restoreTimer(onTick) {
+  try {
+    const raw = sessionStorage.getItem(TIMER_SESSION_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (saved?.taskId && saved?.startedAt) {
+      _activeTimer = saved;
+      if (onTick) _tickInterval = setInterval(() => onTick(), 1000);
+    }
+  } catch {}
+}
+
+export function initTimerRestore(onTick) { _restoreTimer(onTick); }
 
 export function getActiveTimer() { return _activeTimer; }
 
 export function startTimer(taskId, taskText, onTick) {
-  if (_activeTimer) stopTimer(); // stop previous
+  if (_activeTimer) stopTimer();
   _activeTimer = { taskId, taskText, startedAt: Date.now() };
+  _persistTimer();
   _tickInterval = setInterval(() => { if (onTick) onTick(); }, 1000);
 }
 
@@ -26,6 +51,7 @@ export function stopTimer() {
   _tickInterval = null;
   const result = { ..._activeTimer, elapsed };
   _activeTimer = null;
+  _persistTimer();
   return result;
 }
 

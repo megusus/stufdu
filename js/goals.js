@@ -60,3 +60,17 @@ export function computeGoalProgress(goal, { weeklyPct, readingCount, habitStreak
 export function isGoalMet(goal) {
   return goal.current >= goal.target;
 }
+
+/** Auto-update all goals based on current app data */
+export function autoUpdateGoals({ weeklyPct, readingCount, habitStreaks }) {
+  const goals = loadGoals();
+  let changed = false;
+  goals.forEach(g => {
+    const computed = computeGoalProgress(g, { weeklyPct, readingCount, habitStreaks });
+    if (computed !== g.current) {
+      g.current = computed;
+      changed = true;
+    }
+  });
+  if (changed) _saveGoals(goals);
+}

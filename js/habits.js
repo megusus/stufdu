@@ -150,6 +150,57 @@ export function getHabitWeeklyCount(habitId) {
   return count;
 }
 
+// ── Streak Freeze / Rest Days ──
+
+const FREEZE_KEY = 'habit-freezes';
+
+export function loadFreezes() { return Storage.get(FREEZE_KEY, { tokens: 2, used: {} }); }
+function _saveFreezes(data) { Storage.set(FREEZE_KEY, data); }
+
+export function getAvailableFreezes() { return loadFreezes().tokens || 0; }
+
+export function useStreakFreeze(habitId) {
+  const data = loadFreezes();
+  if (data.tokens <= 0) return false;
+  const key = getTodayKey();
+  if (!data.used[key]) data.used[key] = [];
+  if (data.used[key].includes(habitId)) return false;
+  data.used[key].push(habitId);
+  data.tokens--;
+  _saveFreezes(data);
+  return true;
+}
+
+export function addFreezeToken() {
+  const data = loadFreezes();
+  data.tokens = Math.min((data.tokens || 0) + 1, 5);
+  _saveFreezes(data);
+}
+
+export function isFreezedToday(habitId) {
+  const data = loadFreezes();
+  return (data.used[getTodayKey()] || []).includes(habitId);
+}
+
+export function getHabitStreakWithFreezes(habitId) {
+  const log = loadHabitLog();
+  const freezes = loadFreezes();
+  const today = new Date();
+  let streak = 0;
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const done = log[k]?.[habitId];
+    const frozen = (freezes.used[k] || []).includes(habitId);
+    if (done || frozen) {
+      if (i === 0 || streak > 0) streak++;
+    } else if (i > 0) {
+      break;
+    }
+  }
+  return streak;
+}
+
 /** Returns today's completion ratio for all habits */
 export function getTodayHabitSummary() {
   const habits = loadHabits();

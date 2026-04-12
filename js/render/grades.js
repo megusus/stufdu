@@ -3,7 +3,7 @@
 // ════════════════════════════════════════
 
 import {
-  loadGrades, getCatAverage, getOverallAverage, getLetter, getGradeColor,
+  loadGrades, getCatAverage, getOverallAverage, getLetter, getGradeColor, predictNeeded,
 } from '../grades.js';
 
 export function renderGradesView(ctx) {
@@ -93,6 +93,24 @@ function _renderGradesInner(ctx) {
       });
       html += `</div></div>`;
     });
+
+    // Grade predictor
+    html += `<div class="grade-predictor" data-stop>
+      <div class="review-section-title" style="font-size:12px;margin:20px 0 10px">🎯 What Do I Need?</div>
+      <div style="font-size:10px;color:var(--dim);margin-bottom:10px">Calculate the score needed on your next assessment to hit a target grade.</div>
+      <div class="grades-form-row">
+        <select class="editor-select" id="predict-cat">
+          ${catKeys.filter(k => (grades[k] || []).length > 0).map(k =>
+            `<option value="${k}">${escapeHtml(categories.getLabel(k) || k)}</option>`
+          ).join('')}
+        </select>
+        <span style="font-size:10px;color:var(--dim)">Target:</span>
+        <input class="settings-input" id="predict-target" type="number" value="70" min="0" max="100" style="width:60px">
+        <span style="font-size:10px;color:var(--dim)">%</span>
+        <button class="data-btn" data-action="predictGrade" style="color:var(--accent);border-color:#00d2ff44">Calculate</button>
+      </div>
+      <div id="predict-result"></div>
+    </div>`;
   }
 
   html += `</div>`; // .view-page

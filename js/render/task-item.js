@@ -94,6 +94,10 @@ export function renderItem(ctx, item, dayName, extraClass, fromDay, dragAttrs) {
       <button class="action-btn" data-action="addLink" data-id="${item.id}">\ud83d\udd17 Link</button>
       <button class="action-btn" data-action="openLectureNotes" data-id="${item.id}">\ud83d\udcdd Lecture Notes</button>
       <button class="action-btn" data-action="startTimeTrack" data-id="${item.id}" data-text="${item.text.replace(/"/g,'&quot;').slice(0,60)}">\u23f1 Track</button>
+      <button class="action-btn" data-action="startPomodoro" data-task-text="${item.text.replace(/"/g,'&quot;').slice(0,60)}">🍅 Pomodoro</button>
+      <button class="action-btn" data-action="startFocusSession" data-id="${item.id}" data-text="${item.text.replace(/"/g,'&quot;').slice(0,60)}">🎯 Focus</button>
+      <button class="action-btn" data-action="scheduleReview" data-id="${item.id}" data-text="${item.text.replace(/"/g,'&quot;').slice(0,60)}" data-cat="${item.cat}">🧠 Spaced Review</button>
+      <button class="action-btn" data-action="showBlockerPicker" data-id="${item.id}">⛔ Set Blocker</button>
       <button class="action-btn defer" data-action="showDeferPicker" data-id="${item.id}">\u2192 Defer</button>
       <button class="action-btn danger" data-action="clearTask" data-id="${item.id}">\u2715 Clear</button>
     </div>`;
@@ -143,6 +147,28 @@ export function renderItem(ctx, item, dayName, extraClass, fromDay, dragAttrs) {
       if (d === dayName) return;
       html += `<button class="defer-day-btn" data-action="deferTask" data-id="${item.id}" data-day="${d}">${escapeHtml(d)}</button>`;
     });
+    html += '</div>';
+  }
+
+  // Blocker picker
+  if (state.openBlockerPicker === item.id) {
+    html += '<div class="defer-picker blocker-picker" data-stop>';
+    html += '<div style="font-size:9px;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Pick a blocking task:</div>';
+    const currentBlockers = state.taskBlockedBy?.[item.id] || [];
+    days.forEach(d => {
+      const dayData = ctx.schedule[d];
+      if (!dayData) return;
+      dayData.sections.forEach(sec => {
+        sec.items.forEach(it => {
+          if (it.id === item.id) return;
+          const isBlocker = currentBlockers.includes(it.id);
+          html += `<button class="defer-day-btn${isBlocker ? ' active' : ''}" style="${isBlocker ? 'color:#e94560;border-color:#e94560' : ''}"
+            data-action="toggleBlocker" data-id="${item.id}" data-blocker="${it.id}"
+            title="${escapeHtml(d)}">${isBlocker ? '⛔ ' : ''}${escapeHtml(it.text.slice(0,35))}</button>`;
+        });
+      });
+    });
+    html += '<button class="defer-day-btn" data-action="closeBlockerPicker" style="color:var(--dim);margin-top:4px">Done</button>';
     html += '</div>';
   }
 

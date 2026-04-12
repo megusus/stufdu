@@ -31,6 +31,9 @@ import { renderCalendarView } from './calendar.js';
 import { renderOnboardingOverlay } from './onboarding.js';
 import { renderPlannerOverlay } from './daily-plan.js';
 import { getActiveTimer, getElapsedSeconds } from '../time-tracking.js';
+import { renderFlashcardsView } from './flashcards.js';
+import { getSession as getPomodoroSession, getRemainingSecs } from '../pomodoro.js';
+import { hasPendingConflict, renderConflictModal } from '../sync-conflict.js';
 
 function _updateTimerBar() {
   const timer = getActiveTimer();
@@ -59,7 +62,17 @@ let _renderQueued = false;
 export function render() {
   if (_renderQueued) return;
   _renderQueued = true;
-  requestAnimationFrame(doRender);
+  // Use View Transitions API for smooth cross-fades when supported
+  if (typeof document.startViewTransition === 'function') {
+    requestAnimationFrame(() => {
+      document.startViewTransition(() => {
+        _renderQueued = false;
+        _doRenderInner();
+      });
+    });
+  } else {
+    requestAnimationFrame(doRender);
+  }
 }
 
 export function renderImmediate() { doRender(); }
@@ -85,6 +98,74 @@ export function doRender() {
           </button>
         </div>`;
     }
+  }
+}
+
+function _updatePomodoroBar() {
+  const session = getPomodoroSession();
+  let el = document.getElementById('pomodoro-bar');
+  if (!session) {
+    if (el) el.remove();
+    return;
+  }
+  const secs   = getRemainingSecs();
+  const m      = Math.floor(secs / 60);
+  const s      = secs % 60;
+  const label  = session.type === 'work' ? '🍅 Focus' : session.type === 'longBreak' ? '☕ Long Break' : '🌿 Break';
+  const color  = session.type === 'work' ? '#e94560' : '#00e676';
+  const pct    = Math.round((1 - secs / session.durationSecs) * 100);
+
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'pomodoro-bar';
+    el.className = 'pomodoro-bar';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `
+    <div class="pomodoro-bar-track" style="position:absolute;left:0;top:0;height:3px;width:${pct}%;background:${color};transition:width 1s linear"></div>
+    <span class="tt-icon" style="color:${color}">${label}</span>
+    <span class="tt-time">${m}:${String(s).padStart(2,'0')}</span>
+    <span class="tt-task">${session.sessionsCompleted || 0} session${session.sessionsCompleted !== 1 ? 's' : ''} done</span>
+    ${session.type !== 'work'
+      ? `<button class="tt-stop" data-action="skipPomodoroBreak">Skip Break →</button>`
+      : `<button class="tt-stop" data-action="stopPomodoro" style="color:#e94560">■ Stop</button>`}`;
+}
+
+function _updateConflictModal(ctx) {
+  const existing = document.getElementById('conflict-modal-overlay');
+  if (existing) existing.remove();
+  if (!hasPendingConflict()) return;
+  const html = renderConflictModal(ctx.escapeHtml);
+  if (!html) return;
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div.firstElementChild);
+}
+
+function _updateFocusOverlay() {
+  let el = document.getElementById('focus-session-overlay');
+  if (!state.focusSession) {
+    if (el) el.remove();
+    return;
+  }
+  const elapsed = Math.floor((Date.now() - state.focusSession.startedAt) / 1000);
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  const html = `<div id="focus-session-overlay" class="focus-overlay">
+    <div class="focus-overlay-inner">
+      <div class="focus-overlay-label">🎯 Focus Mode</div>
+      <div class="focus-overlay-task">${escapeHtml(state.focusSession.taskText.slice(0, 60))}</div>
+      <div class="focus-overlay-timer">${timeStr}</div>
+      <button class="data-btn" data-action="endFocusSession" style="margin-top:20px;color:#e94560;border-color:#e9456044;padding:10px 32px;font-size:14px">■ End Session</button>
+    </div>
+  </div>`;
+  if (el) {
+    el.querySelector('.focus-overlay-timer').textContent = timeStr;
+  } else {
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    document.body.appendChild(container.firstElementChild);
   }
 }
 
@@ -137,6 +218,8 @@ function _doRenderInner() {
     html = renderMatrixView(ctx);
   } else if (view === 'calendar') {
     html = renderCalendarView(ctx);
+  } else if (view === 'flashcards') {
+    html = renderFlashcardsView(ctx);
   } else {
     html = renderHome(ctx);
   }
@@ -163,6 +246,15 @@ function _doRenderInner() {
 
   // Time tracker bar
   _updateTimerBar();
+
+  // Pomodoro bar
+  _updatePomodoroBar();
+
+  // Sync conflict modal
+  _updateConflictModal(ctx);
+
+  // Focus session overlay
+  _updateFocusOverlay();
 
   // Onboarding overlay
   const existingOnboard = document.getElementById('onboarding-overlay');

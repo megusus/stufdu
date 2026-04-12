@@ -11,7 +11,7 @@ export const CONFIG = {
 
   // Environment
   timezone: 'Europe/Istanbul',
-  passwordHash: '0bf6f36b6a4dcc7ac1be22c6980c3001ac0ee05803689a8a1a275fc8d9e59582',
+  passwordHash: '55c3c985d5aee66bc140dc0f75263a953c6d7ddd77e3599bc240f64d741ea76f',
 
   // External APIs
   mealApiUrl: 'https://sks.istanbul.edu.tr/meal-schedule/filter',

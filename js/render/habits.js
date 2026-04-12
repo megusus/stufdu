@@ -5,6 +5,7 @@
 import {
   loadHabits, HABIT_PRESETS, isHabitDoneToday, getHabitStreak,
   getHabitGrid, getHabitWeeklyCount, getTodayHabitSummary,
+  getAvailableFreezes, isFreezedToday, getHabitStreakWithFreezes,
 } from '../habits.js';
 
 export function renderHabitsView(ctx) {
@@ -20,12 +21,15 @@ function _renderHabitsInner(ctx) {
   const habits = loadHabits();
   const summary = getTodayHabitSummary();
 
+  const freezeCount = getAvailableFreezes();
+
   let html = `<div class="view-page">
     <div class="view-page-header">
       <h1 class="view-page-title">🏃 Habits</h1>
       <div class="view-page-sub">
         Today: ${summary.done}/${summary.total} done
         ${summary.total > 0 ? `&middot; ${Math.round((summary.done/summary.total)*100)}%` : ''}
+        &middot; ❄️ ${freezeCount} freeze${freezeCount !== 1 ? 's' : ''} left
       </div>
     </div>`;
 
@@ -34,13 +38,19 @@ function _renderHabitsInner(ctx) {
     html += `<div class="habits-today-grid">`;
     habits.forEach(h => {
       const done = isHabitDoneToday(h.id);
-      html += `<button class="habit-check-btn ${done ? 'done' : ''}"
-        data-action="toggleHabit" data-id="${escapeHtml(h.id)}"
-        style="--habit-color:${h.color}">
-        <span class="habit-check-icon">${h.icon}</span>
-        <span class="habit-check-name">${escapeHtml(h.name)}</span>
-        ${done ? '<span class="habit-check-mark">✓</span>' : ''}
-      </button>`;
+      const frozen = isFreezedToday(h.id);
+      const streakWithFreeze = getHabitStreakWithFreezes(h.id);
+      html += `<div class="habit-check-row">
+        <button class="habit-check-btn ${done ? 'done' : ''} ${frozen ? 'frozen' : ''}"
+          data-action="toggleHabit" data-id="${escapeHtml(h.id)}"
+          style="--habit-color:${h.color}">
+          <span class="habit-check-icon">${h.icon}</span>
+          <span class="habit-check-name">${escapeHtml(h.name)}</span>
+          ${done ? '<span class="habit-check-mark">✓</span>' : frozen ? '<span class="habit-check-mark">❄️</span>' : ''}
+        </button>
+        ${!done && !frozen && freezeCount > 0 ? `<button class="habit-freeze-btn" data-action="useStreakFreeze" data-id="${escapeHtml(h.id)}" title="Use streak freeze">❄️</button>` : ''}
+        ${streakWithFreeze > 0 ? `<span class="habit-streak-badge">🔥${streakWithFreeze}</span>` : ''}
+      </div>`;
     });
     html += `</div>`;
   }

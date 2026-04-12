@@ -33,11 +33,11 @@ import {
   openPlanner, closePlanner, setPlannerStep, getPlannerStep,
   getTodayPlan, saveTodayPlan, setMustDo, hasPlanForToday,
 } from './daily-plan.js';
-import { startTimer, stopTimer, getActiveTimer, getElapsedSeconds } from './time-tracking.js';
+import { startTimer, stopTimer, getActiveTimer, getElapsedSeconds, initTimerRestore } from './time-tracking.js';
 import { initDragDrop, handleDragStart } from './ui/drag-drop.js';
-import { addGrade, removeGrade } from './grades.js';
-import { addGoal, removeGoal, updateGoalProgress, loadGoals } from './goals.js';
-import { logCompletionTime } from './analytics.js';
+import { addGrade, removeGrade, predictNeeded } from './grades.js';
+import { addGoal, removeGoal, updateGoalProgress, loadGoals, autoUpdateGoals, computeGoalProgress } from './goals.js';
+import { logCompletionTime, logEnergy, scheduleSpacedReview, markSpacedReviewDone, dismissSpacedReview } from './analytics.js';
 import { initBroadcastChannel, initOnlineDetection, replayQueue, getQueueSize } from './offline-queue.js';
 import { addRecurringTask, removeRecurringTask, loadRecurringTasks } from './recurrence.js';
 import { setCalendarMode } from './render/calendar.js';
@@ -45,6 +45,9 @@ import {
   openOnboarding, closeOnboarding, getOnboardingStep, setOnboardingStep,
   markOnboardingDone, shouldShowOnboarding,
 } from './onboarding.js';
+import { useStreakFreeze, addFreezeToken, getAvailableFreezes } from './habits.js';
+import { setSearchActionCallback } from './ui/global-search.js';
+import { getHabitStreak } from './habits.js';
 
 // Extracted modules
 import { fetchMeals, savePastedMeals, toggleMealPaste, clearMealData } from './meals.js';
@@ -52,6 +55,12 @@ import { exportData, importData, exportCalendar, exportSchedule, importSchedule,
 import { applySettings, resetSettings } from './ui/settings.js';
 import { editCat, saveCatEdit, deleteCat, addCat, resetCatToDefaults } from './ui/categories-editor.js';
 import { detectOldPrefixKeys, offerMigration } from './migration.js';
+import { loadDashboardConfig, saveDashboardConfig, moveCard, setCardVisible, setCardSize } from './dashboard-config.js';
+import { addDeck, removeDeck, addCard as addFlashcard, removeCard as removeFlashcard, loadCards as loadFlashcards, getDueCards, sm2Rate, updateCard as updateFlashcard } from './flashcards.js';
+import { checkBadges, getBadgeDef } from './badges.js';
+import { startPomodoro, stopPomodoro, skipBreak as skipPomodoroBreak, getSession as getPomodoroSession, savePomodoroConfig as _savePomodoroConfig } from './pomodoro.js';
+import { generateWeeklyReport } from './pdf-report.js';
+import { resolveConflict, clearPendingConflict } from './sync-conflict.js';
 
 // ── Wire up render function references ──
 setRenderFn(render, doRender);
@@ -84,6 +93,23 @@ initDispatch({
     // Log completion time for analytics
     if (state.checked[id] === true || state.checked[id] === 'done') {
       logCompletionTime(id);
+      // Badge checks on task completion
+      const wp = getWeeklyProgress();
+      const hour = new Date().getHours();
+      const hist = loadHistory();
+      const newBadges = checkBadges({
+        totalDone:     wp.done,
+        dayPct:        getDayProgress(DAYS[todayIdx]).pct,
+        weekHistory:   hist,
+        completionHour: hour,
+        readingCount:  state.readingList.length,
+      });
+      if (newBadges.length > 0) {
+        newBadges.forEach(badgeId => {
+          const def = getBadgeDef(badgeId);
+          if (def) setTimeout(() => showToast(`🏅 Achievement: ${def.name}!`), 500);
+        });
+      }
     }
   },
   handleItemClick:          ({ id }, e) => handleItemClick(id, e, toggle),
@@ -612,6 +638,301 @@ initDispatch({
   setThemePreset:           ({ key }) => { setThemePreset(key, render); showToast(`Theme: ${THEME_PRESETS[key]?.label || key}`); },
   setAccentColor:           ({ value }, _e, el) => { setAccentColor(value || el?.value, null); },
   resetAccentColor:         () => { resetAccentColor(render); showToast('Accent color reset'); },
+
+  // ── Task Dependencies ──
+  showBlockerPicker:        ({ id }) => { state.openBlockerPicker = state.openBlockerPicker === id ? null : id; render(); },
+  closeBlockerPicker:       () => { state.openBlockerPicker = null; render(); },
+  toggleBlocker:            ({ id, blocker }) => {
+    if (!state.taskBlockedBy) state.taskBlockedBy = {};
+    const current = state.taskBlockedBy[id] || [];
+    if (current.includes(blocker)) state.taskBlockedBy[id] = current.filter(b => b !== blocker);
+    else state.taskBlockedBy[id] = [...current, blocker];
+    if (state.taskBlockedBy[id].length === 0) delete state.taskBlockedBy[id];
+    saveTaskBlockedBy();
+    render();
+  },
+
+  // ── Spaced Review ──
+  scheduleReview:           ({ id, text, cat }) => { scheduleSpacedReview(id, text, cat); showToast('🧠 Review scheduled (+1, +3, +7, +14 days)'); },
+  markSpacedReview:         ({ reviewId }) => { markSpacedReviewDone(reviewId); render(); showToast('Review marked done ✓'); },
+  dismissSpacedReview:      ({ reviewId }) => { dismissSpacedReview(reviewId); render(); },
+
+  // ── Energy Journal ──
+  logEnergy:                ({ level }) => { logEnergy(+level); render(); showToast(`⚡ Energy logged: ${level}/5`); },
+
+  // ── Grade Predictor ──
+  predictGrade:             () => {
+    const cat = document.getElementById('predict-cat')?.value;
+    const target = +document.getElementById('predict-target')?.value;
+    if (!cat || !target) { showToast('Select a subject and target'); return; }
+    const result = predictNeeded(cat, target);
+    const el = document.getElementById('predict-result');
+    if (!el || !result) return;
+    if (result.possible) {
+      el.innerHTML = `<div style="margin-top:10px;padding:10px;background:var(--surface);border-radius:8px;font-size:11px;color:var(--text)">
+        You need <strong style="color:var(--accent)">${result.needed}/${result.max}</strong> (${result.pct}%) on the next assessment to reach <strong>${target}%</strong>.</div>`;
+    } else {
+      el.innerHTML = `<div style="margin-top:10px;padding:10px;background:#e9456011;border-radius:8px;font-size:11px;color:#e94560">
+        ⚠ You need ${result.pct}% — above the max of ${result.max}. Target may not be reachable with one assessment.</div>`;
+    }
+  },
+
+  // ── Matrix ──
+  matrixJumpToTask:         ({ day }) => {
+    const idx = DAYS.indexOf(day);
+    if (idx >= 0) { state.selectedDay = idx; navigateRoute('schedule'); }
+  },
+
+  // ── Streak Freeze ──
+  useStreakFreeze:           ({ id }) => {
+    if (useStreakFreeze(id)) { render(); showToast('❄️ Streak freeze applied'); }
+    else showToast('No freezes available');
+  },
+
+  // ── Focus Session ──
+  startFocusSession:        ({ id, text }) => {
+    state.focusSession = { taskId: id, taskText: text || 'Focus', startedAt: Date.now() };
+    startTimer(id, text || 'Focus', render);
+    render();
+  },
+  endFocusSession:          () => {
+    const result = stopTimer();
+    state.focusSession = null;
+    render();
+    if (result?.elapsed >= 1) showToast(`🎯 Focus: ${result.elapsed} min logged`);
+    else showToast('Focus session ended');
+  },
+
+  // ── Backup / Restore ──
+  downloadBackup:           () => {
+    const data = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k.startsWith(CONFIG.storagePrefix)) data[k] = localStorage.getItem(k);
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `study-plan-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('📦 Backup downloaded');
+  },
+  uploadBackup:             () => {
+    const input = document.getElementById('backup-file-input');
+    const file = input?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        showConfirm(`Restore backup? This will overwrite current data (${Object.keys(data).length} keys).`, () => {
+          Object.entries(data).forEach(([k, v]) => localStorage.setItem(k, v));
+          showToast('Backup restored — reloading...');
+          setTimeout(() => location.reload(), 1000);
+        });
+      } catch { showToast('Invalid backup file'); }
+    };
+    reader.readAsText(file);
+  },
+
+  // ── Dashboard Customization ──
+  toggleDashboardEdit: () => {
+    state.dashboardEditMode = !state.dashboardEditMode;
+    render();
+  },
+  setDashboardCardVisible: ({ cardId }, _e, el) => {
+    const config = loadDashboardConfig();
+    const updated = setCardVisible(config, cardId, el.checked);
+    saveDashboardConfig(updated);
+    render();
+  },
+  setDashboardCardSize: ({ cardId }, _e, el) => {
+    const config = loadDashboardConfig();
+    const updated = setCardSize(config, cardId, el.value);
+    saveDashboardConfig(updated);
+    render();
+  },
+  moveDashboardCardUp: ({ cardId }) => {
+    const config  = loadDashboardConfig();
+    const updated = moveCard(config, cardId, -1);
+    saveDashboardConfig(updated);
+    render();
+  },
+  moveDashboardCardDown: ({ cardId }) => {
+    const config  = loadDashboardConfig();
+    const updated = moveCard(config, cardId, +1);
+    saveDashboardConfig(updated);
+    render();
+  },
+
+  // ── Flashcards ──
+  addFlashcardDeck: () => {
+    const input = document.getElementById('fc-new-deck-name');
+    const name  = input?.value.trim() || '';
+    if (!name) { showToast('Enter a deck name'); return; }
+    addDeck(name);
+    if (input) input.value = '';
+    render();
+    showToast(`Deck "${name}" created`);
+  },
+  addFlashcardDeckOnEnter: (_data, e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const name = e.target.value.trim();
+      if (!name) return;
+      addDeck(name);
+      e.target.value = '';
+      render();
+      showToast(`Deck "${name}" created`);
+    }
+  },
+  removeFlashcardDeck: ({ deckId }) => {
+    showConfirm('Delete this deck and all its cards?', () => {
+      removeDeck(deckId);
+      render();
+      showToast('Deck removed');
+    });
+  },
+  addFlashcard: ({ deckId }) => {
+    const front = document.getElementById(`fc-front-${deckId}`)?.value.trim() || '';
+    const back  = document.getElementById(`fc-back-${deckId}`)?.value.trim() || '';
+    if (!front || !back) { showToast('Enter both question and answer'); return; }
+    addFlashcard(deckId, front, back);
+    if (document.getElementById(`fc-front-${deckId}`)) document.getElementById(`fc-front-${deckId}`).value = '';
+    if (document.getElementById(`fc-back-${deckId}`)) document.getElementById(`fc-back-${deckId}`).value = '';
+    render();
+    showToast('Card added');
+  },
+  removeFlashcard: ({ cardId }) => {
+    removeFlashcard(cardId);
+    render();
+    showToast('Card removed');
+  },
+  startFlashcardStudy: ({ deckId }) => {
+    state.flashcardStudyDeck = deckId === undefined ? null : deckId;
+    state.flashcardFlipped   = false;
+    render();
+  },
+  exitFlashcardStudy: () => {
+    state.flashcardStudyDeck = null;
+    state.flashcardFlipped   = false;
+    render();
+  },
+  flipFlashcard: () => {
+    state.flashcardFlipped = !state.flashcardFlipped;
+    render();
+  },
+  rateFlashcard: ({ cardId, rating }) => {
+    const cards = loadFlashcards();
+    const card  = cards.find(c => c.id === cardId);
+    if (!card) return;
+    const updated = sm2Rate(card, +rating);
+    updateFlashcard(cardId, updated);
+    state.flashcardFlipped = false;
+
+    // Badge check for flashcard reviews
+    const totalReviewed = (Storage.get('fc-reviews-total', 0) || 0) + 1;
+    Storage.set('fc-reviews-total', totalReviewed);
+    const newBadges = checkBadges({ flashcardsReviewed: totalReviewed });
+    if (newBadges.length > 0) {
+      newBadges.forEach(id => {
+        const def = getBadgeDef(id);
+        if (def) showToast(`🏅 Badge: ${def.name}!`);
+      });
+    }
+    render();
+  },
+
+  // ── Pomodoro ──
+  startPomodoro: ({ taskText, text }) => {
+    const label = taskText || text || '';
+    startPomodoro(label, render, render);
+    state.pomodoroBarVisible = true;
+    render();
+    showToast('🍅 Pomodoro started — 25 minutes');
+  },
+  stopPomodoro: () => {
+    stopPomodoro();
+    render();
+    showToast('Pomodoro stopped');
+  },
+  skipPomodoroBreak: () => {
+    skipPomodoroBreak();
+    render();
+  },
+  savePomodoroConfig: () => {
+    const work = parseInt(document.getElementById('pomo-work')?.value) || 25;
+    const brk  = parseInt(document.getElementById('pomo-break')?.value) || 5;
+    const lng  = parseInt(document.getElementById('pomo-long')?.value) || 15;
+    const ses  = parseInt(document.getElementById('pomo-sessions')?.value) || 4;
+    _savePomodoroConfig({ workMins: work, breakMins: brk, longBreakMins: lng, sessionsBeforeLong: ses });
+    render(); showToast('Pomodoro settings saved');
+  },
+
+  // ── PDF Report ──
+  generatePDFReport: () => {
+    generateWeeklyReport();
+  },
+
+  // ── Sync Conflict ──
+  resolveConflict: ({ side }) => {
+    resolveConflict(side);
+    render();
+    showToast(side === 'local' ? 'Kept your local version' : 'Using cloud version');
+  },
+  dismissConflict: () => {
+    clearPendingConflict();
+    render();
+  },
+
+  // ── Badge check trigger (called manually after significant events) ──
+  checkAndShowBadges: () => {
+    const wp          = getWeeklyProgress();
+    const hist        = loadHistory();
+    const habits      = state.habitsLoaded || [];
+    const streaks     = {};
+    // (streaks computed via habits module if needed)
+    const newBadges   = checkBadges({
+      totalDone:        wp.done,
+      dayPct:           getDayProgress(DAYS[todayIdx]).pct,
+      weekHistory:      hist,
+      habitStreaks:      streaks,
+      readingCount:     state.readingList.length,
+      gradeAvg:         null,
+      timeTodayMins:    0,
+      completionHour:   null,
+      weeklyReviewCount: 0,
+      inboxEmpty:       false,
+      catsToday:        0,
+    });
+    if (newBadges.length > 0) {
+      newBadges.forEach(id => {
+        const def = getBadgeDef(id);
+        if (def) showToast(`🏅 Achievement unlocked: ${def.name}!`);
+      });
+    }
+  },
+
+  // ── Weekly Export ──
+  exportWeeklySummary:      () => {
+    const wp = getWeeklyProgress();
+    const wk = getWeekNum();
+    let text = `📊 Study Plan — Week ${wk} Summary\n${'═'.repeat(40)}\n\n`;
+    text += `Overall: ${wp.done}/${wp.total} tasks (${wp.pct}%)\n\n`;
+    DAYS.forEach(day => {
+      const p = getDayProgress(day);
+      if (p.total === 0) return;
+      const bar = '█'.repeat(Math.round(p.pct / 10)) + '░'.repeat(10 - Math.round(p.pct / 10));
+      text += `${getDayLabel(day).padEnd(12)} ${bar} ${p.pct}% (${p.done}/${p.total})\n`;
+    });
+    text += `\n${new Date().toLocaleDateString()}`;
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `study-plan-week${wk}.txt`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('📊 Weekly summary exported');
+  },
 });
 
 // ════════════════════════════════════════
@@ -675,6 +996,8 @@ document.addEventListener('keydown', e => {
   if (e.key === '5') navigateRoute('stats');
   if (e.key === '6') navigateRoute('review');
   if (e.key === '7') navigateRoute('inbox');
+  if (e.key === '8') navigateRoute('matrix');
+  if (e.key === '9') navigateRoute('calendar');
   if (e.key === 'n') {
     e.preventDefault();
     // Quick capture: show mini overlay or navigate to inbox
@@ -752,6 +1075,14 @@ if ('serviceWorker' in navigator) {
 function boot() {
   initRouter(render);
   initDragDrop(render);
+  initTimerRestore(render);
+
+  // Wire search quick-actions
+  setSearchActionCallback((action, taskId) => {
+    if (action === 'toggle') { toggle(taskId); }
+    else if (action === 'skip') { setTaskStatus(taskId, STATUS_SKIP); }
+    render();
+  });
   // Multi-tab sync: re-render when another tab updates state
   initBroadcastChannel((msg) => {
     if (msg.key) render();
@@ -796,6 +1127,14 @@ function boot() {
   initSwipeListeners(toggle, setTaskStatus);
   initPageSwipe(selectDay);
 
+  // Auto-update goals
+  try {
+    const wp = getWeeklyProgress();
+    const habits = loadHabits();
+    const streaks = habits.map(h => getHabitStreak(h.id).streak);
+    autoUpdateGoals({ weeklyPct: wp.pct, readingCount: state.readingList.length, habitStreaks: streaks });
+  } catch {}
+
   // Render
   renderImmediate();
 
@@ -804,6 +1143,26 @@ function boot() {
 
   // Auto-theme check every 5 min
   setInterval(checkAutoTheme, 300000);
+
+  // Badging API — update PWA icon badge periodically
+  function _updateBadge() {
+    try {
+      const { getInboxCount: _ic } = { getInboxCount };
+      const { getDueCards: _dc } = { getDueCards };
+      const inboxCnt = _ic();
+      const flashDue = _dc().length;
+      const overdueDeadlines = state.deadlines.filter(dl => {
+        const d = new Date(dl.date); const now = new Date(); d.setHours(0,0,0,0); now.setHours(0,0,0,0);
+        return d < now;
+      }).length;
+      const total = inboxCnt + overdueDeadlines + flashDue;
+      if ('setAppBadge' in navigator) {
+        total > 0 ? navigator.setAppBadge(total) : navigator.clearAppBadge();
+      }
+    } catch {}
+  }
+  _updateBadge();
+  setInterval(_updateBadge, 60000);
 
   // Update offline banner
   updateOfflineBanner();

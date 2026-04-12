@@ -8,6 +8,9 @@ import { CategoryRegistry } from '../categories.js';
 import { navigate } from '../router.js';
 import { loadInbox } from '../inbox.js';
 
+let _onActionCallback = null;
+export function setSearchActionCallback(fn) { _onActionCallback = fn; }
+
 let _open = false;
 let _query = '';
 let _results = [];
@@ -51,12 +54,16 @@ function _search(query) {
           const s = getStatus(item.id);
           const statusIcon = s === STATUS_DONE ? '✓' : s === STATUS_SKIP ? '✕' : '';
           const c = CategoryRegistry.getColor(item.cat);
+          const isDone = s === STATUS_DONE || s === true;
           results.push({
             type: 'task',
             icon: statusIcon || '○',
             text: item.text,
             sub: `${getDayLabel(day)} · ${sec.label}`,
             color: c.border,
+            taskId: item.id,
+            taskDay: day,
+            isDone,
             action: () => { navigate('schedule'); state.selectedDay = DAYS.indexOf(day); },
           });
         }
@@ -179,6 +186,10 @@ function _renderOverlay() {
           <div class="gsearch-result-text">${escapeHtml(r.text)}</div>
           <div class="gsearch-result-sub">${escapeHtml(r.sub)}</div>
         </div>
+        ${r.taskId ? `<span class="gsearch-actions" data-stop>
+          <button class="gsearch-action-btn" data-gsearch-action="toggle" data-task-id="${r.taskId}" title="${r.isDone ? 'Undo' : 'Done'}">${r.isDone ? '↩' : '✓'}</button>
+          <button class="gsearch-action-btn" data-gsearch-action="skip" data-task-id="${r.taskId}" title="Skip">✕</button>
+        </span>` : ''}
         <span class="gsearch-result-type">${r.type}</span>
       </div>`).join('')
     : _query.trim()
@@ -218,6 +229,19 @@ function _renderOverlay() {
 
   // Click on results
   _overlayEl.addEventListener('click', e => {
+    // Quick action buttons
+    const actionBtn = e.target.closest('[data-gsearch-action]');
+    if (actionBtn) {
+      e.stopPropagation();
+      const act = actionBtn.dataset.gsearchAction;
+      const taskId = actionBtn.dataset.taskId;
+      if (_onActionCallback && taskId) {
+        _onActionCallback(act, taskId);
+        _results = _search(_query);
+        _updateResults();
+      }
+      return;
+    }
     const resultEl = e.target.closest('[data-gsearch-idx]');
     if (resultEl) {
       const idx = parseInt(resultEl.dataset.gsearchIdx, 10);
@@ -240,6 +264,10 @@ function _updateResults() {
         <div class="gsearch-result-text">${escapeHtml(r.text)}</div>
         <div class="gsearch-result-sub">${escapeHtml(r.sub)}</div>
       </div>
+      ${r.taskId ? `<span class="gsearch-actions" data-stop>
+        <button class="gsearch-action-btn" data-gsearch-action="toggle" data-task-id="${r.taskId}" title="${r.isDone ? 'Undo' : 'Done'}">${r.isDone ? '↩' : '✓'}</button>
+        <button class="gsearch-action-btn" data-gsearch-action="skip" data-task-id="${r.taskId}" title="Skip">✕</button>
+      </span>` : ''}
       <span class="gsearch-result-type">${r.type}</span>
     </div>`).join('');
   } else if (_query.trim()) {

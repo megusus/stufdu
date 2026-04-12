@@ -2,7 +2,7 @@
 // ── Hash-based Client Router ──
 // ════════════════════════════════════════
 
-export const VIEWS = ['home', 'schedule', 'ideal', 'tools', 'stats', 'review', 'inbox', 'habits', 'grades', 'calendar', 'matrix'];
+export const VIEWS = ['home', 'schedule', 'ideal', 'tools', 'stats', 'review', 'inbox', 'habits', 'grades', 'calendar', 'matrix', 'flashcards'];
 
 let _renderFn = null;
 let _subViewHandlers = [];

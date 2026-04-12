@@ -87,10 +87,11 @@ function _renderMatrixInner(ctx) {
       html += `<div class="matrix-q-empty">—</div>`;
     } else {
       tasks.slice(0, 8).forEach(({ item, day, color }) => {
-        html += `<div class="matrix-task-item">
+        const dayIdx = days.indexOf(day);
+        html += `<div class="matrix-task-item matrix-task-interactive" data-action="toggle" data-id="${item.id}" style="cursor:pointer" title="Toggle done">
           <span class="matrix-task-dot" style="background:${color}"></span>
           <span class="matrix-task-text">${escapeHtml(item.text.slice(0,45))}</span>
-          <span class="matrix-task-day">${escapeHtml(day.slice(0,3))}</span>
+          <span class="matrix-task-day" data-action="matrixJumpToTask" data-day="${escapeHtml(day)}" data-stop title="Go to ${escapeHtml(day)}">${escapeHtml(day.slice(0,3))} →</span>
         </div>`;
       });
       if (tasks.length > 8) {

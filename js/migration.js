@@ -13,6 +13,10 @@ const STATIC_KEYS = [
   'custom-schedule', 'day-config', 'categories', 'config', 'inbox', 'habits', 'habit-log', 'daily-plans', 'time-log', 'grades', 'lecture-notes', 'recurring-tasks', 'task-blocked-by', 'goals', 'completion-times',
   'theme', 'fontscale', 'scratch',
   'sync-config', 'reading-sync-ts',
+  'energy-log', 'spaced-reviews', 'habit-freezes',
+  // New feature keys
+  'dashboard-config', 'flashcard-decks', 'flashcard-cards', 'badges', 'pomodoro-config',
+  'fc-reviews-total', 'weekly-reviews',
 ];
 
 // Pattern for week-based keys: w{N}, w{N}-notes, w{N}-defer, w{N}-lock

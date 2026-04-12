@@ -4,6 +4,7 @@
 
 import { renderItem } from './task-item.js';
 import { renderMealCard } from './meals.js';
+import { getRecurringTasksForDay } from '../recurrence.js';
 
 function _errBox(context, err, escapeHtml) {
   console.error(`[render] ${context} failed:`, err);
@@ -106,6 +107,23 @@ function _renderDayViewInner(ctx, currentSectionIdx) {
     });
     html += `</div></div>`;
   });
+
+  // Recurring tasks injected for this day
+  const recurring = getRecurringTasksForDay(dayName);
+  if (recurring.length > 0) {
+    const visibleRec = recurring.filter(item => {
+      if (state.focusMode && (getStatus(item.id) === STATUS_DONE || getStatus(item.id) === STATUS_SKIP)) return false;
+      if (state.activeFilter && item.cat !== state.activeFilter) return false;
+      if (query && !item.text.toLowerCase().includes(query)) return false;
+      return true;
+    });
+    if (visibleRec.length > 0) {
+      html += `<div class="section recurring-section"><div class="section-header"><span class="section-label">🔁 RECURRING</span></div>`;
+      html += `<div class="drop-zone">`;
+      visibleRec.forEach(item => { html += renderItem(ctx, item, dayName, 'recurring-task'); });
+      html += `</div></div>`;
+    }
+  }
 
   // Deferred-in tasks
   const deferredIn = Object.entries(state.taskDeferred).filter(([id, target]) => {

@@ -16,7 +16,8 @@ const NAV_ITEMS = [
   { id: 'habits',   icon: '🏃', label: 'Habits'     },
   { id: 'grades',   icon: '📊', label: 'Grades'     },
   { id: 'matrix',   icon: '🔲', label: 'Matrix'     },
-  { id: 'calendar', icon: '📅', label: 'Calendar'   },
+  { id: 'calendar',   icon: '📅', label: 'Calendar'    },
+  { id: 'flashcards', icon: '🧠', label: 'Flashcards'  },
 ];
 
 /**

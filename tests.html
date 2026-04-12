@@ -1211,6 +1211,397 @@
     });
   });
 
+  // ════════════════════════════════════════
+  // ── SM-2 Flashcard Algorithm ──
+  // ════════════════════════════════════════
+  let sm2Rate;
+  try { ({ sm2Rate } = await import('./js/flashcards.js')); } catch (e) { console.warn('flashcards.js not loadable:', e); }
+
+  suite('Flashcard SM-2 Algorithm', () => {
+    const baseCard = { id: 'c1', deckId: 'd1', front: 'Q', back: 'A', interval: 1, easiness: 2.5, repetitions: 0, nextReview: null, lastReviewed: null };
+
+    test('rating Again (0) resets interval to 1 and repetitions to 0', () => {
+      if (!sm2Rate) return;
+      const r = sm2Rate({ ...baseCard, repetitions: 3, interval: 10 }, 0);
+      assertEqual(r.interval, 1);
+      assertEqual(r.repetitions, 0);
+    });
+
+    test('rating Hard (1) also resets interval to 1 and repetitions to 0', () => {
+      if (!sm2Rate) return;
+      const r = sm2Rate({ ...baseCard, repetitions: 2, interval: 6 }, 1);
+      assertEqual(r.interval, 1);
+      assertEqual(r.repetitions, 0);
+    });
+
+    test('rating Good (2) on first rep sets interval to 1', () => {
+      if (!sm2Rate) return;
+      const r = sm2Rate({ ...baseCard }, 2);
+      assertEqual(r.interval, 1);
+      assertEqual(r.repetitions, 1);
+    });
+
+    test('rating Good (2) on second rep sets interval to 6', () => {
+      if (!sm2Rate) return;
+      const c = sm2Rate({ ...baseCard }, 2); // rep=1, interval=1
+      const r = sm2Rate(c, 2);              // rep=2, interval=6
+      assertEqual(r.interval, 6);
+      assertEqual(r.repetitions, 2);
+    });
+
+    test('rating Easy (3) increases interval by easiness factor', () => {
+      if (!sm2Rate) return;
+      const c = sm2Rate({ ...baseCard }, 2);                    // rep=1
+      const c2 = sm2Rate(c, 2);                                 // rep=2, interval=6
+      const r = sm2Rate(c2, 3);
+      assert(r.interval >= 6 * c2.easiness * 0.9, 'interval should grow by easiness factor');
+    });
+
+    test('easiness factor never drops below 1.3', () => {
+      if (!sm2Rate) return;
+      let c = { ...baseCard, easiness: 1.4, repetitions: 2, interval: 6 };
+      for (let i = 0; i < 10; i++) { c = sm2Rate(c, 0); } // repeated Again
+      assert(c.easiness >= 1.3, 'easiness floor is 1.3');
+    });
+
+    test('nextReview is set to today+interval', () => {
+      if (!sm2Rate) return;
+      const r = sm2Rate({ ...baseCard }, 3);
+      const today = new Date(); today.setDate(today.getDate() + r.interval);
+      assertEqual(r.nextReview, today.toISOString().slice(0, 10));
+    });
+
+    test('lastReviewed is set to today', () => {
+      if (!sm2Rate) return;
+      const r = sm2Rate({ ...baseCard }, 2);
+      assertEqual(r.lastReviewed, new Date().toISOString().slice(0, 10));
+    });
+  });
+
+  // ════════════════════════════════════════
+  // ── Dashboard Config ──
+  // ════════════════════════════════════════
+  let getDefaultConfig, moveCard, setCardVisible, setCardSize, CARD_DEFS;
+  try {
+    ({ getDefaultConfig, moveCard, setCardVisible, setCardSize, CARD_DEFS } = await import('./js/dashboard-config.js'));
+  } catch (e) { console.warn('dashboard-config.js not loadable:', e); }
+
+  suite('Dashboard Config', () => {
+    test('getDefaultConfig returns array with all CARD_DEFS', () => {
+      if (!getDefaultConfig) return;
+      const cfg = getDefaultConfig();
+      assert(Array.isArray(cfg));
+      assertEqual(cfg.length, CARD_DEFS.length);
+    });
+
+    test('all default cards are visible', () => {
+      if (!getDefaultConfig) return;
+      const cfg = getDefaultConfig();
+      assert(cfg.every(c => c.visible === true), 'all cards should be visible by default');
+    });
+
+    test('setCardVisible toggles visibility', () => {
+      if (!setCardVisible || !getDefaultConfig) return;
+      const cfg = getDefaultConfig();
+      const id  = cfg[0].id;
+      const updated = setCardVisible(cfg, id, false);
+      const card = updated.find(c => c.id === id);
+      assertEqual(card.visible, false);
+    });
+
+    test('setCardSize changes size', () => {
+      if (!setCardSize || !getDefaultConfig) return;
+      const cfg = getDefaultConfig();
+      const id  = cfg[0].id;
+      const updated = setCardSize(cfg, id, 'wide');
+      const card = updated.find(c => c.id === id);
+      assertEqual(card.size, 'wide');
+    });
+
+    test('moveCard up decrements position', () => {
+      if (!moveCard || !getDefaultConfig) return;
+      const cfg = getDefaultConfig();
+      const secondId = cfg[1].id;
+      const moved = moveCard(cfg, secondId, -1);
+      assertEqual(moved[0].id, secondId);
+    });
+
+    test('moveCard down increments position', () => {
+      if (!moveCard || !getDefaultConfig) return;
+      const cfg = getDefaultConfig();
+      const firstId = cfg[0].id;
+      const moved = moveCard(cfg, firstId, +1);
+      assertEqual(moved[1].id, firstId);
+    });
+
+    test('moveCard at boundary does not change order', () => {
+      if (!moveCard || !getDefaultConfig) return;
+      const cfg = getDefaultConfig();
+      const firstId = cfg[0].id;
+      const moved = moveCard(cfg, firstId, -1);
+      assertEqual(moved[0].id, firstId, 'moving first card up does nothing');
+    });
+  });
+
+  // ════════════════════════════════════════
+  // ── Achievement Badges ──
+  // ════════════════════════════════════════
+  let checkBadges, BADGE_DEFS_test, earnBadge, hasBadge;
+  try {
+    const bmod = await import('./js/badges.js');
+    checkBadges = bmod.checkBadges;
+    BADGE_DEFS_test = bmod.BADGE_DEFS;
+    earnBadge = bmod.earnBadge;
+    hasBadge = bmod.hasBadge;
+  } catch (e) { console.warn('badges.js not loadable:', e); }
+
+  suite('Achievement Badges', () => {
+    test('BADGE_DEFS has expected badges', () => {
+      if (!BADGE_DEFS_test) return;
+      assert(Array.isArray(BADGE_DEFS_test));
+      assert(BADGE_DEFS_test.length >= 10, 'should have at least 10 badge types');
+      const ids = BADGE_DEFS_test.map(b => b.id);
+      assert(ids.includes('first-task'), 'must have first-task badge');
+      assert(ids.includes('perfect-day'), 'must have perfect-day badge');
+      assert(ids.includes('centurion'), 'must have centurion badge');
+    });
+
+    test('each badge has id, icon, name, desc', () => {
+      if (!BADGE_DEFS_test) return;
+      BADGE_DEFS_test.forEach(b => {
+        assert(b.id, `badge ${b.id} must have id`);
+        assert(b.icon, `badge ${b.id} must have icon`);
+        assert(b.name, `badge ${b.id} must have name`);
+        assert(b.desc, `badge ${b.id} must have desc`);
+      });
+    });
+
+    test('checkBadges returns array', () => {
+      if (!checkBadges) return;
+      const result = checkBadges({ totalDone: 0 });
+      assert(Array.isArray(result), 'checkBadges should return an array');
+    });
+
+    test('checkBadges first-task triggers when totalDone >= 1', () => {
+      if (!checkBadges || !Storage) return;
+      // Reset badges first
+      Storage.set('badges', {});
+      const earned = checkBadges({ totalDone: 1 });
+      assert(earned.includes('first-task'), 'first-task should be earned on first completion');
+    });
+
+    test('checkBadges centurion triggers when totalDone >= 100', () => {
+      if (!checkBadges || !Storage) return;
+      Storage.set('badges', {});
+      const earned = checkBadges({ totalDone: 100 });
+      assert(earned.includes('centurion'), 'centurion should be earned at 100 tasks');
+    });
+
+    test('badges not re-earned once already earned', () => {
+      if (!checkBadges || !Storage) return;
+      Storage.set('badges', { 'first-task': { earnedAt: Date.now() } });
+      const earned = checkBadges({ totalDone: 1 });
+      assert(!earned.includes('first-task'), 'already-earned badge should not appear again');
+      // cleanup
+      Storage.set('badges', {});
+    });
+
+    test('checkBadges habit-7 triggers when max streak >= 7', () => {
+      if (!checkBadges || !Storage) return;
+      Storage.set('badges', {});
+      const earned = checkBadges({ habitStreaks: { 'h1': 7, 'h2': 3 } });
+      assert(earned.includes('habit-7'), 'habit-7 should be earned when streak >= 7');
+      Storage.set('badges', {});
+    });
+  });
+
+  // ════════════════════════════════════════
+  // ── Pomodoro Timer ──
+  // ════════════════════════════════════════
+  let getSession, getRemainingSecs, startPomodoro_t, stopPomodoro_t, loadPomodoroConfig;
+  try {
+    const pmod = await import('./js/pomodoro.js');
+    getSession = pmod.getSession;
+    getRemainingSecs = pmod.getRemainingSecs;
+    startPomodoro_t = pmod.startPomodoro;
+    stopPomodoro_t  = pmod.stopPomodoro;
+    loadPomodoroConfig = pmod.loadPomodoroConfig;
+  } catch (e) { console.warn('pomodoro.js not loadable:', e); }
+
+  suite('Pomodoro Timer', () => {
+    test('loadPomodoroConfig returns defaults', () => {
+      if (!loadPomodoroConfig) return;
+      const cfg = loadPomodoroConfig();
+      assert(typeof cfg.workMins === 'number', 'workMins should be a number');
+      assert(typeof cfg.breakMins === 'number', 'breakMins should be a number');
+      assert(cfg.workMins > 0, 'workMins should be positive');
+    });
+
+    test('getSession returns null before start', () => {
+      if (!getSession) return;
+      stopPomodoro_t?.();
+      assertEqual(getSession(), null);
+    });
+
+    test('startPomodoro creates a work session', () => {
+      if (!startPomodoro_t || !getSession) return;
+      startPomodoro_t('Test task', null, null);
+      const s = getSession();
+      assert(s !== null, 'session should not be null after start');
+      assertEqual(s.type, 'work');
+      assert(s.durationSecs > 0, 'duration should be positive');
+      stopPomodoro_t?.();
+    });
+
+    test('stopPomodoro clears the session', () => {
+      if (!startPomodoro_t || !stopPomodoro_t || !getSession) return;
+      startPomodoro_t('Test', null, null);
+      stopPomodoro_t();
+      assertEqual(getSession(), null);
+    });
+
+    test('getRemainingSecs returns 0 when not running', () => {
+      if (!getRemainingSecs || !stopPomodoro_t) return;
+      stopPomodoro_t();
+      assertEqual(getRemainingSecs(), 0);
+    });
+
+    test('getRemainingSecs returns positive value when running', () => {
+      if (!startPomodoro_t || !getRemainingSecs || !stopPomodoro_t) return;
+      startPomodoro_t('Test', null, null);
+      const r = getRemainingSecs();
+      assert(r > 0, 'remaining should be > 0 when running');
+      stopPomodoro_t();
+    });
+  });
+
+  // ════════════════════════════════════════
+  // ── Dashboard Config Storage Round-trip ──
+  // ════════════════════════════════════════
+  let loadDashboardConfig, saveDashboardConfig;
+  try {
+    ({ loadDashboardConfig, saveDashboardConfig } = await import('./js/dashboard-config.js'));
+  } catch (e) { console.warn('dashboard-config.js (round-trip) not loadable:', e); }
+
+  suite('Dashboard Config Storage', () => {
+    test('loadDashboardConfig returns default config when nothing stored', () => {
+      if (!loadDashboardConfig || !Storage) return;
+      Storage.remove('dashboard-config');
+      const cfg = loadDashboardConfig();
+      assert(Array.isArray(cfg));
+      assert(cfg.length > 0);
+    });
+
+    test('saveDashboardConfig + loadDashboardConfig round-trips', () => {
+      if (!loadDashboardConfig || !saveDashboardConfig || !Storage) return;
+      const cfg = loadDashboardConfig();
+      cfg[0].visible = false;
+      saveDashboardConfig(cfg);
+      const reloaded = loadDashboardConfig();
+      assertEqual(reloaded[0].visible, false);
+      // cleanup
+      Storage.remove('dashboard-config');
+    });
+  });
+
+  // ════════════════════════════════════════
+  // ── IndexedDB Storage Adapter ──
+  // ════════════════════════════════════════
+  suite('IndexedDB Storage Adapter', () => {
+    test('Storage has idbGet and idbSet async methods', () => {
+      if (!Storage) return;
+      assert(typeof Storage.idbGet === 'function', 'idbGet should exist');
+      assert(typeof Storage.idbSet === 'function', 'idbSet should exist');
+    });
+
+    test('idbSet returns a Promise', () => {
+      if (!Storage) return;
+      const result = Storage.idbSet('test-idb-key', { value: 42 });
+      assert(result && typeof result.then === 'function', 'idbSet should return a Promise');
+    });
+
+    test('idbGet returns a Promise', () => {
+      if (!Storage) return;
+      const result = Storage.idbGet('test-idb-key', null);
+      assert(result && typeof result.then === 'function', 'idbGet should return a Promise');
+    });
+
+    test('idbSet + idbGet round-trips a value', async () => {
+      if (!Storage) return;
+      await Storage.idbSet('test-idb-rtrip', { foo: 'bar', n: 123 });
+      const val = await Storage.idbGet('test-idb-rtrip', null);
+      assert(val !== null, 'idbGet should return saved value');
+      assertEqual(val.foo, 'bar');
+      assertEqual(val.n, 123);
+      await Storage.idbRemove('test-idb-rtrip');
+    });
+  });
+
+  // ════════════════════════════════════════
+  // ── Sync Conflict Detection ──
+  // ════════════════════════════════════════
+  let detectConflict_t, registerConflict_t, resolveConflict_t, clearPendingConflict_t, hasPendingConflict_t;
+  try {
+    const scmod = await import('./js/sync-conflict.js');
+    detectConflict_t     = scmod.detectConflict;
+    registerConflict_t   = scmod.registerConflict;
+    resolveConflict_t    = scmod.resolveConflict;
+    clearPendingConflict_t = scmod.clearPendingConflict;
+    hasPendingConflict_t = scmod.hasPendingConflict;
+  } catch (e) { console.warn('sync-conflict.js not loadable:', e); }
+
+  suite('Sync Conflict Detection', () => {
+    test('detectConflict returns null when values are identical', () => {
+      if (!detectConflict_t) return;
+      const result = detectConflict_t('w1', { a: 'done' }, { a: 'done' });
+      assertEqual(result, null);
+    });
+
+    test('detectConflict returns conflict when values differ', () => {
+      if (!detectConflict_t) return;
+      const result = detectConflict_t('w1', { a: 'done' }, { a: 'skip' });
+      assert(result !== null, 'should detect conflict');
+      assertEqual(result.key, 'w1');
+    });
+
+    test('detectConflict returns null when both are null/undefined', () => {
+      if (!detectConflict_t) return;
+      assertEqual(detectConflict_t('x', null, null), null);
+      assertEqual(detectConflict_t('x', undefined, undefined), null);
+    });
+
+    test('registerConflict auto-merges task check objects', () => {
+      if (!registerConflict_t || !clearPendingConflict_t || !Storage) return;
+      clearPendingConflict_t();
+      // Both sides mark same task done — should auto-merge
+      const local  = { 'mon-1': 'done', 'mon-2': 'skip' };
+      const remote = { 'mon-1': 'done', 'mon-3': 'done' };
+      const needsManual = registerConflict_t('w1', local, remote);
+      assertEqual(needsManual, false, 'task check objects should auto-merge');
+      clearPendingConflict_t();
+    });
+
+    test('clearPendingConflict removes pending conflict', () => {
+      if (!clearPendingConflict_t || !hasPendingConflict_t) return;
+      clearPendingConflict_t();
+      assertEqual(hasPendingConflict_t(), false);
+    });
+  });
+
+  // ════════════════════════════════════════
+  // ── PDF Report Generator ──
+  // ════════════════════════════════════════
+  let generateWeeklyReport_t;
+  try {
+    ({ generateWeeklyReport: generateWeeklyReport_t } = await import('./js/pdf-report.js'));
+  } catch (e) { console.warn('pdf-report.js not loadable:', e); }
+
+  suite('PDF Report Generator', () => {
+    test('generateWeeklyReport is a function', () => {
+      assert(typeof generateWeeklyReport_t === 'function', 'generateWeeklyReport should be a function');
+    });
+  });
+
   // ── Firebase Sync (stub) ──
   suite('Firebase Sync [stub — manual verification required]', () => {
     test('SKIP: connect with stored config → manual test', () => {

@@ -74,3 +74,22 @@ export function getGradeColor(pct) {
   if (pct >= 55) return '#ffab00';
   return '#e94560';
 }
+
+/**
+ * Grade predictor: given current grades for a category and a target %,
+ * returns the score needed on the remaining assessment to hit the target.
+ * remainingWeight defaults to the average weight of existing grades.
+ */
+export function predictNeeded(cat, targetPct, remainingWeight, remainingMax) {
+  const grades = loadGrades();
+  const items = grades[cat] || [];
+  if (items.length === 0) return null;
+  const rw = remainingWeight ?? (items.reduce((s, g) => s + g.weight, 0) / items.length);
+  const rm = remainingMax ?? 100;
+  const totalExisting = items.reduce((s, g) => s + g.weight, 0);
+  const weightedExisting = items.reduce((s, g) => s + (g.score / g.maxScore) * g.weight, 0);
+  // (weightedExisting + (needed/rm)*rw) / (totalExisting + rw) = targetPct/100
+  const neededRatio = ((targetPct / 100) * (totalExisting + rw) - weightedExisting) / rw;
+  const needed = Math.ceil(neededRatio * rm * 10) / 10;
+  return { needed: Math.max(0, needed), max: rm, weight: rw, possible: needed <= rm, pct: Math.round(neededRatio * 100) };
+}

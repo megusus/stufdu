@@ -1,4 +1,4 @@
-const CACHE_VERSION = 16;
+const CACHE_VERSION = 18;
 const CACHE_NAME = 'study-plan-v' + CACHE_VERSION;
 const ASSETS = [
   './',
@@ -60,6 +60,14 @@ const ASSETS = [
   './js/render/scratchpad.js',
   './js/render/task-item.js',
   './js/render/meals.js',
+  './css/main.css',
+  './js/dashboard-config.js',
+  './js/flashcards.js',
+  './js/render/flashcards.js',
+  './js/badges.js',
+  './js/pomodoro.js',
+  './js/pdf-report.js',
+  './js/sync-conflict.js',
 ];
 const FONT_CACHE = 'study-plan-fonts-v1';
 

@@ -5,6 +5,94 @@
 import { renderStatPanels } from './panels.js';
 import { getBurnoutRisk, getBurnoutMessage, getComparativeStats, getHourlyPattern, getPeakHour, getSubjectDifficulty } from '../analytics.js';
 import { loadGoals, isGoalMet, GOAL_PRESETS } from '../goals.js';
+import { loadBadges, BADGE_DEFS } from '../badges.js';
+
+// ── Contribution Heatmap ──
+function _renderHeatmapCtx(loadHistory, escapeHtml) {
+  const hist = loadHistory();
+  const entries = Object.entries(hist).sort((a, b) => a[0].localeCompare(b[0]));
+  if (entries.length < 3) return '';
+
+  // Build a map of weekKey → pct
+  const pctMap = Object.fromEntries(entries);
+
+  // Render last 20 weeks as a grid
+  const recent = entries.slice(-20);
+
+  const cells = recent.map(([key, pct]) => {
+    const color = pct >= 90 ? '#006600' : pct >= 70 ? '#00aa44' : pct >= 50 ? '#00d2ff' : pct >= 20 ? '#ffab00' : '#333';
+    const fill  = pct >= 90 ? '#00e676' : pct >= 70 ? '#00c853' : pct >= 50 ? '#00d2ff' : pct >= 20 ? '#ffab00' : '#e94560';
+    return `<div title="${escapeHtml(key)}: ${pct}%" style="width:20px;height:20px;background:${fill}22;border-radius:3px;
+      border:1px solid ${fill}44;display:flex;align-items:center;justify-content:center;position:relative;cursor:default">
+      <div style="width:${Math.max(2, Math.round(pct/100*14))}px;height:${Math.max(2, Math.round(pct/100*14))}px;
+        background:${fill};border-radius:2px"></div>
+    </div>`;
+  }).join('');
+
+  const avg = Math.round(entries.reduce((s, [, p]) => s + p, 0) / entries.length);
+  const best = Math.max(...entries.map(([, p]) => p));
+
+  return `<div class="analytics-card">
+    <div class="analytics-card-title">📅 Study History</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">${cells}</div>
+    <div class="analytics-stats-row">
+      <div class="analytics-stat">
+        <div class="analytics-stat-val">${entries.length}</div>
+        <div class="analytics-stat-label">Weeks tracked</div>
+      </div>
+      <div class="analytics-stat">
+        <div class="analytics-stat-val">${avg}%</div>
+        <div class="analytics-stat-label">Average</div>
+      </div>
+      <div class="analytics-stat">
+        <div class="analytics-stat-val" style="color:#00e676">${best}%</div>
+        <div class="analytics-stat-label">Best week</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:10px;color:var(--dim)">
+      Less
+      ${['#e9456022','#ffab0033','#00d2ff33','#00c85333','#00e67644'].map(c =>
+        `<div style="width:12px;height:12px;background:${c};border-radius:2px;border:1px solid ${c.replace('22','66').replace('33','66').replace('44','88')}"></div>`
+      ).join('')}
+      More
+    </div>
+  </div>`;
+}
+
+// ── Achievement Badges ──
+function _renderBadges(escapeHtml) {
+  const earned = loadBadges();
+  const earnedKeys = Object.keys(earned);
+  if (earnedKeys.length === 0) return '';
+
+  const badgeHtml = BADGE_DEFS.filter(b => earned[b.id]).map(b => {
+    const ago = earned[b.id]?.earnedAt
+      ? _timeAgo(earned[b.id].earnedAt)
+      : '';
+    return `<div title="${escapeHtml(b.name)}: ${escapeHtml(b.desc)}" style="
+      display:flex;flex-direction:column;align-items:center;gap:4px;
+      padding:10px 8px;background:var(--bg);border-radius:10px;
+      border:1px solid var(--border);min-width:60px;text-align:center">
+      <span style="font-size:24px">${b.icon}</span>
+      <div style="font-size:9px;font-weight:600;color:var(--text)">${escapeHtml(b.name)}</div>
+      ${ago ? `<div style="font-size:8px;color:var(--dim)">${ago}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  return `<div class="analytics-card">
+    <div class="analytics-card-title">🏅 Achievements (${earnedKeys.length}/${BADGE_DEFS.length})</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">${badgeHtml}</div>
+  </div>`;
+}
+
+function _timeAgo(ts) {
+  const secs = Math.floor((Date.now() - ts) / 1000);
+  if (secs < 60)        return 'just now';
+  if (secs < 3600)      return `${Math.floor(secs/60)}m ago`;
+  if (secs < 86400)     return `${Math.floor(secs/3600)}h ago`;
+  if (secs < 86400*30)  return `${Math.floor(secs/86400)}d ago`;
+  return `${Math.floor(secs/86400/30)}mo ago`;
+}
 
 export function renderStatsView(ctx) {
   try {
@@ -115,6 +203,21 @@ export function renderStatsView(ctx) {
             style="font-size:10px">${p.icon} ${escapeHtml(p.label)}</button>`
         ).join('')}
       </div>
+    </div>`;
+
+    // Contribution heatmap
+    extra += _renderHeatmapCtx(ctx.loadHistory, escapeHtml);
+
+    // Achievement badges
+    extra += _renderBadges(escapeHtml);
+
+    // PDF report button
+    extra += `<div class="analytics-card">
+      <div class="analytics-card-title">📄 Reports</div>
+      <button class="data-btn" data-action="generatePDFReport"
+        style="width:100%;color:#00d2ff;border-color:#00d2ff44;padding:10px;font-size:12px">
+        📊 Export Weekly Report (Print/PDF)
+      </button>
     </div>`;
 
     return `<div class="view-page">

@@ -3,7 +3,7 @@
 // ════════════════════════════════════════
 
 import { DAYS, schedule, getDayLabel } from '../schedule.js';
-import { state, getStatus, getDaysUntil, STATUS_DONE, STATUS_SKIP, getDayProgress } from '../state.js';
+import { state, getStatus, getDaysUntil, STATUS_DONE, STATUS_SKIP, getDayProgress, loadHistory } from '../state.js';
 
 let _calendarMode = '4week'; // '4week' | 'month'
 
@@ -43,13 +43,35 @@ function _renderCalendarInner(ctx) {
   });
   html += `</div><div class="calendar-grid">`;
 
+  // Build historical week data for past dates
+  const hist = loadHistory();
+
   // Fill days
   daysToShow.forEach(dateStr => {
     const date = new Date(dateStr + 'T12:00:00');
     const dayName = DAYS[date.getDay() === 0 ? 6 : date.getDay() - 1];
     const isToday = dateStr === todayStr;
-    const prog = getDayProgress(dayName);
-    const pct = prog.total > 0 ? prog.pct : -1;
+    const isPast = dateStr < todayStr;
+    const isFuture = dateStr > todayStr;
+
+    let pct = -1;
+    if (isToday) {
+      const prog = getDayProgress(dayName);
+      pct = prog.total > 0 ? prog.pct : -1;
+    } else if (isPast) {
+      // Use week-level historical data as approximation
+      const wk = _isoWeekKey(date);
+      if (hist[wk] !== undefined) pct = hist[wk];
+    } else {
+      // Future: show template progress if it's this week, else no data
+      const thisWeekStart = new Date(today);
+      thisWeekStart.setDate(thisWeekStart.getDate() - (thisWeekStart.getDay() === 0 ? 6 : thisWeekStart.getDay() - 1));
+      const thisWeekEnd = new Date(thisWeekStart); thisWeekEnd.setDate(thisWeekEnd.getDate() + 6);
+      if (date >= thisWeekStart && date <= thisWeekEnd) {
+        const prog = getDayProgress(dayName);
+        pct = prog.total > 0 ? prog.pct : -1;
+      }
+    }
     const color = pct === 100 ? '#00e676' : pct >= 60 ? '#00d2ff' : pct >= 20 ? '#ffab00' : pct >= 0 ? '#e94560' : null;
 
     // Deadline dots
@@ -84,6 +106,14 @@ function _renderCalendarInner(ctx) {
   </div>`;
 
   return html;
+}
+
+function _isoWeekKey(d) {
+  const temp = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  temp.setDate(temp.getDate() + 3 - ((temp.getDay() + 6) % 7));
+  const week1 = new Date(temp.getFullYear(), 0, 4);
+  const wn = 1 + Math.round(((temp - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+  return `${temp.getFullYear()}-W${String(wn).padStart(2, '0')}`;
 }
 
 function _getLast4Weeks(today) {

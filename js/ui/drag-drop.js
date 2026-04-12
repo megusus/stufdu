@@ -20,11 +20,10 @@ export function handleDragStart(taskId, fromDay, fromSectionIdx, fromItemIdx) {
 
 function _onDragOver(e) {
   if (!_dragState) return;
-  const target = e.target.closest('[data-drop-zone]');
+  const target = e.target.closest('[data-drop-zone]') || e.target.closest('[data-week-drop-day]');
   if (target) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    // Highlight drop zones
     document.querySelectorAll('.drop-zone-active').forEach(el => el.classList.remove('drop-zone-active'));
     target.classList.add('drop-zone-active');
   }
@@ -32,22 +31,42 @@ function _onDragOver(e) {
 
 function _onDrop(e) {
   if (!_dragState) return;
+
+  // Day-view drop zones
   const target = e.target.closest('[data-drop-zone]');
-  if (!target) { _clearDrag(); return; }
+  if (target) {
+    e.preventDefault();
+    const toDay = target.dataset.dropDay;
+    const toSectionIdx = +target.dataset.dropSection;
+    import('../schedule.js').then(({ moveTaskBetweenSections, saveScheduleToStorage }) => {
+      const { fromDay, fromSectionIdx, fromItemIdx } = _dragState;
+      if (toDay === fromDay && toSectionIdx === fromSectionIdx) { _clearDrag(); return; }
+      moveTaskBetweenSections(fromDay, fromSectionIdx, fromItemIdx, toDay, toSectionIdx);
+      saveScheduleToStorage();
+      _clearDrag();
+      if (_render) _render();
+    });
+    return;
+  }
 
-  e.preventDefault();
-  const toDay = target.dataset.dropDay;
-  const toSectionIdx = +target.dataset.dropSection;
+  // Week-view cross-day drop
+  const weekTarget = e.target.closest('[data-week-drop-day]');
+  if (weekTarget) {
+    e.preventDefault();
+    const toDay = weekTarget.dataset.weekDropDay;
+    import('../schedule.js').then(({ moveTaskBetweenSections, saveScheduleToStorage, schedule }) => {
+      const { fromDay, fromSectionIdx, fromItemIdx } = _dragState;
+      if (toDay === fromDay) { _clearDrag(); return; }
+      const toSectionIdx = 0; // drop into first section of target day
+      moveTaskBetweenSections(fromDay, fromSectionIdx, fromItemIdx, toDay, toSectionIdx);
+      saveScheduleToStorage();
+      _clearDrag();
+      if (_render) _render();
+    });
+    return;
+  }
 
-  // Import dynamically to avoid circular deps
-  import('../schedule.js').then(({ schedule, moveTaskBetweenSections, saveScheduleToStorage }) => {
-    const { taskId, fromDay, fromSectionIdx, fromItemIdx } = _dragState;
-    if (toDay === fromDay && toSectionIdx === fromSectionIdx) { _clearDrag(); return; }
-    moveTaskBetweenSections(fromDay, fromSectionIdx, fromItemIdx, toDay, toSectionIdx);
-    saveScheduleToStorage();
-    _clearDrag();
-    if (_render) _render();
-  });
+  _clearDrag();
 }
 
 function _onDragEnd() {
