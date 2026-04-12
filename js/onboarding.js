@@ -21,12 +21,11 @@ export function setOnboardingStep(n) { _step = n === null ? null : Math.max(0, M
 export function closeOnboarding() { _step = null; }
 export function openOnboarding() { _step = 0; }
 
-/** Check if onboarding should auto-open (first run) */
-export function shouldShowOnboarding(schedule) {
+/** Check if onboarding should auto-open (first run).
+ *  Uses absence of 'custom-schedule' key — not empty task count —
+ *  so the default schedule doesn't suppress the wizard. */
+export function shouldShowOnboarding() {
   if (isOnboardingDone()) return false;
-  // Check if schedule is empty (all sections empty across all days)
-  const totalTasks = Object.values(schedule).reduce((sum, day) =>
-    sum + (day?.sections || []).reduce((s, sec) => s + (sec.items || []).length, 0), 0
-  );
-  return totalTasks === 0;
+  // True first-run: no custom schedule has ever been saved
+  return !Storage.get('custom-schedule', null);
 }

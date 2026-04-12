@@ -1,4 +1,4 @@
-const CACHE_VERSION = 18;
+const CACHE_VERSION = 20;
 const CACHE_NAME = 'study-plan-v' + CACHE_VERSION;
 const ASSETS = [
   './',
@@ -68,6 +68,13 @@ const ASSETS = [
   './js/pomodoro.js',
   './js/pdf-report.js',
   './js/sync-conflict.js',
+  './js/nav-config.js',
+  './js/full-backup.js',
+  './js/obsidian-export.js',
+  './js/gpa.js',
+  './js/render/gpa.js',
+  './js/recurring-deadlines.js',
+  './js/encryption.js',
 ];
 const FONT_CACHE = 'study-plan-fonts-v1';
 

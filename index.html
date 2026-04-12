@@ -30,7 +30,15 @@
               onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
         Unlock →
       </button>
-      <div id="lock-error" style="font-size:11px;color:#e94560;margin-top:10px;display:none">Wrong password</div>
+      <div id="lock-error" style="font-size:11px;color:#e94560;margin-top:10px;display:none">
+        Wrong password
+        <div style="margin-top:8px">
+          <button onclick="caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k)))).then(()=>location.reload())"
+            style="font-family:'JetBrains Mono',monospace;font-size:10px;background:none;border:1px solid #e9456066;color:#e94560;border-radius:6px;padding:4px 10px;cursor:pointer">
+            Clear cache &amp; retry
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 

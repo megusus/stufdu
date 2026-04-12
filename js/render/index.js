@@ -32,6 +32,8 @@ import { renderOnboardingOverlay } from './onboarding.js';
 import { renderPlannerOverlay } from './daily-plan.js';
 import { getActiveTimer, getElapsedSeconds } from '../time-tracking.js';
 import { renderFlashcardsView } from './flashcards.js';
+import { renderGPAView } from './gpa.js';
+import { getPinnedItems, getOverflowItems, ALL_NAV_ITEMS } from '../nav-config.js';
 import { getSession as getPomodoroSession, getRemainingSecs } from '../pomodoro.js';
 import { hasPendingConflict, renderConflictModal } from '../sync-conflict.js';
 
@@ -131,6 +133,47 @@ function _updatePomodoroBar() {
       : `<button class="tt-stop" data-action="stopPomodoro" style="color:#e94560">■ Stop</button>`}`;
 }
 
+function _updateNavCustomizer(ctx) {
+  let el = document.getElementById('nav-customizer-overlay');
+  if (!ctx.state.navCustomizerOpen) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'nav-customizer-overlay';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:8000;display:flex;align-items:flex-end;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0)';
+    el.addEventListener('click', e => { if (e.target === el) { ctx.state.navCustomizerOpen = false; doRender(); } });
+    document.body.appendChild(el);
+  }
+  const pinned   = getPinnedItems().map(n => n.id);
+  const overflow = getOverflowItems().map(n => n.id);
+
+  let h = `<div style="background:var(--surface);border-radius:16px 16px 0 0;width:100%;max-width:480px;padding:20px;border-top:1px solid var(--border)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:14px;font-weight:700;color:var(--text-bright)">Customize Navigation</div>
+      <button class="icon-btn" data-action="closeNavCustomizer">✕</button>
+    </div>
+    <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Pinned tabs (tap to unpin)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">`;
+  ALL_NAV_ITEMS.filter(n => pinned.includes(n.id)).forEach(n => {
+    h += `<button class="data-btn" data-action="unpinNavItem" data-id="${n.id}"
+      style="color:#00d2ff;border-color:#00d2ff44;padding:6px 12px;font-size:11px">
+      ${n.icon} ${n.label} ✕
+    </button>`;
+  });
+  h += `</div>
+    <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Available (tap to pin)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">`;
+  ALL_NAV_ITEMS.filter(n => !pinned.includes(n.id)).forEach(n => {
+    h += `<button class="data-btn" data-action="pinNavItem" data-id="${n.id}"
+      style="padding:6px 12px;font-size:11px">
+      ${n.icon} ${n.label} +
+    </button>`;
+  });
+  h += `</div>
+    <div style="font-size:10px;color:var(--dim);margin-top:4px">Pinned tabs appear in the bottom bar (max 6). All others go into the More ⋯ menu.</div>
+  </div>`;
+  el.innerHTML = h;
+}
+
 function _updateConflictModal(ctx) {
   const existing = document.getElementById('conflict-modal-overlay');
   if (existing) existing.remove();
@@ -220,6 +263,8 @@ function _doRenderInner() {
     html = renderCalendarView(ctx);
   } else if (view === 'flashcards') {
     html = renderFlashcardsView(ctx);
+  } else if (view === 'gpa') {
+    html = renderGPAView(ctx);
   } else {
     html = renderHome(ctx);
   }
@@ -252,6 +297,9 @@ function _doRenderInner() {
 
   // Sync conflict modal
   _updateConflictModal(ctx);
+
+  // Nav customizer overlay
+  _updateNavCustomizer(ctx);
 
   // Focus session overlay
   _updateFocusOverlay();

@@ -42,9 +42,11 @@ export const CONFIG = {
 };
 
 // Load user overrides from localStorage (if any)
+// passwordHash is intentionally excluded — it must only be set in source code.
 try {
   const overrides = JSON.parse(localStorage.getItem(CONFIG.storagePrefix + '-config') || '{}');
   if (overrides && typeof overrides === 'object') {
+    delete overrides.passwordHash;
     Object.assign(CONFIG, overrides);
   }
 } catch (e) { /* ignore invalid config */ }

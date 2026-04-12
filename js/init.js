@@ -55,6 +55,12 @@ import { exportData, importData, exportCalendar, exportSchedule, importSchedule,
 import { applySettings, resetSettings } from './ui/settings.js';
 import { editCat, saveCatEdit, deleteCat, addCat, resetCatToDefaults } from './ui/categories-editor.js';
 import { detectOldPrefixKeys, offerMigration } from './migration.js';
+import { loadNavConfig, saveNavConfig, pinItem, unpinItem, reorderPinned, ALL_NAV_ITEMS } from './nav-config.js';
+import { downloadFullBackup, importFullBackupFromFile, restoreFullBackup, validateBackup } from './full-backup.js';
+import { downloadObsidianExport } from './obsidian-export.js';
+import { calculateGPA, predictGPANeeded, saveGPAScale, saveCreditHours, loadCreditHours } from './gpa.js';
+import { addRecurringDeadline, removeRecurringDeadline, mergeRecurringIntoDeadlines } from './recurring-deadlines.js';
+import { isEncryptionAvailable, isEncryptionEnabled, enableEncryption, disableEncryption } from './encryption.js';
 import { loadDashboardConfig, saveDashboardConfig, moveCard, setCardVisible, setCardSize } from './dashboard-config.js';
 import { addDeck, removeDeck, addCard as addFlashcard, removeCard as removeFlashcard, loadCards as loadFlashcards, getDueCards, sm2Rate, updateCard as updateFlashcard } from './flashcards.js';
 import { checkBadges, getBadgeDef } from './badges.js';
@@ -735,6 +741,112 @@ initDispatch({
     reader.readAsText(file);
   },
 
+  // ── Navigation Customization ──
+  toggleNavOverflow:  () => { state.navOverflowOpen = !state.navOverflowOpen; render(); },
+  closeNavOverflow:   () => { state.navOverflowOpen = false; render(); },
+  openNavCustomizer:  () => { state.navOverflowOpen = false; state.navCustomizerOpen = true; render(); },
+  closeNavCustomizer: () => { state.navCustomizerOpen = false; render(); },
+  pinNavItem:    ({ id }) => { pinItem(id); state.navCustomizerOpen = true; render(); },
+  unpinNavItem:  ({ id }) => { unpinItem(id); state.navCustomizerOpen = true; render(); },
+
+  // ── Full Backup ──
+  downloadFullBackup: () => {
+    const count = downloadFullBackup();
+    showToast(`✅ Full backup saved (${count} keys)`);
+  },
+  importFullBackup: () => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = '.json';
+    input.onchange = () => {
+      const file = input.files[0];
+      if (!file) return;
+      importFullBackupFromFile(file,
+        (obj, keyCount, meta) => {
+          showConfirm(
+            `Restore ${keyCount} keys from backup?\nExported: ${meta?.exported?.slice(0,10) ?? 'unknown'}\nSemester: ${meta?.semester ?? 'unknown'}\n\nThis will overwrite all current data.`,
+            () => {
+              const n = restoreFullBackup(obj);
+              showToast(`✅ Restored ${n} keys — reloading…`);
+              setTimeout(() => location.reload(), 1200);
+            },
+            'Restore',
+          );
+        },
+        (err) => showToast('❌ ' + err),
+      );
+    };
+    input.click();
+  },
+
+  // ── Obsidian Export ──
+  exportObsidian: () => {
+    downloadObsidianExport(showToast);
+  },
+
+  // ── GPA Calculator ──
+  setGPAScale: ({ scale }) => {
+    saveGPAScale(scale);
+    render();
+  },
+  setCreditHours: ({ cat }, _e, el) => {
+    const credits = loadCreditHours();
+    credits[cat]  = parseFloat(el.value) || 0;
+    saveCreditHours(credits);
+    render();
+  },
+  computeGPAPredictor: () => {
+    const target = parseFloat(document.getElementById('gpa-target-input')?.value) || 3.5;
+    const result = predictGPANeeded(target);
+    const el = document.getElementById('gpa-predict-result');
+    if (el) {
+      el.style.color = result.possible ? '#00e676' : '#e94560';
+      el.textContent = result.message;
+    }
+  },
+
+  // ── Recurring Deadlines ──
+  addRecurringDeadline: () => {
+    const name  = document.getElementById('rd-name')?.value.trim();
+    const cat   = document.getElementById('rd-cat')?.value || 'homework';
+    const rec   = document.getElementById('rd-recurrence')?.value || 'weekly';
+    const dow   = parseInt(document.getElementById('rd-dow')?.value ?? '5');
+    const start = document.getElementById('rd-start')?.value || new Date().toISOString().slice(0,10);
+    if (!name) { showToast('Enter a deadline name'); return; }
+    addRecurringDeadline({ name, cat, recurrence: rec, startDate: start, dayOfWeek: dow });
+    const added = mergeRecurringIntoDeadlines(state, saveDeadlines);
+    render();
+    showToast(`Recurring deadline added (${added} instance${added !== 1 ? 's' : ''} generated)`);
+  },
+  removeRecurringDeadline: ({ id }) => {
+    showConfirm('Remove this recurring deadline template? Existing instances will not be deleted.', () => {
+      removeRecurringDeadline(id);
+      render();
+      showToast('Recurring deadline removed');
+    });
+  },
+
+  // ── Encryption ──
+  toggleEncryption: () => {
+    if (!isEncryptionAvailable()) { showToast('❌ Requires HTTPS'); return; }
+    if (isEncryptionEnabled()) {
+      showConfirm('Disable encryption? Your data will remain in localStorage but no longer encrypted.', () => {
+        disableEncryption();
+        render();
+        showToast('Encryption disabled');
+      });
+    } else {
+      showConfirm('Enable AES-256 encryption for sensitive data (grades, notes, scratch)? You will need your password to decrypt.', async () => {
+        try {
+          const hash = CONFIG.passwordHash;
+          if (!hash) { showToast('❌ Set a password first'); return; }
+          await enableEncryption(hash);
+          render();
+          showToast('✅ Encryption enabled');
+        } catch (e) { showToast('❌ ' + e.message); }
+      });
+    }
+  },
+
   // ── Dashboard Customization ──
   toggleDashboardEdit: () => {
     state.dashboardEditMode = !state.dashboardEditMode;
@@ -1106,7 +1218,7 @@ function boot() {
   loadState();
   if (!DAYS[state.selectedDay]) state.selectedDay = 0;
   // Auto-open onboarding on first visit
-  if (shouldShowOnboarding(schedule)) openOnboarding();
+  if (shouldShowOnboarding()) openOnboarding();
   if (dayConfig[DAYS[state.selectedDay]]?.active === false) {
     const firstActive = DAYS.findIndex(d => dayConfig[d]?.active !== false);
     state.selectedDay = firstActive >= 0 ? firstActive : 0;
@@ -1114,6 +1226,8 @@ function boot() {
   migrateProgress(showToast);
   carryOverDeferrals(showToast);
   pruneOldData();
+  // Inject recurring deadline instances on boot
+  try { mergeRecurringIntoDeadlines(state, saveDeadlines); } catch (e) { console.warn('[recurring-dl]', e); }
   checkStorageQuota(showToast);
   checkAutoTheme();
 

@@ -563,6 +563,111 @@ function _renderPanelsInner(ctx, group = 'all', defaultOpen = false) {
     html += `</div>`;
   }, 'tools');
 
+  // Full Backup & Restore
+  lazyPanel('full-backup', '💾 Full Backup & Restore', 'color:var(--muted)', () => {
+    html += `<div style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:11px;color:var(--dim);margin-bottom:4px">
+        Full backup covers ALL data: tasks, grades, habits, flashcards, goals, notes, and settings.
+      </div>
+      <button class="data-btn" data-action="downloadFullBackup"
+        style="width:100%;color:#00d2ff;border-color:#00d2ff44;padding:10px">⬇ Download Full Backup (.json)</button>
+      <button class="data-btn" data-action="importFullBackup"
+        style="width:100%;padding:10px">⬆ Restore from Backup (.json)</button>
+    </div>`;
+  }, 'tools');
+
+  // Obsidian / Markdown export
+  lazyPanel('obsidian', '📦 Obsidian Export', 'color:var(--muted)', () => {
+    html += `<div style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:11px;color:var(--dim);margin-bottom:4px">
+        Export all notes, tasks, deadlines, grades, and reviews as Markdown files.
+        Drop the ZIP into your Obsidian vault to sync with your existing notes.
+      </div>
+      <button class="data-btn" data-action="exportObsidian"
+        style="width:100%;color:#cf7aff;border-color:#cf7aff44;padding:10px">📦 Export for Obsidian (.zip)</button>
+      <div style="font-size:10px;color:var(--dim)">
+        Generates: Daily Notes, Subjects, Deadlines, Goals, Reviews, Reading List, Index
+      </div>
+    </div>`;
+  }, 'tools');
+
+  // GPA Calculator shortcut
+  lazyPanel('gpa-shortcut', '🎓 GPA Calculator', 'color:var(--muted)', () => {
+    html += `<div style="font-size:11px;color:var(--dim);margin-bottom:10px">
+      Calculate weighted GPA with Turkish YOK 4.0 scale (AA=4.0, BA=3.5…) or US/EU presets.
+      Set credit hours per subject, get "what grade do I need?" predictions.
+    </div>
+    <button class="data-btn" data-action="navigate" data-view="gpa"
+      style="width:100%;color:#00d2ff;border-color:#00d2ff44;padding:10px">Open GPA Calculator →</button>`;
+  }, 'tools');
+
+  // Recurring Deadlines
+  lazyPanel('recurring-deadlines', '🔁 Recurring Deadlines', 'color:var(--muted)', () => {
+    const { loadRecurringDeadlines: _lrd } = (() => ({ loadRecurringDeadlines: null }))();
+    html += `<div style="display:flex;flex-direction:column;gap:0">
+      <div style="font-size:11px;color:var(--dim);margin-bottom:10px">
+        Set a deadline template that auto-generates instances (e.g. weekly homework due every Friday).
+      </div>
+      <div id="recurring-deadlines-list" style="margin-bottom:12px">
+        <div style="font-size:10px;color:var(--dim)">No recurring deadlines set. Add one below.</div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-label">New Recurring Deadline</div>
+        <div class="settings-row"><label>Name</label>
+          <input class="settings-input" id="rd-name" placeholder="e.g. Homework submission"></div>
+        <div class="settings-row"><label>Category</label>
+          <select class="settings-input" id="rd-cat">
+            ${state.catEditKey !== undefined ? '' : ''}
+            <option value="homework">Homework</option>
+            <option value="fa">FA</option>
+            <option value="class">Class</option>
+            <option value="review">Review</option>
+          </select>
+        </div>
+        <div class="settings-row"><label>Repeats</label>
+          <select class="settings-input" id="rd-recurrence">
+            <option value="weekly">Weekly</option>
+            <option value="biweekly">Every 2 weeks</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+        <div class="settings-row"><label>Day of week</label>
+          <select class="settings-input" id="rd-dow">
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5" selected>Friday</option>
+            <option value="6">Saturday</option>
+            <option value="0">Sunday</option>
+          </select>
+        </div>
+        <div class="settings-row"><label>Start date</label>
+          <input class="settings-input" type="date" id="rd-start"></div>
+      </div>
+      <button class="data-btn" data-action="addRecurringDeadline"
+        style="width:100%;color:var(--accent);border-color:#00d2ff44;margin-top:4px">+ Add Recurring Deadline</button>
+    </div>`;
+  }, 'tools');
+
+  // Encryption
+  lazyPanel('encryption', '🔐 Encryption', 'color:var(--muted)', () => {
+    const available = typeof crypto !== 'undefined' && !!crypto?.subtle;
+    html += `<div style="font-size:11px;color:var(--dim);margin-bottom:10px">
+      AES-256 encryption for sensitive data (grades, lecture notes, scratchpad, goals).
+      Requires HTTPS. Key derived from your password — never stored.
+    </div>
+    ${!available
+      ? `<div style="font-size:11px;color:#e94560">⚠️ Not available — requires HTTPS or localhost.</div>`
+      : `<button class="data-btn" data-action="toggleEncryption"
+          style="width:100%;padding:10px">
+          🔐 ${state.encryptionEnabled ? 'Disable Encryption' : 'Enable Encryption'}
+        </button>`}
+    <div style="font-size:10px;color:var(--dim);margin-top:8px">
+      Note: After enabling, existing data is encrypted on next save. Disabling decrypts on next save.
+    </div>`;
+  }, 'tools');
+
   // Pomodoro timer settings
   lazyPanel('pomodoro', '🍅 Pomodoro Timer', 'color:var(--muted)', () => {
     const { loadPomodoroConfig: _lpc } = (() => ({ loadPomodoroConfig: null }))();

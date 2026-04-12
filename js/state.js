@@ -134,6 +134,10 @@ export const state = {
 
   // Pomodoro
   pomodoroBarVisible: false,
+
+  // Navigation
+  navOverflowOpen:    false,
+  navCustomizerOpen:  false,
 };
 
 // ── Status helpers ──

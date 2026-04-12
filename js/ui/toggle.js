@@ -50,14 +50,14 @@ export function undoToggle() {
 }
 
 // ── Custom confirm modal ──
-export function showConfirm(message, onConfirm) {
+export function showConfirm(message, onConfirm, confirmLabel = 'Confirm') {
   const overlay = document.createElement('div');
   overlay.className = 'confirm-overlay';
   overlay.innerHTML = `<div class="confirm-box">
-    <div class="confirm-msg">${escapeHtml(message)}</div>
+    <div class="confirm-msg">${message.replace(/\n/g, '<br>')}</div>
     <div class="confirm-actions">
       <button class="confirm-btn" id="confirm-cancel">Cancel</button>
-      <button class="confirm-btn danger" id="confirm-ok">Reset</button>
+      <button class="confirm-btn danger" id="confirm-ok">${escapeHtml(confirmLabel)}</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);

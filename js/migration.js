@@ -17,6 +17,9 @@ const STATIC_KEYS = [
   // New feature keys
   'dashboard-config', 'flashcard-decks', 'flashcard-cards', 'badges', 'pomodoro-config',
   'fc-reviews-total', 'weekly-reviews',
+  'nav-config', 'credit-hours', 'gpa-scale',
+  'recurring-deadlines', 'enc-salt', 'encryption-enabled',
+  'onboarding-done',
 ];
 
 // Pattern for week-based keys: w{N}, w{N}-notes, w{N}-defer, w{N}-lock

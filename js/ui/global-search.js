@@ -7,6 +7,10 @@ import { DAYS, schedule, getDayLabel } from '../schedule.js';
 import { CategoryRegistry } from '../categories.js';
 import { navigate } from '../router.js';
 import { loadInbox } from '../inbox.js';
+import { loadHabits } from '../habits.js';
+import { loadGoals } from '../goals.js';
+import { loadGrades } from '../grades.js';
+import { loadDecks, loadCards } from '../flashcards.js';
 
 let _onActionCallback = null;
 export function setSearchActionCallback(fn) { _onActionCallback = fn; }
@@ -142,30 +146,104 @@ function _search(query) {
     }
   });
 
-  // Search views
-  const views = [
-    { name: 'Home Dashboard', route: 'home' },
-    { name: 'Schedule', route: 'schedule' },
-    { name: 'Ideal Week', route: 'ideal' },
-    { name: 'Tools', route: 'tools' },
-    { name: 'Stats', route: 'stats' },
-    { name: 'Weekly Review', route: 'review' },
-    { name: 'Inbox', route: 'inbox' },
-  ];
-  views.forEach(v => {
-    if (v.name.toLowerCase().includes(q)) {
-      results.push({
-        type: 'view',
-        icon: '→',
-        text: v.name,
-        sub: `Navigate to #${v.route}`,
-        color: 'var(--accent)',
-        action: () => navigate(v.route),
+  // Search task notes
+  Object.entries(state.taskNotes || {}).forEach(([taskId, note]) => {
+    if (!note || !note.toLowerCase().includes(q)) return;
+    // Find task text
+    let taskText = taskId, day = '';
+    for (const d of DAYS) {
+      for (const sec of (schedule[d]?.sections || [])) {
+        const item = sec.items.find(it => it.id === taskId);
+        if (item) { taskText = item.text; day = d; break; }
+      }
+      if (day) break;
+    }
+    results.push({
+      type: 'note',
+      icon: '📝',
+      text: note.slice(0, 60),
+      sub: `Note on: ${taskText.slice(0, 40)} · ${getDayLabel(day)}`,
+      color: '#ffab00',
+      taskId,
+      action: () => { navigate('schedule'); if (day) state.selectedDay = DAYS.indexOf(day); },
+    });
+  });
+
+  // Search habits
+  try {
+    loadHabits().forEach(h => {
+      if (h.name.toLowerCase().includes(q)) {
+        results.push({ type: 'habit', icon: h.icon || '🏃', text: h.name, sub: 'Habit · ' + (h.frequency || 'daily'), color: h.color || '#00e676', action: () => navigate('habits') });
+      }
+    });
+  } catch {}
+
+  // Search goals
+  try {
+    loadGoals().forEach(g => {
+      if (g.label.toLowerCase().includes(q)) {
+        results.push({ type: 'goal', icon: g.icon || '🎯', text: g.label, sub: `Goal · ${g.current}/${g.target}${g.unit}`, color: '#00d2ff', action: () => navigate('stats') });
+      }
+    });
+  } catch {}
+
+  // Search grades (assessment names)
+  try {
+    const grades = loadGrades();
+    Object.entries(grades).forEach(([cat, assessments]) => {
+      const catLabel = CategoryRegistry.getLabel(cat) || cat;
+      (assessments || []).forEach(g => {
+        if (g.name.toLowerCase().includes(q)) {
+          results.push({ type: 'grade', icon: '📊', text: g.name, sub: `Grade · ${catLabel} · ${g.score}/${g.maxScore}`, color: '#00d2ff', action: () => navigate('grades') });
+        }
       });
+    });
+  } catch {}
+
+  // Search flashcard decks and cards
+  try {
+    loadDecks().forEach(deck => {
+      if (deck.name.toLowerCase().includes(q)) {
+        results.push({ type: 'deck', icon: '🧠', text: deck.name, sub: 'Flashcard deck', color: '#cf7aff', action: () => navigate('flashcards') });
+      }
+    });
+    loadCards().forEach(card => {
+      if (card.front.toLowerCase().includes(q) || card.back.toLowerCase().includes(q)) {
+        results.push({ type: 'flashcard', icon: '🃏', text: card.front.slice(0, 60), sub: `Flashcard · Answer: ${card.back.slice(0, 40)}`, color: '#cf7aff', action: () => navigate('flashcards') });
+      }
+    });
+  } catch {}
+
+  // Search categories
+  CategoryRegistry.keys().forEach(k => {
+    const label = CategoryRegistry.getLabel(k) || k;
+    if (label.toLowerCase().includes(q) || k.toLowerCase().includes(q)) {
+      results.push({ type: 'category', icon: '🏷', text: label, sub: `Category · key: ${k}`, color: CategoryRegistry.getColor(k).border, action: () => navigate('tools') });
     }
   });
 
-  return results.slice(0, 20);
+  // Search views (all 12)
+  const views = [
+    { name: 'Home Dashboard',  route: 'home'       },
+    { name: 'Schedule',        route: 'schedule'   },
+    { name: 'Ideal Week',      route: 'ideal'      },
+    { name: 'Tools',           route: 'tools'      },
+    { name: 'Stats',           route: 'stats'      },
+    { name: 'Weekly Review',   route: 'review'     },
+    { name: 'Inbox',           route: 'inbox'      },
+    { name: 'Habits',          route: 'habits'     },
+    { name: 'Grades',          route: 'grades'     },
+    { name: 'Eisenhower Matrix', route: 'matrix'   },
+    { name: 'Calendar',        route: 'calendar'   },
+    { name: 'Flashcards',      route: 'flashcards' },
+  ];
+  views.forEach(v => {
+    if (v.name.toLowerCase().includes(q)) {
+      results.push({ type: 'view', icon: '→', text: v.name, sub: `Navigate to #${v.route}`, color: 'var(--accent)', action: () => navigate(v.route) });
+    }
+  });
+
+  return results.slice(0, 24);
 }
 
 function _renderOverlay() {
