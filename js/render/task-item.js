@@ -2,6 +2,8 @@
 // ── Task Item Renderer ──
 // ════════════════════════════════════════
 
+import { renderMarkdown, markdownExcerpt } from '../markdown.js';
+
 /**
  * Pure renderer: receives RenderContext + item data, returns HTML string.
  * @param {import('./context.js').RenderContext} ctx
@@ -115,14 +117,31 @@ export function renderItem(ctx, item, dayName, extraClass, fromDay, dragAttrs) {
   const lectureNote = state.lectureNotes?.[item.id];
   if (lectureNote) {
     html += `<div class="lecture-note-preview" data-action="openLectureNotes" data-id="${item.id}" data-stop>
-      📝 <span class="lecture-note-preview-text">${escapeHtml(lectureNote.slice(0,80))}${lectureNote.length > 80 ? '…' : ''}</span>
+      📝 <span class="lecture-note-preview-text">${escapeHtml(markdownExcerpt(lectureNote, 96))}</span>
     </div>`;
   }
   if (state.openLectureNotes === item.id) {
+    const previewId = `lecture-notes-preview-${item.id}`;
+    const editorId = `lecture-notes-${item.id}`;
+    const notePreview = renderMarkdown(lectureNote || '') || '<div class="markdown-empty">Preview formulas, lists, links, and checkboxes here.</div>';
     html += `<div class="lecture-notes-editor" data-stop>
-      <textarea id="lecture-notes-${item.id}" class="lecture-notes-textarea"
-        placeholder="Lecture notes, key points, formulas..."
-        data-stop>${escapeHtml(lectureNote || '')}</textarea>
+      <div class="markdown-toolbar">
+        <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="${editorId}" data-command="heading" title="Heading">H</button>
+        <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="${editorId}" data-command="bold" title="Bold">B</button>
+        <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="${editorId}" data-command="italic" title="Italic">I</button>
+        <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="${editorId}" data-command="list" title="List">•</button>
+        <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="${editorId}" data-command="checkbox" title="Checkbox">☐</button>
+        <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="${editorId}" data-command="code" title="Inline code">{ }</button>
+        <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="${editorId}" data-command="fence" title="Code block">&#96;&#96;&#96;</button>
+        <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="${editorId}" data-command="link" title="Link">↗</button>
+      </div>
+      <div class="lecture-markdown-grid">
+        <textarea id="${editorId}" class="lecture-notes-textarea lecture-notes-textarea--markdown"
+          placeholder="# Lecture notes&#10;- definition&#10;- [ ] theorem to revisit"
+          data-input-action="updateMarkdownPreview" data-preview-id="${previewId}"
+          data-stop>${escapeHtml(lectureNote || '')}</textarea>
+        <div class="markdown-preview lecture-markdown-preview" id="${previewId}" data-stop>${notePreview}</div>
+      </div>
       <div class="lecture-notes-actions">
         <button class="data-btn" data-action="saveLectureNotes" data-id="${item.id}"
           style="color:var(--accent);border-color:#00d2ff44">Save</button>

@@ -1,0 +1,56 @@
+/* Tier 4 layout primitives. */
+
+.app {
+  min-height: var(--render-surface-min);
+  contain: layout style;
+}
+
+.app.is-rendering {
+  cursor: progress;
+}
+
+.view-page {
+  content-visibility: auto;
+  contain-intrinsic-size: 720px;
+}
+
+.panel,
+.home-card,
+.analytics-card,
+.item {
+  contain: layout paint;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.skip-link {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 10000;
+  transform: translateY(-140%);
+  background: var(--text-bright);
+  color: var(--bg);
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  transition: transform 0.15s ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}

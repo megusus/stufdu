@@ -1,0 +1,46 @@
+/* Tier 4 accessibility layer. */
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[role="checkbox"]:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+[aria-disabled="true"],
+button:disabled {
+  cursor: not-allowed;
+}
+
+.toast {
+  min-width: 220px;
+}
+
+.confirm-overlay[aria-hidden="true"] {
+  display: none;
+}
+
+.modal-open {
+  overflow: hidden;
+}
+
+.focus-overlay,
+.daily-plan-overlay,
+.onboarding-overlay,
+.confirm-overlay,
+.gsearch-overlay,
+#nav-customizer-overlay,
+#conflict-modal-overlay {
+  isolation: isolate;
+}

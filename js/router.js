@@ -6,10 +6,28 @@ export const VIEWS = ['home', 'schedule', 'ideal', 'tools', 'stats', 'review', '
 
 let _renderFn = null;
 let _subViewHandlers = [];
+let _prevView = 'home';
+
+// Navigation direction: views ordered for forward/back awareness
+const _VIEW_ORDER = VIEWS;
+
+function _setNavDir(from, to) {
+  const fi = _VIEW_ORDER.indexOf(from);
+  const ti = _VIEW_ORDER.indexOf(to);
+  if (fi === -1 || ti === -1 || fi === ti) {
+    document.documentElement.removeAttribute('data-nav-dir');
+  } else {
+    document.documentElement.setAttribute('data-nav-dir', ti > fi ? 'forward' : 'back');
+  }
+}
 
 export function initRouter(renderFn) {
   _renderFn = renderFn;
+  _prevView = currentView();
   window.addEventListener('hashchange', () => {
+    const nextView = currentView();
+    _setNavDir(_prevView, nextView);
+    _prevView = nextView;
     _applySubView();
     if (_renderFn) _renderFn();
   });

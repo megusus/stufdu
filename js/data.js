@@ -15,6 +15,7 @@ import {
   todayIdx,
 } from './state.js';
 import { syncPush } from './sync.js';
+import { downloadStudyCalendar, importICSFromUrl } from './ical.js';
 
 // ════════════════════════════════════════
 // ── Deadlines ──
@@ -139,31 +140,14 @@ export function importData(render, showToast) {
 }
 
 export function exportCalendar(showToast) {
-  let ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//StudyPlan//EN\r\nCALSCALE:GREGORIAN\r\n';
-  const now = nowInTZ();
-  const dow = now.getDay() === 0 ? 6 : now.getDay() - 1;
-  const monday = new Date(now); monday.setDate(monday.getDate() - dow);
-  DAYS.forEach((dayName, di) => {
-    (schedule[dayName]?.sections || []).forEach(s => (s.items || []).forEach(item => {
-      if (item.cat !== 'class' && item.cat !== 'fameeting') return;
-      const timeMatch = item.text.match(/(\d{1,2}):(\d{2})\u2014(\d{1,2}):(\d{2})/);
-      if (!timeMatch) return;
-      const eventDate = new Date(monday); eventDate.setDate(eventDate.getDate() + di);
-      const ds = `${eventDate.getFullYear()}${String(eventDate.getMonth()+1).padStart(2,'0')}${String(eventDate.getDate()).padStart(2,'0')}`;
-      const dtStart = `${ds}T${String(timeMatch[1]).padStart(2,'0')}${timeMatch[2]}00`;
-      const dtEnd = `${ds}T${String(timeMatch[3]).padStart(2,'0')}${timeMatch[4]}00`;
-      ics += `BEGIN:VEVENT\r\nDTSTART;TZID=${CONFIG.timezone}:${dtStart}\r\nDTEND;TZID=${CONFIG.timezone}:${dtEnd}\r\n`;
-      ics += `SUMMARY:${item.text.split('\u2014')[0].trim()}\r\n`;
-      if (item.hint) ics += `LOCATION:${item.hint}\r\n`;
-      ics += `END:VEVENT\r\n`;
-    }));
+  downloadStudyCalendar(showToast);
+}
+
+export function importCalendarUrl(url, render, showToast) {
+  importICSFromUrl(url, render, showToast).catch(err => {
+    console.warn('[ical]', err);
+    showToast('Calendar import failed');
   });
-  ics += 'END:VCALENDAR\r\n';
-  const blob = new Blob([ics], { type: 'text/calendar' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'study-plan-classes.ics'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
-  showToast('Calendar exported');
 }
 
 export function exportSchedule(showToast) {
@@ -359,5 +343,4 @@ export function migrateProgress(showToast) {
   if (migrated > 0) setTimeout(() => showToast(`Schedule updated \u2014 migrated ${migrated} item(s)`), 500);
   else if (Object.keys(state.checked).length > 0) setTimeout(() => showToast('Schedule updated \u2014 progress preserved'), 500);
 }
-
 

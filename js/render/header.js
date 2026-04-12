@@ -37,9 +37,11 @@ export function renderHeaderControls(ctx) {
     </div>
     <div class="subtitle">${escapeHtml(config.headerTag)}</div>`;
 
-  html += `<div class="progress-section">
+  html += `<div class="progress-section" aria-label="Weekly progress">
     <div class="week-label">WEEK ${weekNum}</div>
-    <div class="weekly-bar"><div class="weekly-bar-fill" style="width:${wp.pct}%"></div></div>
+    <div class="weekly-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${wp.pct}" aria-label="Weekly completion">
+      <div class="weekly-bar-fill" style="width:${wp.pct}%"></div>
+    </div>
     <div id="week-val" class="week-val">${wp.done}/${wp.total} \u00b7 ${wp.pct}%${estDisplay ? ` \u00b7 ~${formatEst(remaining)} left` : ''}</div>
   </div>`;
 
@@ -57,7 +59,7 @@ export function renderHeaderControls(ctx) {
   let idealGap = {};
   try { idealGap = getIdealGap(state.checked, state.taskDeferred); } catch(e) {}
 
-  html += '<div class="tabs">';
+  html += '<div class="tabs" role="tablist" aria-label="Study days">';
   days.forEach((d, i) => {
     if (dayConfig[d]?.active === false) return;
     const p = getDayProgress(d);
@@ -71,7 +73,7 @@ export function renderHeaderControls(ctx) {
     }
     html += `<button class="tab ${sel ? 'active' : ''} ${today ? 'today' : ''}"
       data-action="selectDay" data-i="${i}" data-context-action="showTabCtxMenu"
-      role="tab" aria-selected="${sel}">
+      role="tab" aria-selected="${sel}" tabindex="${sel ? '0' : '-1'}" aria-label="${escapeHtml(d)} ${p.done} of ${p.total} tasks complete">
       ${escapeHtml(getShortLabel(d, i))}${gapDot}
       <div class="tab-progress" style="width:${p.pct}%"></div>
     </button>`;

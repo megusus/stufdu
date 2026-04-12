@@ -1,0 +1,12 @@
+/* Tier 4 theme normalization. */
+
+[data-theme="light"] .skip-link {
+  background: var(--text-bright);
+  color: var(--bg);
+}
+
+[data-theme="light"] .skeleton-card,
+[data-theme="light"] .skeleton-line,
+[data-theme="light"] .skeleton-pill {
+  background: color-mix(in srgb, var(--surface2) 84%, white);
+}

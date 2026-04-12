@@ -1,0 +1,27 @@
+/* Tier 4 animation controls. */
+
+@keyframes skeleton-sweep {
+  100% { transform: translateX(100%); }
+}
+
+@keyframes skeleton-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .skeleton-card::after,
+  .skeleton-line::after,
+  .skeleton-pill::after {
+    animation: none !important;
+  }
+}

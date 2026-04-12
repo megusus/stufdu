@@ -3,6 +3,7 @@
 // ════════════════════════════════════════
 
 import { loadScratchpad } from '../state.js';
+import { renderMarkdown } from '../markdown.js';
 
 /**
  * Pure(ish) renderer: receives RenderContext, writes scratchpad to DOM.
@@ -23,11 +24,26 @@ export function renderScratchpad(ctx) {
   }
 
   const content = loadScratchpad();
-  el.innerHTML = `<div class="scratchpad-panel" data-stop style="animation:fabSlideUp 0.2s ease-out">
+  const preview = renderMarkdown(content) || '<div class="markdown-empty">Write with Markdown. Preview appears here.</div>';
+  el.innerHTML = `<div class="scratchpad-panel scratchpad-panel--markdown" data-stop style="animation:fabSlideUp 0.2s ease-out">
     <div class="scratchpad-header">
       <span>\ud83d\udcdd Scratchpad</span>
       <button class="fab-close" data-action="toggleScratchpad">\u2715</button>
     </div>
-    <textarea class="scratchpad-area" id="scratchpad-text" data-input-action="saveScratchpad" data-stop placeholder="Quick notes\u2026">${escapeHtml(content)}</textarea>
+    <div class="markdown-toolbar" aria-label="Markdown shortcuts">
+      <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="scratchpad-text" data-command="heading" title="Heading">H</button>
+      <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="scratchpad-text" data-command="bold" title="Bold">B</button>
+      <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="scratchpad-text" data-command="italic" title="Italic">I</button>
+      <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="scratchpad-text" data-command="list" title="List">•</button>
+      <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="scratchpad-text" data-command="checkbox" title="Checkbox">☐</button>
+      <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="scratchpad-text" data-command="code" title="Inline code">{ }</button>
+      <button class="markdown-tool-btn" data-action="markdownShortcut" data-target="scratchpad-text" data-command="link" title="Link">↗</button>
+    </div>
+    <div class="markdown-workbench">
+      <textarea class="scratchpad-area scratchpad-area--markdown" id="scratchpad-text"
+        data-input-action="saveScratchpadMarkdown" data-preview-id="scratchpad-preview"
+        data-stop placeholder="# Quick notes&#10;- [ ] Capture a task&#10;- Link a source">${escapeHtml(content)}</textarea>
+      <div class="markdown-preview scratchpad-preview" id="scratchpad-preview" data-stop>${preview}</div>
+    </div>
   </div>`;
 }

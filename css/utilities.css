@@ -1,0 +1,19 @@
+/* Tier 4 utility layer. */
+
+.no-transition {
+  transition: none !important;
+}
+
+.render-hidden {
+  visibility: hidden;
+}
+
+.text-readable {
+  font-family: var(--font-body);
+  line-height: var(--line-body);
+  letter-spacing: 0;
+}
+
+.text-ui {
+  font-family: var(--font-ui);
+}

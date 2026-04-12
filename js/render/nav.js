@@ -7,6 +7,10 @@ import { getInboxCount } from '../inbox.js';
 import { getDueCards } from '../flashcards.js';
 import { getPinnedItems, getOverflowItems, loadNavConfig } from '../nav-config.js';
 
+let _lastSidebarHtml = '';
+let _lastBottomHtml = '';
+let _lastOverflowHtml = '';
+
 export function renderNav(ctx) {
   const active   = currentView();
   const { escapeHtml, config, currentTheme, state } = ctx;
@@ -31,7 +35,7 @@ export function renderNav(ctx) {
     // All items in sidebar (pinned first, then overflow)
     [...pinned, ...overflow].forEach(({ id, icon, label }) => {
       const badge = _badge(id, inboxCount, flashDue);
-      h += `<a class="sidebar-link${active === id ? ' active' : ''}" href="#${id}">
+      h += `<a class="sidebar-link${active === id ? ' active' : ''}" href="#${id}" ${active === id ? 'aria-current="page"' : ''}>
         <span class="sidebar-link-icon">${icon}${badge}</span>
         <span class="sidebar-link-label">${label}</span>
       </a>`;
@@ -44,7 +48,10 @@ export function renderNav(ctx) {
       <button class="icon-btn" data-action="toggleFontSize" title="Font size">A↕</button>
       <button class="icon-btn" data-action="toggleShortcuts" title="Keyboard shortcuts">?</button>
     </div>`;
-    sidebarEl.innerHTML = h;
+    if (h !== _lastSidebarHtml) {
+      sidebarEl.innerHTML = h;
+      _lastSidebarHtml = h;
+    }
   }
 
   // ── Bottom tabs ──
@@ -55,7 +62,7 @@ export function renderNav(ctx) {
     // Pinned core tabs
     pinned.forEach(({ id, icon, label }) => {
       const badge = _badge(id, inboxCount, flashDue);
-      h += `<a class="btab${active === id ? ' active' : ''}" href="#${id}">
+      h += `<a class="btab${active === id ? ' active' : ''}" href="#${id}" ${active === id ? 'aria-current="page"' : ''}>
         <span class="btab-icon" style="position:relative">${icon}${badge}</span>
         <span class="btab-label">${label}</span>
       </a>`;
@@ -70,7 +77,10 @@ export function renderNav(ctx) {
       </button>`;
     }
 
-    btabsEl.innerHTML = h;
+    if (h !== _lastBottomHtml) {
+      btabsEl.innerHTML = h;
+      _lastBottomHtml = h;
+    }
 
     // Overflow drawer (shown/hidden via state)
     _updateOverflowDrawer(active, overflow, inboxCount, flashDue, state);
@@ -89,6 +99,7 @@ function _updateOverflowDrawer(active, overflow, inboxCount, flashDue, state) {
   let drawer = document.getElementById('nav-overflow-drawer');
   if (!state?.navOverflowOpen) {
     if (drawer) drawer.remove();
+    _lastOverflowHtml = '';
     return;
   }
   if (!drawer) {
@@ -106,7 +117,7 @@ function _updateOverflowDrawer(active, overflow, inboxCount, flashDue, state) {
 
   overflow.forEach(({ id, icon, label }) => {
     const badge = _badge(id, inboxCount, flashDue);
-    h += `<a class="nav-overflow-item${active === id ? ' active' : ''}" href="#${id}" data-action="closeNavOverflow">
+    h += `<a class="nav-overflow-item${active === id ? ' active' : ''}" href="#${id}" data-action="closeNavOverflow" ${active === id ? 'aria-current="page"' : ''}>
       <span style="font-size:20px;position:relative">${icon}${badge}</span>
       <span style="font-size:10px;margin-top:3px">${label}</span>
     </a>`;
@@ -120,5 +131,8 @@ function _updateOverflowDrawer(active, overflow, inboxCount, flashDue, state) {
     </button>
   </div>`;
 
-  drawer.innerHTML = h;
+  if (h !== _lastOverflowHtml) {
+    drawer.innerHTML = h;
+    _lastOverflowHtml = h;
+  }
 }

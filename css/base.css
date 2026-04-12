@@ -1,0 +1,91 @@
+/* Tier 4 base tokens and typography refinements. */
+
+:root {
+  --font-ui: "JetBrains Mono", "SF Mono", "Cascadia Code", monospace;
+  --font-body: "Source Serif 4", "Iowan Old Style", "Charter", Georgia, serif;
+  --font-reading: "Source Serif 4", "Iowan Old Style", "Charter", Georgia, serif;
+  --line-body: 1.62;
+  --render-surface-min: 180px;
+}
+
+body {
+  font-family: var(--font-ui);
+  text-rendering: optimizeLegibility;
+}
+
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+}
+
+.body-text,
+.info p,
+.item-hint,
+.item-note,
+.markdown-body,
+.markdown-preview,
+.review-saved-text,
+.review-textarea,
+.lecture-notes-textarea,
+.scratchpad-area,
+.sync-info,
+.view-page-sub,
+.home-card-hint,
+.analytics-card,
+.goal-label,
+.meal-card,
+.deadline-name {
+  font-family: var(--font-body);
+  line-height: var(--line-body);
+  letter-spacing: 0;
+}
+
+.markdown-body,
+.markdown-preview,
+.review-saved-text,
+.review-textarea,
+.lecture-notes-textarea,
+.scratchpad-area {
+  font-size: 13px;
+}
+
+.header-title,
+.view-page-title,
+.panel-title,
+.home-card-label,
+.home-card-big,
+.analytics-card-title,
+.badge-name,
+.item-cat,
+.item-est,
+.btab-label,
+.tab,
+.data-btn,
+.view-btn,
+.settings-section-label,
+.settings-row label {
+  font-family: var(--font-ui);
+}
+
+.app.font-large {
+  --t-xs: 10px;
+  --t-sm: 12px;
+  --t-md: 14px;
+  --t-lg: 17px;
+  --t-xl: 22px;
+  --t-2xl: 26px;
+}
+
+.app.font-large .body-text,
+.app.font-large .markdown-body,
+.app.font-large .markdown-preview,
+.app.font-large .review-textarea,
+.app.font-large .lecture-notes-textarea,
+.app.font-large .scratchpad-area,
+.app.font-large .info p,
+.app.font-large .item-hint {
+  font-size: 15px;
+  line-height: 1.68;
+}

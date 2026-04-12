@@ -11,7 +11,44 @@ export let currentTheme = 'dark';
 // ── Preset theme definitions ──
 // Each preset overrides CSS custom properties on :root
 export const THEME_PRESETS = {
-  default: { label: 'Default', dark: {}, light: {} },
+  default: {
+    label: 'Midnight',
+    dark: {},
+    light: {},
+  },
+  'warm-paper': {
+    label: 'Warm Paper',
+    dark: {
+      '--bg':          '#faf6ed',
+      '--surface':     '#f2ead8',
+      '--surface2':    '#e9dec6',
+      '--border':      '#cbbd9b44',
+      '--border2':     '#9d8c6744',
+      '--text':        '#312b22',
+      '--text-bright': '#17130e',
+      '--muted':       '#665b49',
+      '--dim':         '#94866e',
+      '--faint':       '#d8ccb3',
+      '--accent':      '#007a99',
+      '--glass-bg':    'rgba(250, 246, 237, 0.82)',
+      '--glass-border':'rgba(49, 43, 34, 0.10)',
+    },
+    light: {
+      '--bg':          '#faf6ed',
+      '--surface':     '#f2ead8',
+      '--surface2':    '#e9dec6',
+      '--border':      '#cbbd9b44',
+      '--border2':     '#9d8c6744',
+      '--text':        '#312b22',
+      '--text-bright': '#17130e',
+      '--muted':       '#665b49',
+      '--dim':         '#94866e',
+      '--faint':       '#d8ccb3',
+      '--accent':      '#007a99',
+      '--glass-bg':    'rgba(250, 246, 237, 0.82)',
+      '--glass-border':'rgba(49, 43, 34, 0.10)',
+    },
+  },
   nord: {
     label: 'Nord',
     dark: {
@@ -39,8 +76,8 @@ export const THEME_PRESETS = {
       '--accent':       '#5e81ac',
     },
   },
-  rosepine: {
-    label: 'Rosé Pine',
+  'rose-pine': {
+    label: 'Rose Pine',
     dark: {
       '--bg':           '#191724',
       '--surface':      '#1f1d2e',
@@ -66,8 +103,8 @@ export const THEME_PRESETS = {
       '--accent':       '#907aa9',
     },
   },
-  catppuccin: {
-    label: 'Catppuccin',
+  'catppuccin-mocha': {
+    label: 'Catppuccin Mocha',
     dark: {
       '--bg':           '#1e1e2e',
       '--surface':      '#181825',
@@ -93,8 +130,8 @@ export const THEME_PRESETS = {
       '--accent':       '#1e66f5',
     },
   },
-  solarized: {
-    label: 'Solarized',
+  'solarized-dark': {
+    label: 'Solarized Dark',
     dark: {
       '--bg':           '#002b36',
       '--surface':      '#073642',
@@ -120,9 +157,86 @@ export const THEME_PRESETS = {
       '--accent':       '#268bd2',
     },
   },
+  'high-contrast': {
+    label: 'High Contrast',
+    dark: {
+      '--bg':          '#000000',
+      '--surface':     '#1a1a1a',
+      '--surface2':    '#242424',
+      '--border':      '#ffffff33',
+      '--border2':     '#ffffff66',
+      '--text':        '#f5f5f5',
+      '--text-bright': '#ffffff',
+      '--muted':       '#c7c7c7',
+      '--dim':         '#8f8f8f',
+      '--faint':       '#333333',
+      '--accent':      '#00ff88',
+      '--glass-bg':    'rgba(26,26,26,0.88)',
+      '--glass-border':'rgba(255,255,255,0.22)',
+    },
+    light: {
+      '--bg':          '#ffffff',
+      '--surface':     '#f1f1f1',
+      '--surface2':    '#e6e6e6',
+      '--border':      '#00000033',
+      '--border2':     '#00000066',
+      '--text':        '#111111',
+      '--text-bright': '#000000',
+      '--muted':       '#3d3d3d',
+      '--dim':         '#666666',
+      '--faint':       '#d9d9d9',
+      '--accent':      '#006b3a',
+      '--glass-bg':    'rgba(255,255,255,0.88)',
+      '--glass-border':'rgba(0,0,0,0.22)',
+    },
+  },
+  amoled: {
+    label: 'AMOLED',
+    dark: {
+      '--bg':          '#000000',
+      '--surface':     '#0a0a0a',
+      '--surface2':    '#101010',
+      '--border':      '#1f1f1f',
+      '--border2':     '#343434',
+      '--text':        '#d8f7ff',
+      '--text-bright': '#ffffff',
+      '--muted':       '#83a5ad',
+      '--dim':         '#526970',
+      '--faint':       '#1a1a1a',
+      '--accent':      '#00d2ff',
+      '--glass-bg':    'rgba(0,0,0,0.86)',
+      '--glass-border':'rgba(0,210,255,0.16)',
+    },
+    light: {
+      '--bg':          '#000000',
+      '--surface':     '#0a0a0a',
+      '--surface2':    '#101010',
+      '--border':      '#1f1f1f',
+      '--border2':     '#343434',
+      '--text':        '#d8f7ff',
+      '--text-bright': '#ffffff',
+      '--muted':       '#83a5ad',
+      '--dim':         '#526970',
+      '--faint':       '#1a1a1a',
+      '--accent':      '#00d2ff',
+      '--glass-bg':    'rgba(0,0,0,0.86)',
+      '--glass-border':'rgba(0,210,255,0.16)',
+    },
+  },
 };
 
 export let currentPreset = 'default';
+
+const PRESET_ALIASES = {
+  midnight: 'default',
+  rosepine: 'rose-pine',
+  catppuccin: 'catppuccin-mocha',
+  solarized: 'solarized-dark',
+};
+
+function _normalizePresetKey(key) {
+  return PRESET_ALIASES[key] || key || 'default';
+}
 
 function _applyPresetVars(presetKey, theme) {
   const preset = THEME_PRESETS[presetKey];
@@ -145,18 +259,20 @@ function _applyAccentColor(color) {
 }
 
 export function initPreset() {
-  const saved = Storage.getRaw('theme-preset', 'default');
+  const saved = _normalizePresetKey(Storage.getRaw('theme-preset', 'default'));
   currentPreset = THEME_PRESETS[saved] ? saved : 'default';
+  if (currentPreset !== Storage.getRaw('theme-preset', 'default')) Storage.setRaw('theme-preset', currentPreset);
   _applyPresetVars(currentPreset, currentTheme);
   const accent = Storage.getRaw('accent-color', '');
   if (accent) _applyAccentColor(accent);
 }
 
 export function setThemePreset(key, render) {
-  if (!THEME_PRESETS[key]) return;
-  currentPreset = key;
-  Storage.setRaw('theme-preset', key);
-  _applyPresetVars(key, currentTheme);
+  const normalized = _normalizePresetKey(key);
+  if (!THEME_PRESETS[normalized]) return;
+  currentPreset = normalized;
+  Storage.setRaw('theme-preset', normalized);
+  _applyPresetVars(normalized, currentTheme);
   const accent = Storage.getRaw('accent-color', '');
   if (accent) _applyAccentColor(accent);
   if (render) render();

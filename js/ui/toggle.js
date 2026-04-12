@@ -13,6 +13,7 @@ import {
 import { findItemById } from '../schedule.js';
 import { Storage } from '../storage.js';
 import { syncPush } from '../sync.js';
+import { activateModal, announce, deactivateModal } from './a11y.js';
 // Forward references set by init.js
 let _render = () => {};
 let _doRender = () => {};
@@ -25,14 +26,20 @@ export function setRenderFn(renderFn, doRenderFn) {
 // ── Toast / Undo ──
 export function showToast(msg) {
   const toast = document.getElementById('toast');
-  toast.innerHTML = `<span>${escapeHtml(msg)}</span><button class="toast-undo" data-action="undoToggle">Undo</button>`;
+  const canUndo = state.lastToggle && /^(Task completed|Task unchecked|Skipped|Status cleared|In progress|Blocked)$/.test(String(msg));
+  const undo = canUndo
+    ? '<button class="toast-undo" data-action="undoToggle">Undo</button>'
+    : '';
+  toast.innerHTML = `<span>${escapeHtml(msg)}</span>${undo}`;
   toast.classList.add('show');
+  announce(msg);
   clearTimeout(state.toastTimer);
   state.toastTimer = setTimeout(hideToast, CONFIG.toastDuration);
 }
 
 export function hideToast() {
-  document.getElementById('toast').classList.remove('show');
+  const toast = document.getElementById('toast');
+  if (toast) toast.classList.remove('show');
 }
 
 export function undoToggle() {
@@ -53,17 +60,21 @@ export function undoToggle() {
 export function showConfirm(message, onConfirm, confirmLabel = 'Confirm') {
   const overlay = document.createElement('div');
   overlay.className = 'confirm-overlay';
+  overlay.setAttribute('aria-labelledby', 'confirm-title');
   overlay.innerHTML = `<div class="confirm-box">
-    <div class="confirm-msg">${message.replace(/\n/g, '<br>')}</div>
+    <div class="confirm-msg" id="confirm-title">${escapeHtml(message).replace(/\n/g, '<br>')}</div>
     <div class="confirm-actions">
       <button class="confirm-btn" id="confirm-cancel">Cancel</button>
       <button class="confirm-btn danger" id="confirm-ok">${escapeHtml(confirmLabel)}</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
-  overlay.querySelector('#confirm-cancel').onclick = () => overlay.remove();
-  overlay.querySelector('#confirm-ok').onclick = () => { overlay.remove(); onConfirm(); };
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  activateModal(overlay, 'Confirm action');
+  const close = () => { deactivateModal(overlay); overlay.remove(); };
+  overlay.querySelector('#confirm-cancel').onclick = close;
+  overlay.querySelector('#confirm-ok').onclick = () => { close(); onConfirm(); };
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
 }
 
 // ── Lock ──

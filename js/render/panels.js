@@ -8,6 +8,7 @@
  */
 import { THEME_PRESETS, currentPreset } from '../ui/theme.js';
 import { loadRecurringTasks } from '../recurrence.js';
+import { googleCalendarUrlForDeadline } from '../ical.js';
 
 const _panelErr = (ctx, err) =>
   `<div style="padding:10px 12px;margin:4px 0;font-size:11px;color:#e94560;background:#1a0808;border:1px solid #e9456033;border-radius:8px">
@@ -454,6 +455,10 @@ function _renderPanelsInner(ctx, group = 'all', defaultOpen = false) {
       <button class="data-btn" data-action="downloadBackup" style="color:#00d2ff;border-color:#00d2ff33">⬇ Download Backup</button>
       <label class="data-btn" style="color:#ffab00;border-color:#ffab0033;cursor:pointer;display:inline-block">⬆ Upload Backup<input type="file" id="backup-file-input" accept=".json" data-change-action="uploadBackup" style="display:none"></label>
       <button class="data-btn" data-action="exportWeeklySummary" style="color:#cf7aff;border-color:#cf7aff33">📊 Export Week</button>
+    </div>
+    <div class="ical-import-row">
+      <input class="settings-input" id="ical-url-input" type="url" placeholder="Paste .ics URL to import exam dates">
+      <button class="data-btn" data-action="importCalendarUrl" style="color:#b44aff;border-color:#b44aff44">Import .ics URL</button>
     </div>`;
   }, 'tools');
 
@@ -465,7 +470,11 @@ function _renderPanelsInner(ctx, group = 'all', defaultOpen = false) {
       const label = daysLeft < 0 ? `${-daysLeft}d ago` : daysLeft === 0 ? 'TODAY' : daysLeft === 1 ? 'Tomorrow' : `${daysLeft} days`;
       html += `<div class="deadline-item">
         <span class="deadline-name">${escapeHtml(dl.name)} <span style="font-size:9px;color:var(--dim)">${dl.date}</span></span>
-        <span style="display:flex;align-items:center;gap:6px"><span class="deadline-days ${cls}">${label}</span><button class="editor-remove-btn" data-action="removeDeadline" data-i="${idx}">\u2715</button></span>
+        <span style="display:flex;align-items:center;gap:6px">
+          <a class="deadline-google" href="${escapeHtml(googleCalendarUrlForDeadline(dl))}" target="_blank" rel="noopener" data-stop title="Add to Google Calendar">G</a>
+          <span class="deadline-days ${cls}">${label}</span>
+          <button class="editor-remove-btn" data-action="removeDeadline" data-i="${idx}">\u2715</button>
+        </span>
       </div>`;
     });
     if (state.showDeadlineForm) {

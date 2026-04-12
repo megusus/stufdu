@@ -36,6 +36,7 @@ import { renderGPAView } from './gpa.js';
 import { getPinnedItems, getOverflowItems, ALL_NAV_ITEMS } from '../nav-config.js';
 import { getSession as getPomodoroSession, getRemainingSecs } from '../pomodoro.js';
 import { hasPendingConflict, renderConflictModal } from '../sync-conflict.js';
+import { activateModal, deactivateModal, repairA11yTree } from '../ui/a11y.js';
 
 function _updateTimerBar() {
   const timer = getActiveTimer();
@@ -60,10 +61,41 @@ function _updateTimerBar() {
 
 // ── Render batching ──
 let _renderQueued = false;
+let _lastAppHtml = '';
+let _lastAppClass = '';
+let _lastView = '';
+
+function _renderSkeleton(view = currentView()) {
+  const cardCount = view === 'home' ? 6 : view === 'schedule' ? 5 : 4;
+  const cards = Array.from({ length: cardCount }, (_, i) =>
+    `<div class="skeleton-card${i === 0 && view !== 'home' ? ' tall' : ''}"></div>`
+  ).join('');
+  return `<div class="view-skeleton" aria-hidden="true">
+    <div class="view-skeleton-header">
+      <div class="skeleton-line short"></div>
+      <div class="skeleton-line long"></div>
+    </div>
+    ${view === 'home' ? `<div class="skeleton-grid">${cards}</div>` : cards}
+  </div>`;
+}
+
+export function showInitialSkeleton(view = currentView()) {
+  const appEl = document.getElementById('app');
+  if (!appEl || appEl.innerHTML.trim()) return;
+  appEl.className = 'app is-rendering';
+  appEl.setAttribute('aria-busy', 'true');
+  appEl.innerHTML = `<div class="app-skeleton">${_renderSkeleton(view)}</div>`;
+}
 
 export function render() {
   if (_renderQueued) return;
   _renderQueued = true;
+  const appEl = document.getElementById('app');
+  if (appEl) {
+    appEl.classList.add('is-rendering');
+    appEl.setAttribute('aria-busy', 'true');
+    if (!appEl.innerHTML.trim()) showInitialSkeleton();
+  }
   // Use View Transitions API for smooth cross-fades when supported
   if (typeof document.startViewTransition === 'function') {
     requestAnimationFrame(() => {
@@ -87,6 +119,8 @@ export function doRender() {
     console.error('[render] Fatal render error:', err);
     const appEl = document.getElementById('app');
     if (appEl) {
+      _lastAppHtml = '';
+      _lastAppClass = '';
       appEl.innerHTML = `
         <div style="padding:40px 24px;max-width:480px;margin:0 auto;font-family:inherit;text-align:center">
           <div style="font-size:48px;margin-bottom:16px">⚠️</div>
@@ -135,13 +169,16 @@ function _updatePomodoroBar() {
 
 function _updateNavCustomizer(ctx) {
   let el = document.getElementById('nav-customizer-overlay');
-  if (!ctx.state.navCustomizerOpen) { if (el) el.remove(); return; }
+  if (!ctx.state.navCustomizerOpen) { if (el) { deactivateModal(el); el.remove(); } return; }
+  let created = false;
   if (!el) {
     el = document.createElement('div');
     el.id = 'nav-customizer-overlay';
     el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:8000;display:flex;align-items:flex-end;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0)';
-    el.addEventListener('click', e => { if (e.target === el) { ctx.state.navCustomizerOpen = false; doRender(); } });
+    el.addEventListener('click', e => { if (e.target === el) { ctx.state.navCustomizerOpen = false; deactivateModal(el); doRender(); } });
+    el.addEventListener('keydown', e => { if (e.key === 'Escape') { ctx.state.navCustomizerOpen = false; deactivateModal(el); doRender(); } });
     document.body.appendChild(el);
+    created = true;
   }
   const pinned   = getPinnedItems().map(n => n.id);
   const overflow = getOverflowItems().map(n => n.id);
@@ -172,44 +209,108 @@ function _updateNavCustomizer(ctx) {
     <div style="font-size:10px;color:var(--dim);margin-top:4px">Pinned tabs appear in the bottom bar (max 6). All others go into the More ⋯ menu.</div>
   </div>`;
   el.innerHTML = h;
+  if (created) activateModal(el, 'Customize navigation');
 }
 
 function _updateConflictModal(ctx) {
   const existing = document.getElementById('conflict-modal-overlay');
-  if (existing) existing.remove();
+  if (existing) { deactivateModal(existing); existing.remove(); }
   if (!hasPendingConflict()) return;
   const html = renderConflictModal(ctx.escapeHtml);
   if (!html) return;
   const div = document.createElement('div');
   div.innerHTML = html;
-  document.body.appendChild(div.firstElementChild);
+  const modal = div.firstElementChild;
+  document.body.appendChild(modal);
+  activateModal(modal, 'Sync conflict');
 }
+
+const _POMO_SECS = 25 * 60; // 25-minute pomodoro cycle
+const _RING_R = 80;
+const _RING_CIRC = 2 * Math.PI * _RING_R;
 
 function _updateFocusOverlay() {
   let el = document.getElementById('focus-session-overlay');
   if (!state.focusSession) {
-    if (el) el.remove();
+    if (el) { deactivateModal(el); el.remove(); }
     return;
   }
   const elapsed = Math.floor((Date.now() - state.focusSession.startedAt) / 1000);
   const mins = Math.floor(elapsed / 60);
   const secs = elapsed % 60;
   const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+  // Ring fills over one pomodoro cycle, then repeats
+  const cycleSecs = elapsed % _POMO_SECS;
+  const cyclePct  = cycleSecs / _POMO_SECS;
+  const dashOffset = _RING_CIRC * (1 - cyclePct);
+  const pomosDone = Math.floor(elapsed / _POMO_SECS);
+
+  if (el) {
+    // Tick update: only mutate dynamic parts, no full re-render
+    const timerEl = el.querySelector('.focus-overlay-timer');
+    const ringEl  = el.querySelector('.focus-ring-fill');
+    const pomoEl  = el.querySelector('.focus-pomos');
+    if (timerEl) timerEl.textContent = timeStr;
+    if (ringEl)  ringEl.setAttribute('stroke-dashoffset', dashOffset.toFixed(2));
+    if (pomoEl)  pomoEl.textContent = pomosDone > 0
+      ? '🍅'.repeat(Math.min(pomosDone, 8))
+      : '';
+    return;
+  }
+
+  const taskText = state.focusSession.taskText || 'Focus';
+
   const html = `<div id="focus-session-overlay" class="focus-overlay">
+    <div class="focus-overlay-bg"></div>
     <div class="focus-overlay-inner">
-      <div class="focus-overlay-label">🎯 Focus Mode</div>
-      <div class="focus-overlay-task">${escapeHtml(state.focusSession.taskText.slice(0, 60))}</div>
-      <div class="focus-overlay-timer">${timeStr}</div>
-      <button class="data-btn" data-action="endFocusSession" style="margin-top:20px;color:#e94560;border-color:#e9456044;padding:10px 32px;font-size:14px">■ End Session</button>
+      <div class="focus-overlay-label">FOCUS MODE</div>
+
+      <div class="focus-ring-wrap">
+        <svg class="focus-ring-svg" viewBox="0 0 200 200" width="200" height="200">
+          <circle class="focus-ring-track" cx="100" cy="100" r="${_RING_R}"
+            fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="8"/>
+          <circle class="focus-ring-fill" cx="100" cy="100" r="${_RING_R}"
+            fill="none" stroke="var(--c-info)" stroke-width="8"
+            stroke-linecap="round"
+            stroke-dasharray="${_RING_CIRC.toFixed(2)}"
+            stroke-dashoffset="${dashOffset.toFixed(2)}"
+            transform="rotate(-90 100 100)"/>
+        </svg>
+        <div class="focus-ring-center">
+          <div class="focus-overlay-timer">${timeStr}</div>
+          <div class="focus-ring-label">elapsed</div>
+        </div>
+      </div>
+
+      <div class="focus-overlay-task">${escapeHtml(taskText.slice(0, 72))}</div>
+      <div class="focus-pomos">${pomosDone > 0 ? '🍅'.repeat(Math.min(pomosDone, 8)) : ''}</div>
+
+      <div class="focus-capture-row">
+        <input class="focus-capture-input" type="text" placeholder="Capture a thought…"
+          id="focus-capture-input" autocomplete="off" spellcheck="false"
+          data-key-action="focusCaptureOnEnter"/>
+        <button class="focus-capture-btn" data-action="focusCaptureThought">→</button>
+      </div>
+
+      <div class="focus-overlay-actions">
+        <button class="focus-action-btn focus-action-btn--done"
+          data-action="markDoneAndEndFocus"
+          data-id="${state.focusSession.taskId || ''}">
+          ✓ Done &amp; End
+        </button>
+        <button class="focus-action-btn" data-action="endFocusSession">
+          ■ End Session
+        </button>
+      </div>
     </div>
   </div>`;
-  if (el) {
-    el.querySelector('.focus-overlay-timer').textContent = timeStr;
-  } else {
-    const container = document.createElement('div');
-    container.innerHTML = html;
-    document.body.appendChild(container.firstElementChild);
-  }
+
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  const modal = container.firstElementChild;
+  document.body.appendChild(modal);
+  activateModal(modal, 'Focus session');
 }
 
 function _doRenderInner() {
@@ -270,8 +371,15 @@ function _doRenderInner() {
   }
 
   const appEl = document.getElementById('app');
-  appEl.className = 'app' + (state.fontScale === 'large' ? ' font-large' : '');
-  appEl.innerHTML = html;
+  const appClass = 'app' + (state.fontScale === 'large' ? ' font-large' : '');
+  appEl.className = appClass;
+  appEl.setAttribute('aria-busy', 'false');
+  if (html !== _lastAppHtml || appClass !== _lastAppClass || view !== _lastView) {
+    appEl.innerHTML = html;
+    _lastAppHtml = html;
+    _lastAppClass = appClass;
+    _lastView = view;
+  }
 
   // FAB
   renderFAB(ctx);
@@ -281,12 +389,14 @@ function _doRenderInner() {
 
   // Daily Planner overlay
   const existingPlanner = document.getElementById('planner-overlay');
-  if (existingPlanner) existingPlanner.remove();
+  if (existingPlanner) { deactivateModal(existingPlanner); existingPlanner.remove(); }
   const plannerHtml = renderPlannerOverlay(ctx);
   if (plannerHtml) {
     const el = document.createElement('div');
     el.innerHTML = plannerHtml;
-    document.body.appendChild(el.firstElementChild);
+    const modal = el.firstElementChild;
+    document.body.appendChild(modal);
+    activateModal(modal, 'Daily planner');
   }
 
   // Time tracker bar
@@ -306,13 +416,18 @@ function _doRenderInner() {
 
   // Onboarding overlay
   const existingOnboard = document.getElementById('onboarding-overlay');
-  if (existingOnboard) existingOnboard.remove();
+  if (existingOnboard) { deactivateModal(existingOnboard); existingOnboard.remove(); }
   const onboardHtml = renderOnboardingOverlay(ctx);
   if (onboardHtml) {
     const el = document.createElement('div');
     el.innerHTML = onboardHtml;
-    document.body.appendChild(el.firstElementChild);
+    const modal = el.firstElementChild;
+    document.body.appendChild(modal);
+    activateModal(modal, 'Onboarding');
   }
+
+  // Restore focus
+  repairA11yTree(document);
 
   // Restore focus
   if (_focusId) {

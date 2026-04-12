@@ -1,0 +1,35 @@
+/* Tier 4 view-specific readability corrections. */
+
+.review-section,
+.analytics-card,
+.markdown-preview,
+.lecture-markdown-preview,
+.scratchpad-preview,
+.info,
+.daily-plan-modal,
+.onboarding-modal {
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+.markdown-body p,
+.markdown-body li,
+.review-saved-text,
+.item-note,
+.item-hint,
+.home-scratch-line {
+  max-width: 72ch;
+}
+
+.lecture-notes-editor,
+.scratchpad-panel--markdown {
+  box-shadow: var(--sh-lg);
+}
+
+.calendar-grid,
+.matrix-grid,
+.week-view,
+.home-grid {
+  content-visibility: auto;
+  contain-intrinsic-size: 520px;
+}

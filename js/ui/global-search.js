@@ -41,8 +41,43 @@ export function toggleGlobalSearch() {
   else openGlobalSearch();
 }
 
+// ── Quick actions shown when query is empty ────────────────────────────────
+function _getQuickActions() {
+  return [
+    { type: 'action', icon: '📅', text: 'Go to Schedule',     sub: 'View today\'s tasks',               color: 'var(--c-info)',    action: () => navigate('schedule')    },
+    { type: 'action', icon: '📥', text: 'Open Inbox',         sub: 'Review captured items',             color: 'var(--c-warning)', action: () => navigate('inbox')       },
+    { type: 'action', icon: '🏃', text: 'Open Habits',        sub: 'Log today\'s habits',               color: 'var(--c-success)', action: () => navigate('habits')      },
+    { type: 'action', icon: '🧠', text: 'Flashcards',         sub: 'Review your decks',                 color: 'var(--c-purple)',  action: () => navigate('flashcards')  },
+    { type: 'action', icon: '📊', text: 'Grades',             sub: 'View grade tracker',                color: 'var(--c-info)',    action: () => navigate('grades')      },
+    { type: 'action', icon: '📆', text: 'Calendar',           sub: 'Month overview',                    color: 'var(--c-orange)',  action: () => navigate('calendar')    },
+    { type: 'action', icon: '📝', text: 'Weekly Review',      sub: 'Reflect on your week',              color: 'var(--muted)',     action: () => navigate('review')      },
+    { type: 'action', icon: '📈', text: 'Stats',              sub: 'Deadlines & goals',                 color: 'var(--c-success)', action: () => navigate('stats')       },
+  ];
+}
+
+// ── Command palette ('>') ──────────────────────────────────────────────────
+function _cb(action) { return () => _onActionCallback && _onActionCallback(action, null); }
+function _getCommands(q) {
+  const cmdQ = q.slice(1).toLowerCase().trim(); // strip '>'
+  const cmds = [
+    { icon: '⬇️', text: 'Download Backup',   sub: 'Save all data as JSON',          action: _cb('downloadBackup')  },
+    { icon: '📅', text: 'Open Daily Planner', sub: 'Plan tasks for today',           action: _cb('openPlanner')     },
+    { icon: '🌙', text: 'Toggle Theme',        sub: 'Switch dark / light mode',       action: _cb('toggleTheme')     },
+    { icon: '🔄', text: 'Connect Sync',        sub: 'Push data to Firebase',          action: _cb('connectSync')     },
+    { icon: '📤', text: 'Export to Obsidian',  sub: 'Generate Markdown export',       action: _cb('exportObsidian')  },
+    { icon: '📊', text: 'Generate PDF Report', sub: 'Weekly PDF export',              action: _cb('generatePdfReport') },
+    { icon: '🔑', text: 'Full Backup',         sub: 'Download complete JSON backup',  action: _cb('downloadFullBackup') },
+    { icon: '🗂️', text: 'Matrix View',        sub: 'Eisenhower priority matrix',     action: () => navigate('matrix') },
+    { icon: '💯', text: 'GPA Calculator',      sub: 'View GPA estimate',              action: () => navigate('gpa')    },
+  ].map(c => ({ ...c, type: 'command', color: 'var(--c-info)' }));
+  if (!cmdQ) return cmds;
+  return cmds.filter(c => c.text.toLowerCase().includes(cmdQ) || c.sub.toLowerCase().includes(cmdQ));
+}
+
 function _search(query) {
-  if (!query.trim()) return [];
+  if (!query.trim()) return _getQuickActions();
+  // Command mode
+  if (query.trim().startsWith('>')) return _getCommands(query.trim());
   const q = query.toLowerCase().trim();
   const results = [];
 
@@ -271,13 +306,13 @@ function _renderOverlay() {
         <span class="gsearch-result-type">${r.type}</span>
       </div>`).join('')
     : _query.trim()
-      ? `<div class="gsearch-empty">No results for "${escapeHtml(_query)}"</div>`
-      : `<div class="gsearch-empty">Type to search tasks, deadlines, books, scratchpad...</div>`;
+      ? `<div class="gsearch-empty">No results for "<strong>${escapeHtml(_query)}</strong>"</div>`
+      : `<div class="gsearch-empty">Type to search · prefix <kbd>&gt;</kbd> for commands</div>`;
 
   _overlayEl.innerHTML = `<div class="gsearch-box">
     <div class="gsearch-input-row">
       <span class="gsearch-icon">🔍</span>
-      <input class="gsearch-input" id="gsearch-input" type="text" placeholder="Search everything..." value="${escapeHtml(_query)}" autofocus>
+      <input class="gsearch-input" id="gsearch-input" type="text" placeholder="Search or type > for commands…" value="${escapeHtml(_query)}" autofocus>
       <kbd class="gsearch-kbd">ESC</kbd>
     </div>
     <div class="gsearch-results" id="gsearch-results">${resultsHtml}</div>
@@ -349,9 +384,9 @@ function _updateResults() {
       <span class="gsearch-result-type">${r.type}</span>
     </div>`).join('');
   } else if (_query.trim()) {
-    container.innerHTML = `<div class="gsearch-empty">No results for "${escapeHtml(_query)}"</div>`;
+    container.innerHTML = `<div class="gsearch-empty">No results for "<strong>${escapeHtml(_query)}</strong>"</div>`;
   } else {
-    container.innerHTML = `<div class="gsearch-empty">Type to search tasks, deadlines, books, scratchpad...</div>`;
+    container.innerHTML = `<div class="gsearch-empty">Type to search · prefix <kbd>&gt;</kbd> for commands</div>`;
   }
 
   // Scroll active into view

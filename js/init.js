@@ -14,7 +14,7 @@ import { initTheme, toggleTheme, checkAutoTheme, currentTheme, setThemePreset, s
 import { toggle, setTaskStatus, toggleActionMenu, showNoteInput, saveNote, showDeferPicker, deferTask, clearTask, markSectionDone, addLink, showLinkInput, saveLink, removeLink, toggleFab, fabAddTask, toggleCatFilter, toggleFocusMode, togglePanel, selectDay, setViewMode, resetDay, viewPastWeek, toggleWeekDayCollapse, toggleFontSize, toggleShortcuts, toggleScratchpad, showToast, hideToast, undoToggle, showConfirm, showCtxMenu, showTaskCtxMenu, showTabCtxMenu, closeCtxMenu, patchTaskDOM, updateProgressBars, toggleLock, setRenderFn } from './ui/toggle.js';
 import { setSearch, clearSearch } from './ui/search.js';
 import { initSwipeListeners, initPageSwipe, handleLongPressStart, handleLongPressEnd, handleItemClick } from './ui/swipe.js';
-import { render, renderImmediate, doRender } from './render/index.js';
+import { render, renderImmediate, doRender, showInitialSkeleton } from './render/index.js';
 import { initDispatch } from './ui/dispatch.js';
 import { initRouter, navigate as navigateRoute, onSubViewChange } from './router.js';
 import {
@@ -28,16 +28,16 @@ import {
 } from './review.js';
 import { toggleGlobalSearch, closeGlobalSearch, isGlobalSearchOpen } from './ui/global-search.js';
 import { addToInbox, removeFromInbox, clearInbox, moveInboxToScratchpad, moveInboxToDeadline, loadInbox } from './inbox.js';
-import { addHabit, removeHabit, toggleHabitToday, loadHabits } from './habits.js';
+import { addHabit, removeHabit, toggleHabitToday, loadHabits, loadHabitLog } from './habits.js';
 import {
   openPlanner, closePlanner, setPlannerStep, getPlannerStep,
   getTodayPlan, saveTodayPlan, setMustDo, hasPlanForToday,
 } from './daily-plan.js';
-import { startTimer, stopTimer, getActiveTimer, getElapsedSeconds, initTimerRestore } from './time-tracking.js';
+import { startTimer, stopTimer, getActiveTimer, getElapsedSeconds, initTimerRestore, getTodayTotalMinutes, getWeeklyTotalMinutes } from './time-tracking.js';
 import { initDragDrop, handleDragStart } from './ui/drag-drop.js';
-import { addGrade, removeGrade, predictNeeded } from './grades.js';
+import { addGrade, removeGrade, predictNeeded, getOverallAverage } from './grades.js';
 import { addGoal, removeGoal, updateGoalProgress, loadGoals, autoUpdateGoals, computeGoalProgress } from './goals.js';
-import { logCompletionTime, logEnergy, scheduleSpacedReview, markSpacedReviewDone, dismissSpacedReview } from './analytics.js';
+import { logCompletionTime, logEnergy, scheduleSpacedReview, markSpacedReviewDone, dismissSpacedReview, loadCompletionTimes } from './analytics.js';
 import { initBroadcastChannel, initOnlineDetection, replayQueue, getQueueSize } from './offline-queue.js';
 import { addRecurringTask, removeRecurringTask, loadRecurringTasks } from './recurrence.js';
 import { setCalendarMode } from './render/calendar.js';
@@ -51,7 +51,7 @@ import { getHabitStreak } from './habits.js';
 
 // Extracted modules
 import { fetchMeals, savePastedMeals, toggleMealPaste, clearMealData } from './meals.js';
-import { exportData, importData, exportCalendar, exportSchedule, importSchedule, resetDefaultSchedule, newSemester, shareProgress, addDeadline, removeDeadline, requestNotifPermission, scheduleNotifications, pruneOldData, checkStorageQuota, carryOverDeferrals, migrateProgress } from './data.js';
+import { exportData, importData, exportCalendar, importCalendarUrl, exportSchedule, importSchedule, resetDefaultSchedule, newSemester, shareProgress, addDeadline, removeDeadline, requestNotifPermission, scheduleNotifications, pruneOldData, checkStorageQuota, carryOverDeferrals, migrateProgress } from './data.js';
 import { applySettings, resetSettings } from './ui/settings.js';
 import { editCat, saveCatEdit, deleteCat, addCat, resetCatToDefaults } from './ui/categories-editor.js';
 import { detectOldPrefixKeys, offerMigration } from './migration.js';
@@ -65,14 +65,108 @@ import { loadDashboardConfig, saveDashboardConfig, moveCard, setCardVisible, set
 import { addDeck, removeDeck, addCard as addFlashcard, removeCard as removeFlashcard, loadCards as loadFlashcards, getDueCards, sm2Rate, updateCard as updateFlashcard } from './flashcards.js';
 import { checkBadges, getBadgeDef } from './badges.js';
 import { startPomodoro, stopPomodoro, skipBreak as skipPomodoroBreak, getSession as getPomodoroSession, savePomodoroConfig as _savePomodoroConfig } from './pomodoro.js';
-import { generateWeeklyReport } from './pdf-report.js';
+import { generateWeeklyReport, maybeAutoGenerateWeeklyReport, setWeeklyAutoReport } from './pdf-report.js';
 import { resolveConflict, clearPendingConflict } from './sync-conflict.js';
+import { applyMarkdownShortcut, renderMarkdown } from './markdown.js';
+import { XP_REWARDS, awardActivityXP, awardXP, claimDailyChallenge, syncAchievementMilestones } from './challenges.js';
+import { initA11y } from './ui/a11y.js';
 
 // ── Wire up render function references ──
 setRenderFn(render, doRender);
 
+function _dateKey(date = nowInTZ()) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function _longestWeekStreak(history) {
+  let cur = 0, best = 0;
+  Object.entries(history || {}).sort((a, b) => a[0].localeCompare(b[0])).forEach(([, pct]) => {
+    if (pct >= 50) { cur++; best = Math.max(best, cur); }
+    else cur = 0;
+  });
+  return best;
+}
+
+function _buildAchievementSnapshot() {
+  const todayName = DAYS[todayIdx] || DAYS[0];
+  const today = schedule[todayName];
+  const times = loadCompletionTimes();
+  let earlyDone = 0;
+  const subjects = new Set();
+
+  (today?.sections || []).forEach(sec => {
+    (sec.items || []).forEach(item => {
+      if (getStatus(item.id) !== STATUS_DONE) return;
+      const hour = parseInt((times[item.id] || '').split(':')[0], 10);
+      if (!Number.isNaN(hour) && hour < 12) earlyDone++;
+      if (item.cat && item.cat !== 'routine' && item.cat !== 'reflect') subjects.add(item.cat);
+    });
+  });
+
+  const habits = loadHabits();
+  const habitLog = loadHabitLog();
+  const todayKey = _dateKey();
+  const hist = loadHistory();
+  const wp = getWeeklyProgress();
+
+  return {
+    weekKey: getWeekKey(),
+    weekPct: wp.pct,
+    totalDone: wp.done,
+    todayDone: getDayProgress(todayName).done,
+    todayTotal: getDayProgress(todayName).total,
+    earlyDone,
+    timeMins: getTodayTotalMinutes(),
+    weeklyTimeMins: getWeeklyTotalMinutes(schedule, DAYS),
+    habitsDone: habits.filter(h => habitLog[todayKey]?.[h.id]).length,
+    habitTotal: habits.length,
+    subjectsDone: subjects.size,
+    gradeAvg: getOverallAverage(),
+    history: hist,
+    longestWeekStreak: _longestWeekStreak(hist),
+    dayProgress: DAYS.map(day => {
+      const p = getDayProgress(day);
+      return { label: getDayLabel(day), done: p.done, total: p.total, pct: p.pct };
+    }),
+  };
+}
+
+function _showAchievementCelebration(title, sub = '') {
+  const existing = document.querySelector('.achievement-celebration');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.className = 'achievement-celebration';
+  el.innerHTML = `<div class="achievement-celebration-card">
+    <div class="achievement-celebration-title">${escapeHtml(title)}</div>
+    ${sub ? `<div class="achievement-celebration-sub">${escapeHtml(sub)}</div>` : ''}
+  </div>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1700);
+}
+
+function _surfaceXP(result) {
+  if (!result || result.skipped) return;
+  if (result.leveledUp) {
+    _showAchievementCelebration(`Level ${result.newLevel}`, result.shieldGranted ? 'Streak shield earned' : 'Scholar level advanced');
+  } else if (result.shieldGranted) {
+    showToast('🛡 Streak shield earned');
+  }
+}
+
+function _syncAchievementMilestones() {
+  const unlocked = syncAchievementMilestones(_buildAchievementSnapshot());
+  unlocked.forEach(item => {
+    if (item.shield) showToast('🛡 Perfect week shield earned');
+    else _showAchievementCelebration(item.label, 'Milestone unlocked');
+  });
+}
+
 // ── Event dispatcher: handles all data-action click attributes ──
-initDispatch({
+const _dispatchHandlers = {
   reloadApp:                 () => location.reload(),
   // Navigation
   navigate:                  ({ view }) => navigateRoute(view),
@@ -99,6 +193,7 @@ initDispatch({
     // Log completion time for analytics
     if (state.checked[id] === true || state.checked[id] === 'done') {
       logCompletionTime(id);
+      _surfaceXP(awardActivityXP(`task:${getWeekKey()}:${id}`, 'Task completed', XP_REWARDS.task));
       // Badge checks on task completion
       const wp = getWeeklyProgress();
       const hour = new Date().getHours();
@@ -116,6 +211,7 @@ initDispatch({
           if (def) setTimeout(() => showToast(`🏅 Achievement: ${def.name}!`), 500);
         });
       }
+      _syncAchievementMilestones();
     }
   },
   handleItemClick:          ({ id }, e) => handleItemClick(id, e, toggle),
@@ -281,6 +377,10 @@ initDispatch({
   exportData:               () => exportData(),
   importData:               () => importData(render, showToast),
   exportCalendar:           () => exportCalendar(showToast),
+  importCalendarUrl:        () => {
+    const url = document.getElementById('ical-url-input')?.value || '';
+    importCalendarUrl(url, render, showToast);
+  },
   shareProgress:            () => shareProgress(showToast),
   cloudBackup:              async () => {
     try {
@@ -323,6 +423,20 @@ initDispatch({
   fabAddTaskOnEnter:        (_data, e) => { if (e.key === 'Enter') { e.preventDefault(); fabAddTask(); } },
   toggleScratchpad:         () => toggleScratchpad(),
   saveScratchpad:           (_data, _e, el) => { saveScratchpad(el.value); syncPush(); },
+  saveScratchpadMarkdown:   ({ previewId }, _e, el) => {
+    saveScratchpad(el.value);
+    const preview = document.getElementById(previewId);
+    if (preview) preview.innerHTML = renderMarkdown(el.value) || '<div class="markdown-empty">Write with Markdown. Preview appears here.</div>';
+    syncPush();
+  },
+  updateMarkdownPreview:    ({ previewId }, _e, el) => {
+    const preview = document.getElementById(previewId);
+    if (preview) preview.innerHTML = renderMarkdown(el.value) || '<div class="markdown-empty">Preview formulas, lists, links, and checkboxes here.</div>';
+  },
+  markdownShortcut:         ({ target, command }) => {
+    const textarea = document.getElementById(target);
+    applyMarkdownShortcut(textarea, command);
+  },
   // Keyboard helpers
   saveNoteOnEnter:          ({ id }, e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNote(id); } },
   saveLinkOnEnterOrClose:   ({ id }, e) => {
@@ -407,6 +521,8 @@ initDispatch({
         skippedCount: data.skippedTasks.length,
         incompleteCount: data.incompleteTasks.length,
       });
+      _surfaceXP(awardActivityXP(`review:${getWeekKey()}`, 'Weekly review completed', XP_REWARDS.review));
+      _syncAchievementMilestones();
       showToast('Review saved!');
     }
     const nextStep = step + 1;
@@ -485,7 +601,11 @@ initDispatch({
   },
 
   // ── Habits ──
-  toggleHabit:              ({ id }) => { toggleHabitToday(id); render(); },
+  toggleHabit:              ({ id }) => {
+    const completed = toggleHabitToday(id);
+    if (completed) _surfaceXP(awardActivityXP(`habit:${_dateKey()}:${id}`, 'Habit checked off', XP_REWARDS.habit));
+    render();
+  },
   addHabitPreset:           ({ name, icon, color }) => {
     addHabit({ name, icon, color, frequency: 'daily' });
     render();
@@ -705,8 +825,48 @@ initDispatch({
     const result = stopTimer();
     state.focusSession = null;
     render();
-    if (result?.elapsed >= 1) showToast(`🎯 Focus: ${result.elapsed} min logged`);
+    if (result?.elapsed >= 1) {
+      _surfaceXP(awardXP('Focus session', XP_REWARDS.focus));
+      showToast(`🎯 Focus: ${result.elapsed} min logged`);
+    }
     else showToast('Focus session ended');
+  },
+  markDoneAndEndFocus:      ({ id }) => {
+    const result = stopTimer();
+    state.focusSession = null;
+    if (id && !state.checked[id]) {
+      state.checked[id] = true;
+      logCompletionTime(id);
+      _surfaceXP(awardActivityXP(`task:${getWeekKey()}:${id}`, 'Task completed', XP_REWARDS.task));
+      saveState();
+    }
+    render();
+    if (result?.elapsed >= 1) {
+      _surfaceXP(awardXP('Focus session', XP_REWARDS.focus));
+      showToast(`✅ Done! ${result.elapsed} min focused`);
+    }
+    else showToast('Task completed');
+  },
+  focusCaptureOnEnter:      (_d, e) => {
+    if (e.key !== 'Enter') return;
+    const inp = document.getElementById('focus-capture-input');
+    if (!inp) return;
+    const text = inp.value.trim();
+    if (!text) return;
+    const current = loadScratchpad() || '';
+    saveScratchpad(current + (current ? '\n' : '') + `[focus] ${text}`);
+    inp.value = '';
+    showToast('💭 Thought captured');
+  },
+  focusCaptureThought:      () => {
+    const inp = document.getElementById('focus-capture-input');
+    if (!inp) return;
+    const text = inp.value.trim();
+    if (!text) return;
+    const current = loadScratchpad() || '';
+    saveScratchpad(current + (current ? '\n' : '') + `[focus] ${text}`);
+    inp.value = '';
+    showToast('💭 Thought captured');
   },
 
   // ── Backup / Restore ──
@@ -985,6 +1145,21 @@ initDispatch({
   generatePDFReport: () => {
     generateWeeklyReport();
   },
+  toggleWeeklyAutoReport: (_data, _e, el) => {
+    setWeeklyAutoReport(!!el.checked);
+    showToast(el.checked ? 'Sunday report auto-generate enabled' : 'Sunday report auto-generate disabled');
+  },
+
+  claimDailyChallenge: () => {
+    const claimed = claimDailyChallenge(_buildAchievementSnapshot(), nowInTZ());
+    if (!claimed.ok) {
+      showToast(claimed.challenge.claimed ? 'Daily challenge already claimed' : 'Challenge not complete yet');
+      return;
+    }
+    _surfaceXP(claimed.result);
+    render();
+    showToast(`+${claimed.challenge.xp}xp · ${claimed.challenge.title}`);
+  },
 
   // ── Sync Conflict ──
   resolveConflict: ({ side }) => {
@@ -1045,7 +1220,8 @@ initDispatch({
     a.click(); URL.revokeObjectURL(url);
     showToast('📊 Weekly summary exported');
   },
-});
+};
+initDispatch(_dispatchHandlers);
 
 // ════════════════════════════════════════
 // ── Event Listeners ──
@@ -1054,6 +1230,19 @@ initDispatch({
 // Context menu cleanup
 document.addEventListener('click', closeCtxMenu);
 document.addEventListener('scroll', closeCtxMenu, true);
+
+// ── Button ripple effect ──
+document.addEventListener('pointerdown', e => {
+  const btn = e.target.closest('.data-btn, .tab, .view-btn, .fab-add-btn');
+  if (!btn || btn.disabled) return;
+  const rect = btn.getBoundingClientRect();
+  const dot = document.createElement('span');
+  dot.className = 'ripple-dot';
+  dot.style.left = (e.clientX - rect.left) + 'px';
+  dot.style.top  = (e.clientY - rect.top)  + 'px';
+  btn.appendChild(dot);
+  dot.addEventListener('animationend', () => dot.remove(), { once: true });
+}, { passive: true });
 
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
@@ -1172,9 +1361,10 @@ if ('serviceWorker' in navigator) {
     });
   }).catch(err => console.warn('SW registration failed:', err.message));
   if (window.caches) {
+    const fontCssUrl = 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap';
     caches.open('study-plan-fonts-v1').then(cache => {
-      cache.match('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap').then(r => {
-        if (!r) fetch('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap').then(res => { if (res.ok) cache.put(res.url, res); }).catch(() => {});
+      cache.match(fontCssUrl).then(r => {
+        if (!r) fetch(fontCssUrl).then(res => { if (res.ok) cache.put(res.url, res); }).catch(() => {});
       });
     }).catch(() => {});
   }
@@ -1185,14 +1375,19 @@ if ('serviceWorker' in navigator) {
 // ════════════════════════════════════════
 
 function boot() {
+  initA11y();
+  showInitialSkeleton();
   initRouter(render);
   initDragDrop(render);
   initTimerRestore(render);
 
   // Wire search quick-actions
   setSearchActionCallback((action, taskId) => {
-    if (action === 'toggle') { toggle(taskId); }
-    else if (action === 'skip') { setTaskStatus(taskId, STATUS_SKIP); }
+    if (action === 'toggle') { toggle(taskId); render(); return; }
+    if (action === 'skip')   { setTaskStatus(taskId, STATUS_SKIP); render(); return; }
+    // Command palette actions — call the matching handler if it exists
+    const handler = _dispatchHandlers[action];
+    if (handler) { handler({}); return; }
     render();
   });
   // Multi-tab sync: re-render when another tab updates state
@@ -1248,6 +1443,8 @@ function boot() {
     const streaks = habits.map(h => getHabitStreak(h.id).streak);
     autoUpdateGoals({ weeklyPct: wp.pct, readingCount: state.readingList.length, habitStreaks: streaks });
   } catch {}
+  try { _syncAchievementMilestones(); } catch {}
+  try { maybeAutoGenerateWeeklyReport(); } catch {}
 
   // Render
   renderImmediate();

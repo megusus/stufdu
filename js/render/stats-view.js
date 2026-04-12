@@ -3,9 +3,14 @@
 // ════════════════════════════════════════
 
 import { renderStatPanels } from './panels.js';
-import { getBurnoutRisk, getBurnoutMessage, getComparativeStats, getHourlyPattern, getPeakHour, getSubjectDifficulty } from '../analytics.js';
+import { getBurnoutRisk, getBurnoutMessage, getComparativeStats, getHourlyPattern, getPeakHour, getSubjectDifficulty, loadCompletionTimes } from '../analytics.js';
 import { loadGoals, isGoalMet, GOAL_PRESETS } from '../goals.js';
 import { loadBadges, BADGE_DEFS } from '../badges.js';
+import { getOverallAverage } from '../grades.js';
+import { loadHabits, loadHabitLog } from '../habits.js';
+import { getTodayTotalMinutes, getWeeklyTotalMinutes } from '../time-tracking.js';
+import { getDailyChallenge, getLevelInfo, getPersonalBests, loadAchievementProfile } from '../challenges.js';
+import { isWeeklyAutoReportEnabled } from '../pdf-report.js';
 
 // ── Contribution Heatmap ──
 function _renderHeatmapCtx(loadHistory, escapeHtml) {
@@ -59,6 +64,71 @@ function _renderHeatmapCtx(loadHistory, escapeHtml) {
   </div>`;
 }
 
+function _todayKey(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function _longestWeekStreak(history) {
+  let cur = 0, best = 0;
+  Object.entries(history).sort((a, b) => a[0].localeCompare(b[0])).forEach(([, pct]) => {
+    if (pct >= 50) { cur++; best = Math.max(best, cur); }
+    else cur = 0;
+  });
+  return best;
+}
+
+function _buildAchievementSnapshot(ctx) {
+  const { state, days, todayIdx, schedule, getStatus, getDayProgress, getDayLabel, loadHistory, weekKey, wp, nowInTZ } = ctx;
+  const todayName = days[todayIdx] || days[0];
+  const today = schedule[todayName];
+  const times = loadCompletionTimes();
+  let earlyDone = 0;
+  const subjects = new Set();
+
+  (today?.sections || []).forEach(sec => {
+    (sec.items || []).forEach(item => {
+      if (getStatus(item.id) !== 'done') return;
+      const completedAt = times[item.id] || '';
+      const hour = parseInt(completedAt.split(':')[0], 10);
+      if (!Number.isNaN(hour) && hour < 12) earlyDone++;
+      if (item.cat && item.cat !== 'routine' && item.cat !== 'reflect') subjects.add(item.cat);
+    });
+  });
+
+  const now = nowInTZ ? nowInTZ() : new Date();
+  const habitLog = loadHabitLog();
+  const habits = loadHabits();
+  const todayKey = _todayKey(now);
+  const habitsDone = habits.filter(h => habitLog[todayKey]?.[h.id]).length;
+  const history = loadHistory();
+  const dayProgress = days.map(day => {
+    const p = getDayProgress(day);
+    return { label: getDayLabel(day), done: p.done, total: p.total, pct: p.pct };
+  });
+
+  return {
+    weekKey,
+    weekPct: wp.pct,
+    totalDone: wp.done,
+    todayDone: getDayProgress(todayName).done,
+    todayTotal: getDayProgress(todayName).total,
+    earlyDone,
+    timeMins: getTodayTotalMinutes(),
+    weeklyTimeMins: getWeeklyTotalMinutes(schedule, days),
+    habitsDone,
+    habitTotal: habits.length,
+    subjectsDone: subjects.size,
+    gradeAvg: getOverallAverage(),
+    history,
+    longestWeekStreak: _longestWeekStreak(history),
+    dayProgress,
+  };
+}
+
 // ── Achievement Badges ──
 function _renderBadges(escapeHtml) {
   const earned = loadBadges();
@@ -69,19 +139,71 @@ function _renderBadges(escapeHtml) {
     const ago = earned[b.id]?.earnedAt
       ? _timeAgo(earned[b.id].earnedAt)
       : '';
-    return `<div title="${escapeHtml(b.name)}: ${escapeHtml(b.desc)}" style="
-      display:flex;flex-direction:column;align-items:center;gap:4px;
-      padding:10px 8px;background:var(--bg);border-radius:10px;
-      border:1px solid var(--border);min-width:60px;text-align:center">
-      <span style="font-size:24px">${b.icon}</span>
-      <div style="font-size:9px;font-weight:600;color:var(--text)">${escapeHtml(b.name)}</div>
-      ${ago ? `<div style="font-size:8px;color:var(--dim)">${ago}</div>` : ''}
+    return `<div class="badge-card" title="${escapeHtml(b.name)}: ${escapeHtml(b.desc)}">
+      <span class="badge-icon">${b.icon}</span>
+      <div class="badge-name">${escapeHtml(b.name)}</div>
+      ${ago ? `<div class="badge-ago">${ago}</div>` : ''}
     </div>`;
   }).join('');
 
-  return `<div class="analytics-card">
+  return `<div class="analytics-card achievement-panel">
     <div class="analytics-card-title">🏅 Achievements (${earnedKeys.length}/${BADGE_DEFS.length})</div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px">${badgeHtml}</div>
+    <div class="achievement-badge-strip">${badgeHtml}</div>
+  </div>`;
+}
+
+function _renderAchievementBoard(ctx) {
+  const { escapeHtml, nowInTZ } = ctx;
+  const snapshot = _buildAchievementSnapshot(ctx);
+  const profile = loadAchievementProfile();
+  const level = getLevelInfo(profile.xp);
+  const challenge = getDailyChallenge(snapshot, nowInTZ ? nowInTZ() : new Date());
+  const bests = getPersonalBests(snapshot);
+  const eventHtml = (profile.events || []).slice(0, 4).map(ev =>
+    `<div class="achievement-event">
+      <span>${ev.shield ? '🛡' : '+' + ev.amount + 'xp'}</span>
+      <strong>${escapeHtml(ev.label)}</strong>
+    </div>`
+  ).join('');
+  const weeklyTime = snapshot.weeklyTimeMins > 0
+    ? `${Math.floor(snapshot.weeklyTimeMins / 60)}h ${snapshot.weeklyTimeMins % 60}m`
+    : '0m';
+
+  return `<div class="achievement-hero analytics-card">
+    <div class="achievement-hero-top">
+      <div>
+        <div class="analytics-card-title">◇ Level ${level.level} Scholar</div>
+        <div class="achievement-xp-line">${profile.xp}xp total · ${level.needed}xp to level ${level.level + 1}</div>
+      </div>
+      <div class="achievement-shields">🛡 ${profile.shields}</div>
+    </div>
+    <div class="achievement-xp-track"><div class="achievement-xp-fill" style="width:${level.pct}%"></div></div>
+    <div class="achievement-grid">
+      <div class="achievement-card">
+        <div class="achievement-card-kicker">Today</div>
+        <div class="achievement-card-title">${challenge.icon} ${escapeHtml(challenge.title)}</div>
+        <div class="achievement-card-copy">${escapeHtml(challenge.desc)}</div>
+        <div class="challenge-meter"><div class="challenge-meter-fill" style="width:${challenge.pct}%"></div></div>
+        <div class="challenge-row">
+          <span>${challenge.progress}/${challenge.target}</span>
+          ${challenge.claimed
+            ? '<span class="challenge-claimed">claimed</span>'
+            : `<button class="data-btn" data-action="claimDailyChallenge" ${challenge.complete ? '' : 'disabled'}
+                style="font-size:10px;color:var(--accent);border-color:#00d2ff44">Claim +${challenge.xp}xp</button>`}
+        </div>
+      </div>
+      <div class="achievement-card">
+        <div class="achievement-card-kicker">Personal Bests</div>
+        <div class="personal-best-row"><span>Best week</span><strong>${escapeHtml(bests.bestWeek.key)} · ${bests.bestWeek.pct}%</strong></div>
+        <div class="personal-best-row"><span>Longest streak</span><strong>${bests.longestStreak} week${bests.longestStreak === 1 ? '' : 's'}</strong></div>
+        <div class="personal-best-row"><span>Best day</span><strong>${escapeHtml(bests.bestDay.label)} · ${bests.bestDay.done} tasks</strong></div>
+        <div class="personal-best-row"><span>Time this week</span><strong>${weeklyTime}</strong></div>
+      </div>
+      <div class="achievement-card achievement-card--events">
+        <div class="achievement-card-kicker">Recent XP</div>
+        ${eventHtml || '<div class="achievement-empty">Complete tasks, habits, focus sessions, and reviews to build XP.</div>'}
+      </div>
+    </div>
   </div>`;
 }
 
@@ -208,7 +330,8 @@ export function renderStatsView(ctx) {
     // Contribution heatmap
     extra += _renderHeatmapCtx(ctx.loadHistory, escapeHtml);
 
-    // Achievement badges
+    // Achievement progression + badges
+    extra += _renderAchievementBoard(ctx);
     extra += _renderBadges(escapeHtml);
 
     // PDF report button
@@ -218,6 +341,10 @@ export function renderStatsView(ctx) {
         style="width:100%;color:#00d2ff;border-color:#00d2ff44;padding:10px;font-size:12px">
         📊 Export Weekly Report (Print/PDF)
       </button>
+      <label class="report-auto-row">
+        <input type="checkbox" data-change-action="toggleWeeklyAutoReport" ${isWeeklyAutoReportEnabled() ? 'checked' : ''}>
+        <span>Auto-generate on Sundays</span>
+      </label>
     </div>`;
 
     return `<div class="view-page">

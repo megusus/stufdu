@@ -14,6 +14,113 @@ import { getOverallAverage, getLetter, getGradeColor } from '../grades.js';
 import { getTodayReviews, getTodayEnergy, getSmartSuggestion } from '../analytics.js';
 import { loadDashboardConfig, saveDashboardConfig, moveCard, setCardVisible, setCardSize, CARD_DEFS } from '../dashboard-config.js';
 
+// ── Smart Daily Briefing ──────────────────────────────────────────────────────
+function _renderBriefing(ctx) {
+  const { state, escapeHtml, formatEst, getDayProgress, getDaysUntil,
+          getEstimate, getStatus, todayIdx, days, schedule, categories } = ctx;
+
+  const todayName = days[todayIdx] || days[0];
+  const todayDay  = schedule[todayName];
+  const prog      = getDayProgress(todayName);
+
+  // Count pending tasks + total estimated minutes remaining
+  let pendingCount = 0;
+  let remainingMins = 0;
+  let hardestPending = null;
+  let hardestEst = 0;
+
+  if (todayDay) {
+    (todayDay.sections || []).forEach(sec => {
+      sec.items.forEach(item => {
+        if (state.taskDeferred[item.id] && state.taskDeferred[item.id] !== todayName) return;
+        if (getStatus(item.id)) return;
+        pendingCount++;
+        const est = getEstimate(item);
+        remainingMins += est;
+        if (est >= hardestEst) { hardestEst = est; hardestPending = item; }
+      });
+    });
+  }
+
+  // Deadlines within 3 days
+  const urgentDl = state.deadlines
+    .map(dl => ({ ...dl, d: getDaysUntil(dl.date) }))
+    .filter(dl => dl.d >= 0 && dl.d <= 3)
+    .sort((a, b) => a.d - b.d);
+
+  // Habits at-risk (active habit with a streak that hasn't been checked today)
+  let habitsAtRisk = 0;
+  try {
+    const habits = loadHabits();
+    const todayDate = new Date().toISOString().slice(0, 10);
+    habitsAtRisk = habits.filter(h => {
+      const log = state.habitLog || {};
+      return !(log[todayDate] && log[todayDate][h.id]);
+    }).length;
+  } catch {}
+
+  // Study load forecast
+  const forecast = pendingCount === 0 ? { icon: '🌟', label: 'Rest day', color: 'var(--c-success)' }
+    : pendingCount <= 3               ? { icon: '🌤', label: 'Light day',    color: 'var(--c-success)' }
+    : pendingCount <= 6               ? { icon: '⛅', label: 'Moderate',     color: 'var(--c-warning)' }
+    :                                   { icon: '⛈', label: 'Heavy day',     color: 'var(--c-danger)'  };
+
+  // Adaptive headline
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+  let headline = '';
+  if (prog.pct === 100 && prog.total > 0) {
+    headline = `All done today — incredible work 🎉`;
+  } else if (pendingCount === 0 && prog.total === 0) {
+    headline = `Nothing scheduled — free day ahead`;
+  } else if (urgentDl.length > 0) {
+    const d = urgentDl[0];
+    headline = `${d.d === 0 ? 'Today' : d.d === 1 ? 'Tomorrow' : `${d.d}d`}: ${escapeHtml(d.name.slice(0, 38))}`;
+  } else if (remainingMins > 0) {
+    headline = `~${formatEst(remainingMins)} of work remaining`;
+  } else {
+    headline = `${pendingCount} task${pendingCount !== 1 ? 's' : ''} left today`;
+  }
+
+  return `<div class="briefing-card">
+    <div class="briefing-top">
+      <div class="briefing-greeting">${greeting} &mdash; ${escapeHtml(todayName)}</div>
+      <div class="briefing-forecast" style="color:${forecast.color}">
+        ${forecast.icon} ${forecast.label}
+      </div>
+    </div>
+    <div class="briefing-headline">${headline}</div>
+    <div class="briefing-stats">
+      <div class="briefing-stat">
+        <span class="briefing-stat-val">${prog.done}/${prog.total}</span>
+        <span class="briefing-stat-label">Tasks done</span>
+      </div>
+      ${remainingMins > 0 ? `<div class="briefing-stat">
+        <span class="briefing-stat-val">${formatEst(remainingMins)}</span>
+        <span class="briefing-stat-label">Remaining</span>
+      </div>` : ''}
+      ${urgentDl.length > 0 ? `<div class="briefing-stat">
+        <span class="briefing-stat-val" style="color:var(--c-danger)">${urgentDl.length}</span>
+        <span class="briefing-stat-label">Urgent deadline${urgentDl.length !== 1 ? 's' : ''}</span>
+      </div>` : ''}
+      ${habitsAtRisk > 0 ? `<div class="briefing-stat">
+        <span class="briefing-stat-val" style="color:var(--c-warning)">${habitsAtRisk}</span>
+        <span class="briefing-stat-label">Habit${habitsAtRisk !== 1 ? 's' : ''} to log</span>
+      </div>` : ''}
+    </div>
+    ${prog.pct < 100 && prog.total > 0 ? `<div class="briefing-progress-bar">
+      <div class="briefing-progress-fill" style="width:${prog.pct}%"></div>
+    </div>` : ''}
+    <div class="briefing-actions">
+      ${!hasPlanForToday() ? `<button class="briefing-btn briefing-btn--primary" data-action="openPlanner">📅 Plan my day</button>` : ''}
+      ${hardestPending ? `<button class="briefing-btn" data-action="startFocusSession"
+        data-id="${hardestPending.id}" data-text="${escapeHtml(hardestPending.text.slice(0,60)).replace(/"/g,'&quot;')}">
+        🎯 Focus: ${escapeHtml(hardestPending.text.slice(0, 28))}${hardestPending.text.length > 28 ? '…' : ''}</button>` : ''}
+      <button class="briefing-btn" data-action="navigate" data-view="schedule">View schedule →</button>
+    </div>
+  </div>`;
+}
+
 export function renderHome(ctx) {
   try { return _renderHomeInner(ctx); }
   catch (err) {
@@ -310,6 +417,11 @@ function _renderHomeInner(ctx) {
         </button>
       </div>
     </div>`;
+
+  // ── Smart Daily Briefing ──
+  if (!editMode) {
+    html += _renderBriefing(ctx);
+  }
 
   // ── Edit mode panel ──
   if (editMode) {

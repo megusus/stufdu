@@ -1,4 +1,4 @@
-const CACHE_VERSION = 21;
+const CACHE_VERSION = 28;
 const CACHE_NAME = 'study-plan-v' + CACHE_VERSION;
 const ASSETS = [
   './',
@@ -27,6 +27,7 @@ const ASSETS = [
   './js/analytics.js',
   './js/recurrence.js',
   './js/ui/drag-drop.js',
+  './js/ui/a11y.js',
   './js/ui/theme.js',
   './js/ui/toggle.js',
   './js/ui/global-search.js',
@@ -61,10 +62,22 @@ const ASSETS = [
   './js/render/task-item.js',
   './js/render/meals.js',
   './css/main.css',
+  './css/legacy.css',
+  './css/base.css',
+  './css/layout.css',
+  './css/components.css',
+  './css/views.css',
+  './css/themes.css',
+  './css/animations.css',
+  './css/accessibility.css',
+  './css/utilities.css',
   './js/dashboard-config.js',
   './js/flashcards.js',
   './js/render/flashcards.js',
   './js/badges.js',
+  './js/challenges.js',
+  './js/markdown.js',
+  './js/ical.js',
   './js/pomodoro.js',
   './js/pdf-report.js',
   './js/sync-conflict.js',
