@@ -32,24 +32,29 @@ export function initPasswordGate(onUnlocked) {
     return;
   }
 
-  const lockInput = document.getElementById('lock-input');
-  if (!lockInput) return;
+  const lockInputOrig = document.getElementById('lock-input');
+  if (!lockInputOrig) return;
+
+  // Replace the input to remove any inline-script listeners, then re-attach
+  const fresh = lockInputOrig.cloneNode(true);
+  lockInputOrig.parentNode.replaceChild(fresh, lockInputOrig);
+  fresh.focus();
 
   async function tryUnlock() {
     try {
-      const hash = await hashPass(lockInput.value);
+      const hash = await hashPass(fresh.value);
       if (hash === CONFIG.passwordHash) {
         unlock();
         if (onUnlocked) onUnlocked();
       } else {
         const errEl = document.getElementById('lock-error');
         if (errEl) errEl.style.display = 'block';
-        lockInput.value = '';
-        lockInput.style.borderColor = '#e94560';
+        fresh.value = '';
+        fresh.style.borderColor = '#e94560';
         setTimeout(() => {
           if (errEl) errEl.style.display = 'none';
-          lockInput.style.borderColor = '';
-          lockInput.focus();
+          fresh.style.borderColor = '';
+          fresh.focus();
         }, 2000);
       }
     } catch (err) {
@@ -62,13 +67,9 @@ export function initPasswordGate(onUnlocked) {
     }
   }
 
-  // Replace the input to remove any inline-script listeners, then re-attach
-  const fresh = lockInput.cloneNode(true);
-  lockInput.parentNode.replaceChild(fresh, lockInput);
   fresh.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') tryUnlock();
   });
-  fresh.focus();
 
   const lockBtn = document.getElementById('lock-submit');
   if (lockBtn) {
